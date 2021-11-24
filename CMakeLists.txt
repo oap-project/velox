@@ -147,7 +147,7 @@ set(CMAKE_CXX_FLAGS
     "${CMAKE_CXX_FLAGS} -mavx2 -mfma -mavx -mf16c -mbmi2 -mbmi -D USE_VELOX_COMMON_BASE"
 )
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D HAS_UNCAUGHT_EXCEPTIONS")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D HAS_UNCAUGHT_EXCEPTIONS -fPIC")
 
 # Under Ninja, we are able to designate certain targets large enough to require
 # restricted parallelism.

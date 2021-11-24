@@ -17,7 +17,7 @@ if(${VELOX_BUILD_TESTING})
 endif()
 
 add_library(
-  velox_aggregates OBJECT
+  velox_aggregates
   AggregateNames.h
   ApproxDistinctAggregate.cpp
   ApproxPercentileAggregate.cpp
