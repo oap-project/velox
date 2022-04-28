@@ -24,6 +24,10 @@ namespace facebook::velox::substrait {
 /// This class is used to convert the Substrait plan into Velox plan.
 class SubstraitVeloxPlanConverter {
  public:
+  /// Used to convert Substrait JoinRel into Velox PlanNode.
+  std::shared_ptr<const core::PlanNode> toVeloxPlan(
+      const ::substrait::JoinRel& sJoin);
+
   /// Used to convert Substrait AggregateRel into Velox PlanNode.
   std::shared_ptr<const core::PlanNode> toVeloxPlan(
       const ::substrait::AggregateRel& sAgg);
@@ -113,6 +117,16 @@ class SubstraitVeloxPlanConverter {
 
   /// Used to find the function specification in the constructed function map.
   std::string findFuncSpec(uint64_t id);
+
+  /// Extract join keys from joinExpression.
+  /// joinExpression is a boolean condition that describes whether each record
+  /// from the left set “match” the record from the right set. The condition
+  /// must only include the following operations: AND, ==, field references.
+  /// Field references correspond to the direct output order of the data.
+  void extractJoinKeys(
+      const ::substrait::Expression& joinExpression,
+      std::vector<const ::substrait::Expression::FieldReference*>& leftExprs,
+      std::vector<const ::substrait::Expression::FieldReference*>& rightExprs);
 
  private:
   /// The Partition index.

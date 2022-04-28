@@ -20,6 +20,112 @@
 namespace facebook::velox::substrait {
 
 std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxPlan(
+    const ::substrait::JoinRel& sJoin) {
+  if (!sJoin.has_left()) {
+    VELOX_FAIL("Left Rel is expected in JoinRel.");
+  }
+  if (!sJoin.has_right()) {
+    VELOX_FAIL("Right Rel is expected in JoinRel.");
+  }
+
+  auto leftNode = toVeloxPlan(sJoin.left());
+  auto rightNode = toVeloxPlan(sJoin.right());
+
+  auto outputSize =
+      leftNode->outputType()->size() + rightNode->outputType()->size();
+  std::vector<std::string> outputNames;
+  std::vector<std::shared_ptr<const Type>> outputTypes;
+  outputNames.reserve(outputSize);
+  outputTypes.reserve(outputSize);
+  for (const auto& node : {leftNode, rightNode}) {
+    auto names = node->outputType()->names();
+    outputNames.insert(outputNames.end(), names.begin(), names.end());
+    auto types = node->outputType()->children();
+    outputTypes.insert(outputTypes.end(), types.begin(), types.end());
+  }
+  auto outputRowType = std::make_shared<const RowType>(
+      std::move(outputNames), std::move(outputTypes));
+
+  // extract join keys from join expression
+  std::vector<const ::substrait::Expression::FieldReference*> leftExprs,
+      rightExprs;
+  extractJoinKeys(sJoin.expression(), leftExprs, rightExprs);
+  VELOX_CHECK_EQ(leftExprs.size(), rightExprs.size());
+  size_t numKeys = leftExprs.size();
+
+  std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> leftKeys,
+      rightKeys;
+  leftKeys.reserve(numKeys);
+  rightKeys.reserve(numKeys);
+  for (size_t i = 0; i < numKeys; ++i) {
+    leftKeys.emplace_back(
+        exprConverter_->toVeloxExpr(*leftExprs[i], outputRowType));
+    rightKeys.emplace_back(
+        exprConverter_->toVeloxExpr(*rightExprs[i], outputRowType));
+  }
+
+  std::shared_ptr<const core::ITypedExpr> filter;
+  if (sJoin.has_post_join_filter()) {
+    filter =
+        exprConverter_->toVeloxExpr(sJoin.post_join_filter(), outputRowType);
+  }
+
+  // Map join type
+  core::JoinType joinType;
+  switch (sJoin.type()) {
+    case ::substrait::JoinRel_JoinType::JoinRel_JoinType_JOIN_TYPE_INNER:
+      joinType = core::JoinType::kInner;
+      break;
+    case ::substrait::JoinRel_JoinType::JoinRel_JoinType_JOIN_TYPE_OUTER:
+      joinType = core::JoinType::kFull;
+      break;
+    case ::substrait::JoinRel_JoinType::JoinRel_JoinType_JOIN_TYPE_LEFT:
+      joinType = core::JoinType::kLeft;
+      break;
+    case ::substrait::JoinRel_JoinType::JoinRel_JoinType_JOIN_TYPE_RIGHT:
+      joinType = core::JoinType::kRight;
+      break;
+    case ::substrait::JoinRel_JoinType::JoinRel_JoinType_JOIN_TYPE_SEMI:
+      joinType = core::JoinType::kSemi;
+      break;
+    case ::substrait::JoinRel_JoinType::JoinRel_JoinType_JOIN_TYPE_ANTI:
+      joinType = core::JoinType::kAnti;
+      break;
+    default:
+      VELOX_NYI("Unsupported Join type: {}", sJoin.type());
+  }
+
+  // Create join node
+  auto joinNode = std::make_shared<core::HashJoinNode>(
+      nextPlanNodeId(),
+      joinType,
+      leftKeys,
+      rightKeys,
+      filter,
+      leftNode,
+      rightNode,
+      outputRowType);
+
+  // Create project node remap the output column names
+  std::vector<std::shared_ptr<const core::ITypedExpr>> remapOutput;
+  std::vector<std::string> remappedNames;
+  remapOutput.reserve(outputSize);
+  remappedNames.reserve(outputSize);
+
+  for (int i = 0; i < outputRowType->size(); ++i) {
+    remappedNames.emplace_back(subParser_->makeNodeName(planNodeId_, i));
+    remapOutput.emplace_back(std::make_shared<const core::FieldAccessTypedExpr>(
+        outputRowType->childAt(i), outputRowType->names()[i]));
+  }
+
+  return std::make_shared<core::ProjectNode>(
+      nextPlanNodeId(),
+      std::move(remappedNames),
+      std::move(remapOutput),
+      joinNode);
+}
+
+std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxPlan(
     const ::substrait::AggregateRel& sAgg) {
   std::shared_ptr<const core::PlanNode> childNode;
   if (sAgg.has_input()) {
@@ -396,6 +502,9 @@ std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxPlan(
   if (sRel.has_filter()) {
     return toVeloxPlan(sRel.filter());
   }
+  if (sRel.has_join()) {
+    return toVeloxPlan(sRel.join());
+  }
   if (sRel.has_read()) {
     return toVeloxPlan(sRel.read(), partitionIndex_, paths_, starts_, lengths_);
   }
@@ -687,6 +796,40 @@ int32_t SubstraitVeloxPlanConverter::streamIsInput(
     }
   }
   VELOX_FAIL("Local file is expected.");
+}
+
+void SubstraitVeloxPlanConverter::extractJoinKeys(
+    const ::substrait::Expression& joinExpression,
+    std::vector<const ::substrait::Expression::FieldReference*>& leftExprs,
+    std::vector<const ::substrait::Expression::FieldReference*>& rightExprs) {
+  std::vector<const ::substrait::Expression*> expressions;
+  expressions.push_back(&joinExpression);
+  while (!expressions.empty()) {
+    auto visited = expressions.back();
+    expressions.pop_back();
+    if (visited->rex_type_case() ==
+        ::substrait::Expression::RexTypeCase::kScalarFunction) {
+      const auto& funcName =
+          subParser_->getSubFunctionName(subParser_->findVeloxFunction(
+              functionMap_, visited->scalar_function().function_reference()));
+      const auto& args = visited->scalar_function().args();
+      if (funcName == "and") {
+        expressions.push_back(&args[0]);
+        expressions.push_back(&args[1]);
+      } else if (funcName == "equal") {
+        VELOX_CHECK(std::all_of(
+            args.cbegin(), args.cend(), [](const ::substrait::Expression& arg) {
+              return arg.has_selection();
+            }));
+        leftExprs.push_back(&args[0].selection());
+        rightExprs.push_back(&args[1].selection());
+      }
+    } else {
+      VELOX_FAIL(
+          "Unable to parse from join expression: {}",
+          joinExpression.DebugString());
+    }
+  }
 }
 
 } // namespace facebook::velox::substrait
