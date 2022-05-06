@@ -48,14 +48,14 @@ TypePtr toVeloxType(const std::string& typeName) {
   switch (typeKind) {
     case TypeKind::BOOLEAN:
       return BOOLEAN();
-    case TypeKind::DOUBLE:
-      return DOUBLE();
-    case TypeKind::VARCHAR:
-      return VARCHAR();
     case TypeKind::INTEGER:
       return INTEGER();
     case TypeKind::BIGINT:
       return BIGINT();
+    case TypeKind::DOUBLE:
+      return DOUBLE();
+    case TypeKind::VARCHAR:
+      return VARCHAR();
     default:
       VELOX_NYI("Velox type conversion not supported for type {}.", typeName);
   }

@@ -21,14 +21,14 @@ namespace facebook::velox::substrait {
 
 std::shared_ptr<const core::FieldAccessTypedExpr>
 SubstraitVeloxExprConverter::toVeloxExpr(
-    const ::substrait::Expression::FieldReference& substraitField,
+    const ::substrait::Expression::FieldReference& sField,
     const RowTypePtr& inputType) {
-  auto typeCase = substraitField.reference_type_case();
+  auto typeCase = sField.reference_type_case();
   switch (typeCase) {
     case ::substrait::Expression::FieldReference::ReferenceTypeCase::
         kDirectReference: {
-      const auto& directRef = substraitField.direct_reference();
-      int32_t colIdx = substraitParser_.parseReferenceSegment(directRef);
+      const auto& dRef = sField.direct_reference();
+      int32_t colIdx = subParser_->parseReferenceSegment(dRef);
 
       const auto& inputTypes = inputType->children();
       const auto& inputNames = inputType->names();
@@ -52,17 +52,27 @@ SubstraitVeloxExprConverter::toVeloxExpr(
 
 std::shared_ptr<const core::ITypedExpr>
 SubstraitVeloxExprConverter::toVeloxExpr(
-    const ::substrait::Expression::ScalarFunction& substraitFunc,
+    const ::substrait::Expression::ScalarFunction& sFunc,
     const RowTypePtr& inputType) {
   std::vector<std::shared_ptr<const core::ITypedExpr>> params;
-  params.reserve(substraitFunc.args().size());
-  for (const auto& sArg : substraitFunc.args()) {
+  params.reserve(sFunc.args().size());
+  for (const auto& sArg : sFunc.args()) {
     params.emplace_back(toVeloxExpr(sArg, inputType));
   }
-  const auto& veloxFunction = substraitParser_.findVeloxFunction(
-      functionMap_, substraitFunc.function_reference());
-  const auto& veloxType = toVeloxType(
-      substraitParser_.parseType(substraitFunc.output_type())->type);
+  const auto& veloxFunction =
+      subParser_->findVeloxFunction(functionMap_, sFunc.function_reference());
+  const auto& veloxType =
+      toVeloxType(subParser_->parseType(sFunc.output_type())->type);
+
+  if (veloxFunction == "extract") {
+    return toExtractExpr(params, veloxType);
+  }
+  if (veloxFunction == "alias") {
+    return toAliasExpr(params);
+  }
+  if (veloxFunction == "is_not_null") {
+    return toIsNotNullExpr(params, veloxType);
+  }
 
   return std::make_shared<const core::CallTypedExpr>(
       veloxType, std::move(params), veloxFunction);
@@ -70,26 +80,53 @@ SubstraitVeloxExprConverter::toVeloxExpr(
 
 std::shared_ptr<const core::ConstantTypedExpr>
 SubstraitVeloxExprConverter::toVeloxExpr(
-    const ::substrait::Expression::Literal& substraitLit) {
-  auto typeCase = substraitLit.literal_type_case();
+    const ::substrait::Expression::Literal& sLit) {
+  auto typeCase = sLit.literal_type_case();
   switch (typeCase) {
     case ::substrait::Expression_Literal::LiteralTypeCase::kBoolean:
-      return std::make_shared<core::ConstantTypedExpr>(
-          variant(substraitLit.boolean()));
+      return std::make_shared<core::ConstantTypedExpr>(variant(sLit.boolean()));
     case ::substrait::Expression_Literal::LiteralTypeCase::kI32:
-      return std::make_shared<core::ConstantTypedExpr>(
-          variant(substraitLit.i32()));
+      return std::make_shared<core::ConstantTypedExpr>(variant(sLit.i32()));
     case ::substrait::Expression_Literal::LiteralTypeCase::kI64:
-      return std::make_shared<core::ConstantTypedExpr>(
-          variant(substraitLit.i64()));
+      return std::make_shared<core::ConstantTypedExpr>(variant(sLit.i64()));
     case ::substrait::Expression_Literal::LiteralTypeCase::kFp64:
-      return std::make_shared<core::ConstantTypedExpr>(
-          variant(substraitLit.fp64()));
+      return std::make_shared<core::ConstantTypedExpr>(variant(sLit.fp64()));
     case ::substrait::Expression_Literal::LiteralTypeCase::kNull: {
-      auto veloxType =
-          toVeloxType(substraitParser_.parseType(substraitLit.null())->type);
+      auto veloxType = toVeloxType(subParser_->parseType(sLit.null())->type);
       return std::make_shared<core::ConstantTypedExpr>(
           veloxType, variant::null(veloxType->kind()));
+    }
+    case ::substrait::Expression_Literal::LiteralTypeCase::kString:
+      return std::make_shared<core::ConstantTypedExpr>(
+          toTypedVariant(sLit)->veloxVariant);
+    case ::substrait::Expression_Literal::LiteralTypeCase::kList: {
+      // List is used in 'in' expression. Will wrap a constant
+      // vector with an array vector inside to create the constant expression.
+      std::vector<variant> variants;
+      variants.reserve(sLit.list().values().size());
+      VELOX_CHECK(
+          sLit.list().values().size() > 0,
+          "List should have at least one item.");
+      std::optional<TypePtr> literalType = std::nullopt;
+      for (const auto& literal : sLit.list().values()) {
+        auto typedVariant = toTypedVariant(literal);
+        if (!literalType.has_value()) {
+          literalType = typedVariant->variantType;
+        }
+        variants.emplace_back(typedVariant->veloxVariant);
+      }
+      VELOX_CHECK(literalType.has_value(), "Type expected.");
+      // Create flat vector from the variants.
+      VectorPtr vector =
+          setVectorFromVariants(literalType.value(), variants, pool_);
+      // Create array vector from the flat vector.
+      ArrayVectorPtr arrayVector =
+          toArrayVector(literalType.value(), vector, pool_);
+      // Wrap the array vector into constant vector.
+      auto constantVector = BaseVector::wrapInConstant(1, 0, arrayVector);
+      auto constantExpr =
+          std::make_shared<core::ConstantTypedExpr>(constantVector);
+      return constantExpr;
     }
     default:
       VELOX_NYI(

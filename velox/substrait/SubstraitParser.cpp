@@ -20,48 +20,54 @@
 namespace facebook::velox::substrait {
 
 std::shared_ptr<SubstraitParser::SubstraitType> SubstraitParser::parseType(
-    const ::substrait::Type& substraitType) {
+    const ::substrait::Type& sType) {
   // The used type names should be aligned with those in Velox.
   std::string typeName;
   ::substrait::Type_Nullability nullability;
-  switch (substraitType.kind_case()) {
+  switch (sType.kind_case()) {
     case ::substrait::Type::KindCase::kBool: {
       typeName = "BOOLEAN";
-      nullability = substraitType.bool_().nullability();
+      nullability = sType.bool_().nullability();
       break;
     }
     case ::substrait::Type::KindCase::kI32: {
       typeName = "INTEGER";
-      nullability = substraitType.i32().nullability();
+      nullability = sType.i32().nullability();
       break;
     }
     case ::substrait::Type::KindCase::kI64: {
       typeName = "BIGINT";
-      nullability = substraitType.i64().nullability();
+      nullability = sType.i64().nullability();
       break;
     }
     case ::substrait::Type::KindCase::kFp64: {
       typeName = "DOUBLE";
-      nullability = substraitType.fp64().nullability();
+      nullability = sType.fp64().nullability();
       break;
     }
     case ::substrait::Type::KindCase::kStruct: {
       // TODO: Support for Struct is not fully added.
       typeName = "STRUCT";
-      const auto& substraitStruct = substraitType.struct_();
-      const auto& substraitTypes = substraitStruct.types();
-      for (const auto& type : substraitTypes) {
+      const auto& sStruct = sType.struct_();
+      const auto& sTypes = sStruct.types();
+      for (const auto& type : sTypes) {
         parseType(type);
       }
       break;
     }
     case ::substrait::Type::KindCase::kString: {
       typeName = "VARCHAR";
-      nullability = substraitType.string().nullability();
+      nullability = sType.string().nullability();
+      break;
+    }
+    case ::substrait::Type::KindCase::kDate: {
+      typeName = "DATE";
+      nullability = sType.date().nullability();
       break;
     }
     default:
-      VELOX_NYI("Substrait parsing for type {} not supported.", typeName);
+      VELOX_NYI(
+          "Substrait parsing for type {} not supported.", sType.kind_case());
   }
 
   bool nullable;
@@ -80,8 +86,8 @@ std::shared_ptr<SubstraitParser::SubstraitType> SubstraitParser::parseType(
       VELOX_NYI(
           "Substrait parsing for nullability {} not supported.", nullability);
   }
-  SubstraitType type = {typeName, nullable};
-  return std::make_shared<SubstraitType>(type);
+  SubstraitType subType = {typeName, nullable};
+  return std::make_shared<SubstraitType>(subType);
 }
 
 std::vector<std::shared_ptr<SubstraitParser::SubstraitType>>
@@ -148,7 +154,7 @@ int SubstraitParser::getIdxFromNodeName(const std::string& nodeName) {
   }
 }
 
-const std::string& SubstraitParser::findFunctionSpec(
+std::string SubstraitParser::findSubstraitFuncSpec(
     const std::unordered_map<uint64_t, std::string>& functionMap,
     uint64_t id) const {
   if (functionMap.find(id) == functionMap.end()) {
@@ -194,6 +200,30 @@ void SubstraitParser::getFunctionTypes(
   types.emplace_back(funcTypes);
 }
 
+void SubstraitParser::getSubFunctionTypes(
+    const std::string& subFuncSpec,
+    std::vector<std::string>& types) const {
+  // Get the position of ":" in the function name.
+  std::size_t pos = subFuncSpec.find(":");
+  // Get the parameter types.
+  std::string funcTypes;
+  if (pos == std::string::npos) {
+    funcTypes = subFuncSpec;
+  } else {
+    if (pos == subFuncSpec.size() - 1) {
+      return;
+    }
+    funcTypes = subFuncSpec.substr(pos + 1);
+  }
+  // Split the types with delimiter.
+  std::string delimiter = "_";
+  while ((pos = funcTypes.find(delimiter)) != std::string::npos) {
+    types.emplace_back(funcTypes.substr(0, pos));
+    funcTypes.erase(0, pos + delimiter.length());
+  }
+  types.emplace_back(funcTypes);
+}
+
 std::string SubstraitParser::findVeloxFunction(
     const std::unordered_map<uint64_t, std::string>& functionMap,
     uint64_t id) const {
@@ -203,15 +233,15 @@ std::string SubstraitParser::findVeloxFunction(
 }
 
 std::string SubstraitParser::mapToVeloxFunction(
-    const std::string& substraitFunction) const {
-  auto it = substraitVeloxFunctionMap_.find(substraitFunction);
+    const std::string& subFunc) const {
+  auto it = substraitVeloxFunctionMap_.find(subFunc);
   if (it != substraitVeloxFunctionMap_.end()) {
     return it->second;
   }
 
   // If not finding the mapping from Substrait function name to Velox function
   // name, the original Substrait function name will be used.
-  return substraitFunction;
+  return subFunc;
 }
 
 } // namespace facebook::velox::substrait

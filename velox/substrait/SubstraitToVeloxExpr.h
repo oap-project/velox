@@ -28,7 +28,7 @@ class SubstraitVeloxExprConverter {
   /// subParser: A Substrait parser used to convert Substrait representations
   /// into recognizable representations. functionMap: A pre-constructed map
   /// storing the relations between the function id and the function name.
-  explicit SubstraitVeloxExprConverter(
+  SubstraitVeloxExprConverter(
       const std::unordered_map<uint64_t, std::string>& functionMap)
       : functionMap_(functionMap) {}
 
@@ -59,7 +59,8 @@ class SubstraitVeloxExprConverter {
  private:
   /// The Substrait parser used to convert Substrait representations into
   /// recognizable representations.
-  SubstraitParser substraitParser_;
+  std::shared_ptr<SubstraitParser> subParser_ =
+      std::make_shared<SubstraitParser>();
 
   /// The map storing the relations between the function id and the function
   /// name.

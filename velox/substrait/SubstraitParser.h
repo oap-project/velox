@@ -55,11 +55,9 @@ class SubstraitParser {
   /// Make node name in the format of n{nodeId}_{colIdx}.
   std::string makeNodeName(int nodeId, int colIdx);
 
-  /// Get the column index from a node name in the format of
-  /// n{nodeId}_{colIdx}.
+  /// Used to get the column index from node name.
   int getIdxFromNodeName(const std::string& nodeName);
 
-  /// Find the Substrait function name according to the function id
   /// from a pre-constructed function map. The function specification can be
   /// a simple name or a compound name. The compound name format is:
   /// <function name>:<short_arg_type0>_<short_arg_type1>_..._<short_arg_typeN>.
@@ -79,7 +77,11 @@ class SubstraitParser {
       const std::string& functionSpec,
       std::vector<std::string>& types) const;
 
-  /// Find the Velox function name according to the function id
+  /// This function is used get the types from the compound name.
+  void getSubFunctionTypes(
+      const std::string& subFuncSpec,
+      std::vector<std::string>& types) const;
+
   /// from a pre-constructed function map.
   std::string findVeloxFunction(
       const std::unordered_map<uint64_t, std::string>& functionMap,
@@ -98,7 +100,10 @@ class SubstraitParser {
       {"subtract", "minus"},
       {"modulus", "mod"},
       {"not_equal", "neq"},
+      {"ends_with", "endswith"},
+      {"starts_with", "startswith"},
       {"equal", "eq"}};
+};
 };
 
 } // namespace facebook::velox::substrait
