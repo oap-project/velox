@@ -156,7 +156,7 @@ class PlanConversionTest : public virtual HiveConnectorTestBase,
     // Velox computing will be returned.
     std::shared_ptr<WholeComputeResultIterator> getResIter(
         const std::string& subPlanPath) {
-      // Read sub.json and resume the Substrait plan.
+      // Read json file and resume the Substrait plan.
       std::ifstream subJson(subPlanPath);
       std::stringstream buffer;
       buffer << subJson.rdbuf();
@@ -256,250 +256,263 @@ class PlanConversionTest : public virtual HiveConnectorTestBase,
     }
     return vector;
   }
+
+  void genLineitemORC(const std::shared_ptr<VeloxConverter>& veloxConverter) {
+    auto type =
+        ROW({"l_orderkey",
+             "l_partkey",
+             "l_suppkey",
+             "l_linenumber",
+             "l_quantity",
+             "l_extendedprice",
+             "l_discount",
+             "l_tax",
+             "l_returnflag",
+             "l_linestatus",
+             "l_shipdate",
+             "l_commitdate",
+             "l_receiptdate",
+             "l_shipinstruct",
+             "l_shipmode",
+             "l_comment"},
+            {BIGINT(),
+             BIGINT(),
+             BIGINT(),
+             INTEGER(),
+             DOUBLE(),
+             DOUBLE(),
+             DOUBLE(),
+             DOUBLE(),
+             VARCHAR(),
+             VARCHAR(),
+             DOUBLE(),
+             DOUBLE(),
+             DOUBLE(),
+             VARCHAR(),
+             VARCHAR(),
+             VARCHAR()});
+    std::unique_ptr<facebook::velox::memory::MemoryPool> pool{
+        facebook::velox::memory::getDefaultScopedMemoryPool()};
+    std::vector<VectorPtr> vectors;
+    // TPC-H lineitem table has 16 columns.
+    int colNum = 16;
+    vectors.reserve(colNum);
+    std::vector<int64_t> lOrderkeyData = {
+        4636438147,
+        2012485446,
+        1635327427,
+        8374290148,
+        2972204230,
+        8001568994,
+        989963396,
+        2142695974,
+        6354246853,
+        4141748419};
+    vectors.emplace_back(
+        createSpecificScalar<int64_t>(10, lOrderkeyData, *pool));
+    std::vector<int64_t> lPartkeyData = {
+        263222018,
+        255918298,
+        143549509,
+        96877642,
+        201976875,
+        196938305,
+        100260625,
+        273511608,
+        112999357,
+        299103530};
+    vectors.emplace_back(
+        createSpecificScalar<int64_t>(10, lPartkeyData, *pool));
+    std::vector<int64_t> lSuppkeyData = {
+        2102019,
+        13998315,
+        12989528,
+        4717643,
+        9976902,
+        12618306,
+        11940632,
+        871626,
+        1639379,
+        3423588};
+    vectors.emplace_back(
+        createSpecificScalar<int64_t>(10, lSuppkeyData, *pool));
+    std::vector<int32_t> lLinenumberData = {4, 6, 1, 5, 1, 2, 1, 5, 2, 6};
+    vectors.emplace_back(
+        createSpecificScalar<int32_t>(10, lLinenumberData, *pool));
+    std::vector<double> lQuantityData = {
+        6.0, 1.0, 19.0, 4.0, 6.0, 12.0, 23.0, 11.0, 16.0, 19.0};
+    vectors.emplace_back(
+        createSpecificScalar<double>(10, lQuantityData, *pool));
+    std::vector<double> lExtendedpriceData = {
+        30586.05,
+        7821.0,
+        1551.33,
+        30681.2,
+        1941.78,
+        66673.0,
+        6322.44,
+        41754.18,
+        8704.26,
+        63780.36};
+    vectors.emplace_back(
+        createSpecificScalar<double>(10, lExtendedpriceData, *pool));
+    std::vector<double> lDiscountData = {
+        0.05, 0.06, 0.01, 0.07, 0.05, 0.06, 0.07, 0.05, 0.06, 0.07};
+    vectors.emplace_back(
+        createSpecificScalar<double>(10, lDiscountData, *pool));
+    std::vector<double> lTaxData = {
+        0.02, 0.03, 0.01, 0.0, 0.01, 0.01, 0.03, 0.07, 0.01, 0.04};
+    vectors.emplace_back(createSpecificScalar<double>(10, lTaxData, *pool));
+    std::vector<std::string> lReturnflagData = {
+        "N", "A", "A", "R", "A", "N", "A", "A", "N", "R"};
+    vectors.emplace_back(
+        createSpecificStringVector(10, lReturnflagData, *pool));
+    std::vector<std::string> lLinestatusData = {
+        "O", "F", "F", "F", "F", "O", "F", "F", "O", "F"};
+    vectors.emplace_back(
+        createSpecificStringVector(10, lLinestatusData, *pool));
+    std::vector<double> lShipdateNewData = {
+        8953.666666666666,
+        8773.666666666666,
+        9034.666666666666,
+        8558.666666666666,
+        9072.666666666666,
+        8864.666666666666,
+        9004.666666666666,
+        8778.666666666666,
+        9013.666666666666,
+        8832.666666666666};
+    vectors.emplace_back(
+        createSpecificScalar<double>(10, lShipdateNewData, *pool));
+    std::vector<double> lCommitdateNewData = {
+        10447.666666666666,
+        8953.666666666666,
+        8325.666666666666,
+        8527.666666666666,
+        8438.666666666666,
+        10049.666666666666,
+        9036.666666666666,
+        8666.666666666666,
+        9519.666666666666,
+        9138.666666666666};
+    vectors.emplace_back(
+        createSpecificScalar<double>(10, lCommitdateNewData, *pool));
+    std::vector<double> lReceiptdateNewData = {
+        10456.666666666666,
+        8979.666666666666,
+        8299.666666666666,
+        8474.666666666666,
+        8525.666666666666,
+        9996.666666666666,
+        9103.666666666666,
+        8726.666666666666,
+        9593.666666666666,
+        9178.666666666666};
+    vectors.emplace_back(
+        createSpecificScalar<double>(10, lReceiptdateNewData, *pool));
+    std::vector<std::string> lShipinstructData = {
+        "COLLECT COD",
+        "NONE",
+        "TAKE BACK RETURN",
+        "NONE",
+        "TAKE BACK RETURN",
+        "NONE",
+        "DELIVER IN PERSON",
+        "DELIVER IN PERSON",
+        "TAKE BACK RETURN",
+        "NONE"};
+    vectors.emplace_back(
+        createSpecificStringVector(10, lShipinstructData, *pool));
+    std::vector<std::string> lShipmodeData = {
+        "FOB",
+        "REG AIR",
+        "MAIL",
+        "FOB",
+        "RAIL",
+        "SHIP",
+        "REG AIR",
+        "REG AIR",
+        "TRUCK",
+        "AIR"};
+    vectors.emplace_back(createSpecificStringVector(10, lShipmodeData, *pool));
+    std::vector<std::string> lCommentData = {
+        " the furiously final foxes. quickly final p",
+        "thely ironic",
+        "ate furiously. even, pending pinto bean",
+        "ackages af",
+        "odolites. slyl",
+        "ng the regular requests sleep above",
+        "lets above the slyly ironic theodolites sl",
+        "lyly regular excuses affi",
+        "lly unusual theodolites grow slyly above",
+        " the quickly ironic pains lose car"};
+    vectors.emplace_back(createSpecificStringVector(10, lCommentData, *pool));
+
+    // Batches has only one RowVector here.
+    uint64_t nullCount = 0;
+    std::vector<RowVectorPtr> batches{std::make_shared<RowVector>(
+        pool.get(), type, nullptr, 10, vectors, nullCount)};
+
+    // Writes data into an ORC file.
+    auto sink = std::make_unique<facebook::velox::dwio::common::FileSink>(
+        veloxConverter->getTmpDirPath() + "/mock_lineitem.orc");
+    auto config = std::make_shared<facebook::velox::dwrf::Config>();
+    const int64_t writerMemoryCap = std::numeric_limits<int64_t>::max();
+    facebook::velox::dwrf::WriterOptions options;
+    options.config = config;
+    options.schema = type;
+    options.memoryBudget = writerMemoryCap;
+    options.flushPolicyFactory = nullptr;
+    options.layoutPlannerFactory = nullptr;
+    auto writer = std::make_unique<facebook::velox::dwrf::Writer>(
+        options,
+        std::move(sink),
+        facebook::velox::memory::getProcessDefaultMemoryManager().getRoot());
+    for (size_t i = 0; i < batches.size(); ++i) {
+      writer->write(batches[i]);
+    }
+    writer->close();
+  }
+
+  // Used to find the Velox path according current path.
+  std::string getVeloxPath() {
+    std::string veloxPath;
+    std::string currentPath = fs::current_path().c_str();
+    size_t pos = 0;
+
+    if ((pos = currentPath.find("project")) != std::string::npos) {
+      // In Github test, the Velox home is /root/project.
+      veloxPath = currentPath.substr(0, pos) + "project";
+    } else if ((pos = currentPath.find("velox")) != std::string::npos) {
+      veloxPath = currentPath.substr(0, pos) + "velox";
+    } else if ((pos = currentPath.find("fbcode")) != std::string::npos) {
+      veloxPath = currentPath;
+    } else {
+      throw std::runtime_error("Current path is not a valid Velox path.");
+    }
+    return veloxPath;
+  }
 };
 
 // This test will firstly generate mock TPC-H lineitem ORC file. Then, Velox's
 // computing will be tested based on the generated ORC file.
-// Input: Json file of the Substrait plan for the below modified TPC-H Q6 query:
+// Input: Json file of the Substrait plan for the first stage of below modified
+// TPC-H Q6 query:
 //
 //  select sum(l_extendedprice*l_discount) as revenue from lineitem where
-//  l_shipdate_new >= 8766 and l_shipdate_new < 9131 and l_discount between .06
+//  l_shipdate >= 8766 and l_shipdate < 9131 and l_discount between .06
 //  - 0.01 and .06 + 0.01 and l_quantity < 24
 //
 //  Tested Velox computings include: TableScan (Filter Pushdown) + Project +
 //  Aggregate
 //  Output: the Velox computed Aggregation result
 
-TEST_P(PlanConversionTest, queryTest) {
-  // Generate the used ORC file.
-  auto type =
-      ROW({"l_orderkey",
-           "l_partkey",
-           "l_suppkey",
-           "l_linenumber",
-           "l_quantity",
-           "l_extendedprice",
-           "l_discount",
-           "l_tax",
-           "l_returnflag",
-           "l_linestatus",
-           "l_shipdate_new",
-           "l_commitdate_new",
-           "l_receiptdate_new",
-           "l_shipinstruct",
-           "l_shipmode",
-           "l_comment"},
-          {BIGINT(),
-           BIGINT(),
-           BIGINT(),
-           INTEGER(),
-           DOUBLE(),
-           DOUBLE(),
-           DOUBLE(),
-           DOUBLE(),
-           VARCHAR(),
-           VARCHAR(),
-           DOUBLE(),
-           DOUBLE(),
-           DOUBLE(),
-           VARCHAR(),
-           VARCHAR(),
-           VARCHAR()});
-  std::unique_ptr<facebook::velox::memory::MemoryPool> pool{
-      facebook::velox::memory::getDefaultScopedMemoryPool()};
-  std::vector<VectorPtr> vectors;
-  // TPC-H lineitem table has 16 columns.
-  int colNum = 16;
-  vectors.reserve(colNum);
-  std::vector<int64_t> lOrderkeyData = {
-      4636438147,
-      2012485446,
-      1635327427,
-      8374290148,
-      2972204230,
-      8001568994,
-      989963396,
-      2142695974,
-      6354246853,
-      4141748419};
-  vectors.emplace_back(createSpecificScalar<int64_t>(10, lOrderkeyData, *pool));
-  std::vector<int64_t> lPartkeyData = {
-      263222018,
-      255918298,
-      143549509,
-      96877642,
-      201976875,
-      196938305,
-      100260625,
-      273511608,
-      112999357,
-      299103530};
-  vectors.emplace_back(createSpecificScalar<int64_t>(10, lPartkeyData, *pool));
-  std::vector<int64_t> lSuppkeyData = {
-      2102019,
-      13998315,
-      12989528,
-      4717643,
-      9976902,
-      12618306,
-      11940632,
-      871626,
-      1639379,
-      3423588};
-  vectors.emplace_back(createSpecificScalar<int64_t>(10, lSuppkeyData, *pool));
-  std::vector<int32_t> lLinenumberData = {4, 6, 1, 5, 1, 2, 1, 5, 2, 6};
-  vectors.emplace_back(
-      createSpecificScalar<int32_t>(10, lLinenumberData, *pool));
-  std::vector<double> lQuantityData = {
-      6.0, 1.0, 19.0, 4.0, 6.0, 12.0, 23.0, 11.0, 16.0, 19.0};
-  vectors.emplace_back(createSpecificScalar<double>(10, lQuantityData, *pool));
-  std::vector<double> lExtendedpriceData = {
-      30586.05,
-      7821.0,
-      1551.33,
-      30681.2,
-      1941.78,
-      66673.0,
-      6322.44,
-      41754.18,
-      8704.26,
-      63780.36};
-  vectors.emplace_back(
-      createSpecificScalar<double>(10, lExtendedpriceData, *pool));
-  std::vector<double> lDiscountData = {
-      0.05, 0.06, 0.01, 0.07, 0.05, 0.06, 0.07, 0.05, 0.06, 0.07};
-  vectors.emplace_back(createSpecificScalar<double>(10, lDiscountData, *pool));
-  std::vector<double> lTaxData = {
-      0.02, 0.03, 0.01, 0.0, 0.01, 0.01, 0.03, 0.07, 0.01, 0.04};
-  vectors.emplace_back(createSpecificScalar<double>(10, lTaxData, *pool));
-  std::vector<std::string> lReturnflagData = {
-      "N", "A", "A", "R", "A", "N", "A", "A", "N", "R"};
-  vectors.emplace_back(createSpecificStringVector(10, lReturnflagData, *pool));
-  std::vector<std::string> lLinestatusData = {
-      "O", "F", "F", "F", "F", "O", "F", "F", "O", "F"};
-  vectors.emplace_back(createSpecificStringVector(10, lLinestatusData, *pool));
-  std::vector<double> lShipdateNewData = {
-      8953.666666666666,
-      8773.666666666666,
-      9034.666666666666,
-      8558.666666666666,
-      9072.666666666666,
-      8864.666666666666,
-      9004.666666666666,
-      8778.666666666666,
-      9013.666666666666,
-      8832.666666666666};
-  vectors.emplace_back(
-      createSpecificScalar<double>(10, lShipdateNewData, *pool));
-  std::vector<double> lCommitdateNewData = {
-      10447.666666666666,
-      8953.666666666666,
-      8325.666666666666,
-      8527.666666666666,
-      8438.666666666666,
-      10049.666666666666,
-      9036.666666666666,
-      8666.666666666666,
-      9519.666666666666,
-      9138.666666666666};
-  vectors.emplace_back(
-      createSpecificScalar<double>(10, lCommitdateNewData, *pool));
-  std::vector<double> lReceiptdateNewData = {
-      10456.666666666666,
-      8979.666666666666,
-      8299.666666666666,
-      8474.666666666666,
-      8525.666666666666,
-      9996.666666666666,
-      9103.666666666666,
-      8726.666666666666,
-      9593.666666666666,
-      9178.666666666666};
-  vectors.emplace_back(
-      createSpecificScalar<double>(10, lReceiptdateNewData, *pool));
-  std::vector<std::string> lShipinstructData = {
-      "COLLECT COD",
-      "NONE",
-      "TAKE BACK RETURN",
-      "NONE",
-      "TAKE BACK RETURN",
-      "NONE",
-      "DELIVER IN PERSON",
-      "DELIVER IN PERSON",
-      "TAKE BACK RETURN",
-      "NONE"};
-  vectors.emplace_back(
-      createSpecificStringVector(10, lShipinstructData, *pool));
-  std::vector<std::string> lShipmodeData = {
-      "FOB",
-      "REG AIR",
-      "MAIL",
-      "FOB",
-      "RAIL",
-      "SHIP",
-      "REG AIR",
-      "REG AIR",
-      "TRUCK",
-      "AIR"};
-  vectors.emplace_back(createSpecificStringVector(10, lShipmodeData, *pool));
-  std::vector<std::string> lCommentData = {
-      " the furiously final foxes. quickly final p",
-      "thely ironic",
-      "ate furiously. even, pending pinto bean",
-      "ackages af",
-      "odolites. slyl",
-      "ng the regular requests sleep above",
-      "lets above the slyly ironic theodolites sl",
-      "lyly regular excuses affi",
-      "lly unusual theodolites grow slyly above",
-      " the quickly ironic pains lose car"};
-  vectors.emplace_back(createSpecificStringVector(10, lCommentData, *pool));
-
-  // Batches has only one RowVector here.
-  uint64_t nullCount = 0;
-  std::vector<RowVectorPtr> batches{std::make_shared<RowVector>(
-      pool.get(), type, nullptr, 10, vectors, nullCount)};
-
-  // Find the Velox path according current path.
-  std::string veloxPath;
-  std::string currentPath = fs::current_path().c_str();
-  size_t pos = 0;
-
-  if ((pos = currentPath.find("project")) != std::string::npos) {
-    // In Github test, the Velox home is /root/project.
-    veloxPath = currentPath.substr(0, pos) + "project";
-  } else if ((pos = currentPath.find("velox")) != std::string::npos) {
-    veloxPath = currentPath.substr(0, pos) + "velox";
-  } else if ((pos = currentPath.find("fbcode")) != std::string::npos) {
-    veloxPath = currentPath;
-  } else {
-    throw std::runtime_error("Current path is not a valid Velox path.");
-  }
-
-  // Find and deserialize Substrait plan json file.
-  std::string subPlanPath = veloxPath + "/velox/substrait/tests/sub.json";
+TEST_P(PlanConversionTest, q6FirstStageTest) {
   auto veloxConverter = std::make_shared<VeloxConverter>();
-
-  // Writes data into an ORC file.
-  auto sink = std::make_unique<facebook::velox::dwio::common::FileSink>(
-      veloxConverter->getTmpDirPath() + "/mock_lineitem.orc");
-  auto config = std::make_shared<facebook::velox::dwrf::Config>();
-  const int64_t writerMemoryCap = std::numeric_limits<int64_t>::max();
-  facebook::velox::dwrf::WriterOptions options;
-  options.config = config;
-  options.schema = type;
-  options.memoryBudget = writerMemoryCap;
-  options.flushPolicyFactory = nullptr;
-  options.layoutPlannerFactory = nullptr;
-  auto writer = std::make_unique<facebook::velox::dwrf::Writer>(
-      options,
-      std::move(sink),
-      facebook::velox::memory::getProcessDefaultMemoryManager().getRoot());
-  for (size_t i = 0; i < batches.size(); ++i) {
-    writer->write(batches[i]);
-  }
-  writer->close();
-
+  std::string veloxPath = getVeloxPath();
+  genLineitemORC(veloxConverter);
+  // Find and deserialize Substrait plan json file.
+  std::string subPlanPath = veloxPath + "/velox/substrait/tests/q6_first.json";
   auto resIter = veloxConverter->getResIter(subPlanPath);
   while (resIter->HasNext()) {
     auto rv = resIter->Next();
@@ -507,6 +520,46 @@ TEST_P(PlanConversionTest, queryTest) {
     ASSERT_EQ(size, 1);
     std::string res = rv->toString(0);
     ASSERT_EQ(res, "{ [child at 0]: 13613.1921}");
+  }
+}
+
+// This test will firstly generate mock TPC-H lineitem ORC file. Then, Velox's
+// computing will be tested based on the generated ORC file.
+// Input: Json file of the Substrait plan for the first stage of the below
+// modified TPC-H Q1 query:
+//
+// select l_returnflag, l_linestatus, sum(l_quantity) as sum_qty,
+// sum(l_extendedprice) as sum_base_price, sum(l_extendedprice * (1 -
+// l_discount)) as sum_disc_price, sum(l_extendedprice * (1 - l_discount) * (1 +
+// l_tax)) as sum_charge, avg(l_quantity) as avg_qty, avg(l_extendedprice) as
+// avg_price, avg(l_discount) as avg_disc, count(*) as count_order from lineitem
+// where l_shipdate <= 10471 group by l_returnflag, l_linestatus order by
+// l_returnflag, l_linestatus
+//
+//  Tested Velox computings include: TableScan (Filter Pushdown) + Project +
+//  Aggregate
+//  Output: the Velox computed Aggregation result
+
+TEST_P(PlanConversionTest, q1FirstStageTest) {
+  auto veloxConverter = std::make_shared<VeloxConverter>();
+  std::string veloxPath = getVeloxPath();
+  genLineitemORC(veloxConverter);
+  // Find and deserialize Substrait plan json file.
+  std::string subPlanPath = veloxPath + "/velox/substrait/tests/q1_first.json";
+  auto resIter = veloxConverter->getResIter(subPlanPath);
+  while (resIter->HasNext()) {
+    auto rv = resIter->Next();
+    auto size = rv->size();
+    ASSERT_EQ(size, 3);
+    ASSERT_EQ(
+        rv->toString(0),
+        "{ [child at 0]: N, O, 34, 105963.31, 99911.3719, 101201.05309399999, 34, 3, 105963.31, 3, 0.16999999999999998, 3, 3}");
+    ASSERT_EQ(
+        rv->toString(1),
+        "{ [child at 1]: A, F, 60, 59390.729999999996, 56278.5879, 59485.994223, 60, 5, 59390.729999999996, 5, 0.24, 5, 5}");
+    ASSERT_EQ(
+        rv->toString(2),
+        "{ [child at 2]: R, F, 23, 94461.56, 87849.2508, 90221.880192, 23, 2, 94461.56, 2, 0.14, 2, 2}");
   }
 }
 
