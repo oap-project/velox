@@ -18,6 +18,8 @@
 #include "velox/connectors/Connector.h"
 #include "velox/core/Expressions.h"
 
+#include "velox/vector/arrow/c/Bridge.h"
+
 namespace facebook::velox::core {
 
 typedef std::string PlanNodeId;
