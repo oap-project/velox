@@ -67,6 +67,6 @@ if(${VELOX_CODEGEN_SUPPORT})
 endif()
 
 # substrait converter
-if(${VELOX_ENABLE_SUBSTRAIT})
+# if(${VELOX_ENABLE_SUBSTRAIT})
   add_subdirectory(substrait)
-endif()
+# endif()
