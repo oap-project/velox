@@ -630,6 +630,11 @@ std::string SubstraitVeloxPlanConverter::findFuncSpec(uint64_t id) {
 bool SubstraitVeloxPlanConverter::needsRowConstruct(
     const ::substrait::AggregateRel& sAgg,
     core::AggregationNode::Step& aggStep) {
+  if (sAgg.measures().size() == 0) {
+    // When only groupings exist, set the phase to be Single.
+    aggStep = core::AggregationNode::Step::kSingle;
+    return false;
+  }
   for (const auto& smea : sAgg.measures()) {
     auto aggFunction = smea.measure();
     std::string funcName = subParser_->findVeloxFunction(
