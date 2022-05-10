@@ -38,9 +38,9 @@ std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxPlan(
   outputNames.reserve(outputSize);
   outputTypes.reserve(outputSize);
   for (const auto& node : {leftNode, rightNode}) {
-    auto names = node->outputType()->names();
+    const auto& names = node->outputType()->names();
     outputNames.insert(outputNames.end(), names.begin(), names.end());
-    auto types = node->outputType()->children();
+    const auto& types = node->outputType()->children();
     outputTypes.insert(outputTypes.end(), types.begin(), types.end());
   }
   auto outputRowType = std::make_shared<const RowType>(
@@ -96,7 +96,7 @@ std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxPlan(
   }
 
   // Create join node
-  auto joinNode = std::make_shared<core::HashJoinNode>(
+  return std::make_shared<core::HashJoinNode>(
       nextPlanNodeId(),
       joinType,
       leftKeys,
@@ -105,24 +105,6 @@ std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxPlan(
       leftNode,
       rightNode,
       outputRowType);
-
-  // Create project node remap the output column names
-  std::vector<std::shared_ptr<const core::ITypedExpr>> remapOutput;
-  std::vector<std::string> remappedNames;
-  remapOutput.reserve(outputSize);
-  remappedNames.reserve(outputSize);
-
-  for (int i = 0; i < outputRowType->size(); ++i) {
-    remappedNames.emplace_back(subParser_->makeNodeName(planNodeId_, i));
-    remapOutput.emplace_back(std::make_shared<const core::FieldAccessTypedExpr>(
-        outputRowType->childAt(i), outputRowType->names()[i]));
-  }
-
-  return std::make_shared<core::ProjectNode>(
-      nextPlanNodeId(),
-      std::move(remappedNames),
-      std::move(remapOutput),
-      joinNode);
 }
 
 std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxPlan(
