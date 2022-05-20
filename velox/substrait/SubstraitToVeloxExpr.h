@@ -19,6 +19,11 @@
 #include "velox/core/Expressions.h"
 #include "velox/substrait/SubstraitUtils.h"
 
+#include "velox/type/StringView.h"
+#include "velox/vector/FlatVector.h"
+
+#include "velox/vector/ComplexVector.h"
+
 namespace facebook::velox::substrait {
 
 /// This class is used to convert Substrait representations to Velox
@@ -47,6 +52,17 @@ class SubstraitVeloxExprConverter {
       const ::substrait::Expression::Cast& castExpr,
       const RowTypePtr& inputType);
 
+  std::shared_ptr<const core::ITypedExpr> toAliasExpr(
+      const std::vector<std::shared_ptr<const core::ITypedExpr>>& params);
+
+  std::shared_ptr<const core::ITypedExpr> toIsNotNullExpr(
+      const std::vector<std::shared_ptr<const core::ITypedExpr>>& params,
+      const TypePtr& outputType);
+
+  TypePtr literalToType(const ::substrait::Expression::Literal& literal);
+
+  variant toVariant(const ::substrait::Expression::Literal& literal);
+
   /// Used to convert Substrait Literal into Velox Expression.
   std::shared_ptr<const core::ConstantTypedExpr> toVeloxExpr(
       const ::substrait::Expression::Literal& sLit);
@@ -57,6 +73,23 @@ class SubstraitVeloxExprConverter {
       const RowTypePtr& inputType);
 
  private:
+  template <TypeKind KIND>
+  VectorPtr setVectorFromVariantsByKind(
+      const std::vector<velox::variant>& value,
+      memory::MemoryPool* pool);
+
+  VectorPtr setVectorFromVariants(
+      const TypePtr& type,
+      const std::vector<velox::variant>& value,
+      velox::memory::MemoryPool* pool);
+
+  ArrayVectorPtr
+  toArrayVector(TypePtr type, VectorPtr vector, memory::MemoryPool* pool);
+
+  // A tmp used memory pool. Needs to be removed.
+  std::unique_ptr<memory::MemoryPool> pool_{
+      memory::getDefaultScopedMemoryPool()};
+
   /// The Substrait parser used to convert Substrait representations into
   /// recognizable representations.
   std::shared_ptr<SubstraitParser> subParser_ =

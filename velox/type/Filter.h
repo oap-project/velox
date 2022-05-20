@@ -539,6 +539,22 @@ class BigintRange final : public Filter {
         upper16_(std::min<int64_t>(upper, std::numeric_limits<int16_t>::max())),
         isSingleValue_(upper_ == lower_) {}
 
+  BigintRange(int64_t lower,
+      bool lowerUnbounded,
+      bool lowerExclusive,
+      int64_t upper,
+      bool upperUnbounded,
+      bool upperExclusive,
+      bool nullAllowed)
+    : Filter(true, nullAllowed, FilterKind::kBigintRange),
+      lower_(lowerExclusive ? lower - 1 : lower),
+      upper_(upperExclusive ? upper + 1 : upper),
+      lower32_(std::max<int64_t>(lower, std::numeric_limits<int32_t>::min())),
+      upper32_(std::min<int64_t>(upper, std::numeric_limits<int32_t>::max())),
+      lower16_(std::max<int64_t>(lower, std::numeric_limits<int16_t>::min())),
+      upper16_(std::min<int64_t>(upper, std::numeric_limits<int16_t>::max())),
+      isSingleValue_(upper_ == lower_) {}
+
   std::unique_ptr<Filter> clone(
       std::optional<bool> nullAllowed = std::nullopt) const final {
     if (nullAllowed) {
@@ -1290,6 +1306,13 @@ class MultiRange final : public Filter {
       : Filter(true, nullAllowed, FilterKind::kMultiRange),
         filters_(std::move(filters)),
         nanAllowed_(nanAllowed) {}
+
+  MultiRange(
+    std::vector<std::unique_ptr<Filter>> filters,
+    bool nullAllowed)
+    : Filter(true, nullAllowed, FilterKind::kMultiRange),
+      filters_(std::move(filters)),
+      nanAllowed_(true) {}      
 
   std::unique_ptr<Filter> clone(
       std::optional<bool> nullAllowed = std::nullopt) const final;

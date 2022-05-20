@@ -59,6 +59,9 @@ class PlanConversionTest : public virtual HiveConnectorTestBase,
     return HiveConnectorTestBase::makeVectors(rowType, count, rowsPerVector);
   }
 
+  std::unique_ptr<facebook::velox::memory::MemoryPool> pool_{
+      facebook::velox::memory::getDefaultScopedMemoryPool()};
+
   class VeloxConverter {
    public:
     // This class is an iterator for Velox computing.
@@ -291,8 +294,7 @@ class PlanConversionTest : public virtual HiveConnectorTestBase,
              VARCHAR(),
              VARCHAR(),
              VARCHAR()});
-    std::unique_ptr<facebook::velox::memory::MemoryPool> pool{
-        facebook::velox::memory::getDefaultScopedMemoryPool()};
+
     std::vector<VectorPtr> vectors;
     // TPC-H lineitem table has 16 columns.
     int colNum = 16;
@@ -309,7 +311,7 @@ class PlanConversionTest : public virtual HiveConnectorTestBase,
         6354246853,
         4141748419};
     vectors.emplace_back(
-        createSpecificScalar<int64_t>(10, lOrderkeyData, *pool));
+        createSpecificScalar<int64_t>(10, lOrderkeyData, *pool_));
     std::vector<int64_t> lPartkeyData = {
         263222018,
         255918298,
@@ -322,7 +324,7 @@ class PlanConversionTest : public virtual HiveConnectorTestBase,
         112999357,
         299103530};
     vectors.emplace_back(
-        createSpecificScalar<int64_t>(10, lPartkeyData, *pool));
+        createSpecificScalar<int64_t>(10, lPartkeyData, *pool_));
     std::vector<int64_t> lSuppkeyData = {
         2102019,
         13998315,
@@ -335,14 +337,14 @@ class PlanConversionTest : public virtual HiveConnectorTestBase,
         1639379,
         3423588};
     vectors.emplace_back(
-        createSpecificScalar<int64_t>(10, lSuppkeyData, *pool));
+        createSpecificScalar<int64_t>(10, lSuppkeyData, *pool_));
     std::vector<int32_t> lLinenumberData = {4, 6, 1, 5, 1, 2, 1, 5, 2, 6};
     vectors.emplace_back(
-        createSpecificScalar<int32_t>(10, lLinenumberData, *pool));
+        createSpecificScalar<int32_t>(10, lLinenumberData, *pool_));
     std::vector<double> lQuantityData = {
         6.0, 1.0, 19.0, 4.0, 6.0, 12.0, 23.0, 11.0, 16.0, 19.0};
     vectors.emplace_back(
-        createSpecificScalar<double>(10, lQuantityData, *pool));
+        createSpecificScalar<double>(10, lQuantityData, *pool_));
     std::vector<double> lExtendedpriceData = {
         30586.05,
         7821.0,
@@ -355,22 +357,22 @@ class PlanConversionTest : public virtual HiveConnectorTestBase,
         8704.26,
         63780.36};
     vectors.emplace_back(
-        createSpecificScalar<double>(10, lExtendedpriceData, *pool));
+        createSpecificScalar<double>(10, lExtendedpriceData, *pool_));
     std::vector<double> lDiscountData = {
         0.05, 0.06, 0.01, 0.07, 0.05, 0.06, 0.07, 0.05, 0.06, 0.07};
     vectors.emplace_back(
-        createSpecificScalar<double>(10, lDiscountData, *pool));
+        createSpecificScalar<double>(10, lDiscountData, *pool_));
     std::vector<double> lTaxData = {
         0.02, 0.03, 0.01, 0.0, 0.01, 0.01, 0.03, 0.07, 0.01, 0.04};
-    vectors.emplace_back(createSpecificScalar<double>(10, lTaxData, *pool));
+    vectors.emplace_back(createSpecificScalar<double>(10, lTaxData, *pool_));
     std::vector<std::string> lReturnflagData = {
         "N", "A", "A", "R", "A", "N", "A", "A", "N", "R"};
     vectors.emplace_back(
-        createSpecificStringVector(10, lReturnflagData, *pool));
+        createSpecificStringVector(10, lReturnflagData, *pool_));
     std::vector<std::string> lLinestatusData = {
         "O", "F", "F", "F", "F", "O", "F", "F", "O", "F"};
     vectors.emplace_back(
-        createSpecificStringVector(10, lLinestatusData, *pool));
+        createSpecificStringVector(10, lLinestatusData, *pool_));
     std::vector<double> lShipdateNewData = {
         8953.666666666666,
         8773.666666666666,
@@ -383,7 +385,7 @@ class PlanConversionTest : public virtual HiveConnectorTestBase,
         9013.666666666666,
         8832.666666666666};
     vectors.emplace_back(
-        createSpecificScalar<double>(10, lShipdateNewData, *pool));
+        createSpecificScalar<double>(10, lShipdateNewData, *pool_));
     std::vector<double> lCommitdateNewData = {
         10447.666666666666,
         8953.666666666666,
@@ -396,7 +398,7 @@ class PlanConversionTest : public virtual HiveConnectorTestBase,
         9519.666666666666,
         9138.666666666666};
     vectors.emplace_back(
-        createSpecificScalar<double>(10, lCommitdateNewData, *pool));
+        createSpecificScalar<double>(10, lCommitdateNewData, *pool_));
     std::vector<double> lReceiptdateNewData = {
         10456.666666666666,
         8979.666666666666,
@@ -409,7 +411,7 @@ class PlanConversionTest : public virtual HiveConnectorTestBase,
         9593.666666666666,
         9178.666666666666};
     vectors.emplace_back(
-        createSpecificScalar<double>(10, lReceiptdateNewData, *pool));
+        createSpecificScalar<double>(10, lReceiptdateNewData, *pool_));
     std::vector<std::string> lShipinstructData = {
         "COLLECT COD",
         "NONE",
@@ -422,7 +424,7 @@ class PlanConversionTest : public virtual HiveConnectorTestBase,
         "TAKE BACK RETURN",
         "NONE"};
     vectors.emplace_back(
-        createSpecificStringVector(10, lShipinstructData, *pool));
+        createSpecificStringVector(10, lShipinstructData, *pool_));
     std::vector<std::string> lShipmodeData = {
         "FOB",
         "REG AIR",
@@ -434,7 +436,7 @@ class PlanConversionTest : public virtual HiveConnectorTestBase,
         "REG AIR",
         "TRUCK",
         "AIR"};
-    vectors.emplace_back(createSpecificStringVector(10, lShipmodeData, *pool));
+    vectors.emplace_back(createSpecificStringVector(10, lShipmodeData, *pool_));
     std::vector<std::string> lCommentData = {
         " the furiously final foxes. quickly final p",
         "thely ironic",
@@ -446,12 +448,12 @@ class PlanConversionTest : public virtual HiveConnectorTestBase,
         "lyly regular excuses affi",
         "lly unusual theodolites grow slyly above",
         " the quickly ironic pains lose car"};
-    vectors.emplace_back(createSpecificStringVector(10, lCommentData, *pool));
+    vectors.emplace_back(createSpecificStringVector(10, lCommentData, *pool_));
 
     // Batches has only one RowVector here.
     uint64_t nullCount = 0;
     std::vector<RowVectorPtr> batches{std::make_shared<RowVector>(
-        pool.get(), type, nullptr, 10, vectors, nullCount)};
+        pool_.get(), type, nullptr, 10, vectors, nullCount)};
 
     // Writes data into an ORC file.
     auto sink = std::make_unique<facebook::velox::dwio::common::FileSink>(
