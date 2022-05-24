@@ -38,7 +38,7 @@ class SubstraitParser {
   };
 
   /// Used to parse Substrait NamedStruct.
-  std::vector<std::shared_ptr<SubstraitParser::SubstraitType>> parseNamedStruct(
+  std::vector<std::shared_ptr<SubstraitType>> parseNamedStruct(
       const ::substrait::NamedStruct& namedStruct);
 
   /// Used to parse Substrait Type.

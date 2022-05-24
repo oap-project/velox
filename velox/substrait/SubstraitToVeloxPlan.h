@@ -18,6 +18,7 @@
 
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/substrait/SubstraitToVeloxExpr.h"
+#include "velox/substrait/TypeUtils.h"
 
 namespace facebook::velox::substrait {
 
@@ -129,8 +130,10 @@ class SubstraitVeloxPlanConverter {
       std::vector<const ::substrait::Expression::FieldReference*>& rightExprs);
 
  private:
+  /// Filter info for a column used in filter push down.
   class FilterInfo {
    public:
+    // Disable null allow.
     void forbidsNull() {
       nullAllowed_ = false;
       if (!isInitialized_) {
@@ -143,22 +146,27 @@ class SubstraitVeloxPlanConverter {
       return isInitialized_ ? true : false;
     }
 
-    void setLeft(const std::optional<variant>& left, bool isExclusive) {
-      leftBounds_.emplace_back(left);
-      leftExclusives_.emplace_back(isExclusive);
+    // Add a lower bound to the range. Multiple lower bounds are
+    // regarded to be in 'or' relation.
+    void setLower(const std::optional<variant>& left, bool isExclusive) {
+      lowerBounds_.emplace_back(left);
+      lowerExclusives_.emplace_back(isExclusive);
       if (!isInitialized_) {
         isInitialized_ = true;
       }
     }
 
-    void setRight(const std::optional<variant>& right, bool isExclusive) {
-      rightBounds_.emplace_back(right);
-      rightExclusives_.emplace_back(isExclusive);
+    // Add a upper bound to the range. Multiple upper bounds are
+    // regarded to be in 'or' relation.
+    void setUpper(const std::optional<variant>& right, bool isExclusive) {
+      upperBounds_.emplace_back(right);
+      upperExclusives_.emplace_back(isExclusive);
       if (!isInitialized_) {
         isInitialized_ = true;
       }
     }
 
+    // Set a list of values to be used in the push down of 'in' expression.
     void setValues(const std::vector<variant>& values) {
       for (const auto& value : values) {
         valuesVector_.emplace_back(value);
@@ -168,22 +176,167 @@ class SubstraitVeloxPlanConverter {
       }
     }
 
+    // Set a value for the not(equal) condition.
+    void setNotValue(const std::optional<variant>& notValue) {
+      notValue_ = notValue;
+      if (!isInitialized_) {
+        isInitialized_ = true;
+      }
+    }
+
+    // Whether this filter map is initialized.
     bool isInitialized_ = false;
-    // The Null allowing.
+
+    // The null allow.
     bool nullAllowed_ = true;
 
     // If true, left bound will be exclusive.
-    std::vector<bool> leftExclusives_;
-    // If true, right bound will be exclusive.
-    std::vector<bool> rightExclusives_;
+    std::vector<bool> lowerExclusives_;
 
-    std::vector<std::optional<variant>> leftBounds_;
-    std::vector<std::optional<variant>> rightBounds_;
+    // If true, right bound will be exclusive.
+    std::vector<bool> upperExclusives_;
+
+    // A value should not be equal to.
+    std::optional<variant> notValue_ = std::nullopt;
+
+    // The lower bounds in 'or' relation.
+    std::vector<std::optional<variant>> lowerBounds_;
+
+    // The upper bounds in 'or' relation.
+    std::vector<std::optional<variant>> upperBounds_;
+
+    // The list of values used in 'in' expression.
     std::vector<variant> valuesVector_;
   };
 
-  bool fieldOrComparedWithLiteral(
-      const ::substrait::Expression_ScalarFunction& condition);
+  /// A function returning current function id and adding the plan node id by
+  /// one once called.
+  std::string nextPlanNodeId();
+
+  /// Check the args of the scalar function. Should be field or
+  /// field with literal.
+  bool fieldOrWithLiteral(
+      const ::substrait::Expression_ScalarFunction& function);
+
+  /// Separate the functions to be two parts:
+  /// subfield functions to be handled by the subfieldFilters in HiveConnector,
+  /// and remaining functions to be handled by the remainingFilter in
+  /// HiveConnector.
+  void separateFilters(
+      const std::vector<::substrait::Expression_ScalarFunction>&
+          scalarFunctions,
+      std::vector<::substrait::Expression_ScalarFunction>& subfieldFunctions,
+      std::vector<::substrait::Expression_ScalarFunction>& remainingFunctions);
+
+  /// Check whether the chidren functions of this scalar function have the same
+  /// column index. Curretly used to check whether the two chilren functions of
+  /// 'or' expression are effective on the same column.
+  bool chidrenFunctionsOnSameField(
+      const ::substrait::Expression_ScalarFunction& function);
+
+  /// Extract the list from in function, and set it to the filter info.
+  void setInValues(
+      const ::substrait::Expression_ScalarFunction& scalarFunction,
+      std::unordered_map<uint32_t, std::shared_ptr<FilterInfo>>& colInfoMap);
+
+  /// Extract the scalar function, and set the filter info for different types
+  /// of columns. If reverse is true, the opposite filter info will be set.
+  void setFilterMap(
+      const ::substrait::Expression_ScalarFunction& scalarFunction,
+      const std::vector<TypePtr>& inputTypeList,
+      std::unordered_map<uint32_t, std::shared_ptr<FilterInfo>>& colInfoMap,
+      bool reverse = false);
+
+  /// Set the filter info for a column base on the information
+  /// extracted from filter condition.
+  template <typename T>
+  void setColInfoMap(
+      const std::string& filterName,
+      uint32_t colIdx,
+      std::optional<variant> literalVariant,
+      bool reverse,
+      std::unordered_map<uint32_t, std::shared_ptr<FilterInfo>>& colInfoMap);
+
+  /// Create a multirange to specify the filter 'x != notValue' with:
+  /// x > notValue or x < notValue.
+  template <TypeKind KIND, typename FilterType>
+  void createNotEqualFilter(
+      variant notVariant,
+      bool nullAllowed,
+      std::vector<std::unique_ptr<FilterType>>& colFilters);
+
+  /// Create a values range to handle in filter.
+  /// variants: the list of values extracted from the in expression.
+  /// inputName: the column input name.
+  template <TypeKind KIND>
+  void setInFilter(
+      const std::vector<variant>& variants,
+      bool nullAllowed,
+      const std::string& inputName,
+      connector::hive::SubfieldFilters& filters);
+
+  /// Set the constructed filters into SubfieldFilters.
+  /// The FilterType is used to distinguish BigintRange and
+  /// Filter (the base class). This is needed because BigintMultiRange
+  /// can only accept the unique ptr of BigintRange as parameter.
+  template <TypeKind KIND, typename FilterType>
+  void setSubfieldFilter(
+      std::vector<std::unique_ptr<FilterType>> colFilters,
+      const std::string& inputName,
+      bool nullAllowed,
+      connector::hive::SubfieldFilters& filters);
+
+  /// Create the subfield filter based on the constructed filter info.
+  /// inputName: the input name of a column.
+  template <TypeKind KIND, typename FilterType>
+  void constructSubfieldFilters(
+      uint32_t colIdx,
+      const std::string& inputName,
+      const std::shared_ptr<FilterInfo>& filterInfo,
+      connector::hive::SubfieldFilters& filters);
+
+  /// Construct subfield filters according to the pre-set map of filter info.
+  connector::hive::SubfieldFilters mapToFilters(
+      const std::vector<std::string>& inputNameList,
+      const std::vector<TypePtr>& inputTypeList,
+      std::unordered_map<uint32_t, std::shared_ptr<FilterInfo>> colInfoMap);
+
+  /// Convert subfield functions into subfieldFilters to
+  /// be used in Hive Connector.
+  connector::hive::SubfieldFilters toSubfieldFilters(
+      const std::vector<std::string>& inputNameList,
+      const std::vector<TypePtr>& inputTypeList,
+      const std::vector<::substrait::Expression_ScalarFunction>&
+          subfieldFunctions);
+
+  /// Connect all remaining functions with 'and' relation
+  /// for the use of remaingFilter in Hive Connector.
+  std::shared_ptr<const core::ITypedExpr> connectWithAnd(
+      std::vector<std::string> inputNameList,
+      std::vector<TypePtr> inputTypeList,
+      const std::vector<::substrait::Expression_ScalarFunction>&
+          remainingFunctions);
+
+  /// Used to check if some of the input columns of Aggregation
+  /// should be combined into a single column. Currently, this case occurs in
+  /// final Average. The phase of Aggregation will also be set.
+  bool needsRowConstruct(
+      const ::substrait::AggregateRel& sAgg,
+      core::AggregationNode::Step& aggStep);
+
+  /// Used to convert AggregateRel into Velox plan node.
+  /// This method will add a Project node before Aggregation to combine columns.
+  std::shared_ptr<const core::PlanNode> toVeloxAggWithRowConstruct(
+      const ::substrait::AggregateRel& sAgg,
+      const std::shared_ptr<const core::PlanNode>& childNode,
+      const core::AggregationNode::Step& aggStep);
+
+  /// Used to convert AggregateRel into Velox plan node.
+  /// The output of child node will be used as the input of Aggregation.
+  std::shared_ptr<const core::PlanNode> toVeloxAgg(
+      const ::substrait::AggregateRel& sAgg,
+      const std::shared_ptr<const core::PlanNode>& childNode,
+      const core::AggregationNode::Step& aggStep);
 
   /// The Partition index.
   u_int32_t partitionIndex_;
@@ -218,100 +371,6 @@ class SubstraitVeloxPlanConverter {
   /// The Expression converter used to convert Substrait representations into
   /// Velox expressions.
   std::shared_ptr<SubstraitVeloxExprConverter> exprConverter_;
-
-  /// A function returning current function id and adding the plan node id by
-  /// one once called.
-  std::string nextPlanNodeId();
-
-  /// Separate the functions to be two parts:
-  /// subfieldFunctions can be handled by the subfieldFilters in HiveConnector,
-  /// and remainingFunctions can be handled by the remainingFilter in
-  /// HiveConnector.
-  void separateFilters(
-      const std::vector<::substrait::Expression_ScalarFunction>&
-          scalarFunctions,
-      std::vector<::substrait::Expression_ScalarFunction>& subfieldFunctions,
-      std::vector<::substrait::Expression_ScalarFunction>& remainingFunctions);
-
-  bool rangeOnSameField(
-      const ::substrait::Expression_ScalarFunction& condition);
-
-  void setInValues(
-      const ::substrait::Expression_ScalarFunction& scalarFunction,
-      std::unordered_map<uint32_t, std::shared_ptr<FilterInfo>>& colInfoMap);
-
-  void setFilterMap(
-      const ::substrait::Expression_ScalarFunction& scalarFunction,
-      const std::vector<TypePtr>& inputTypeList,
-      std::unordered_map<uint32_t, std::shared_ptr<FilterInfo>>& colInfoMap,
-      bool reverse = false);
-
-  connector::hive::SubfieldFilters mapToFilters(
-      const std::vector<std::string>& inputNameList,
-      const std::vector<TypePtr>& inputTypeList,
-      std::unordered_map<uint32_t, std::shared_ptr<FilterInfo>> colInfoMap);
-
-  /// Used to convert Substrait Filter into Velox SubfieldFilters which will
-  /// be used in TableScan.
-  connector::hive::SubfieldFilters toSubfieldFilters(
-      const std::vector<std::string>& inputNameList,
-      const std::vector<TypePtr>& inputTypeList,
-      const std::vector<::substrait::Expression_ScalarFunction>&
-          subfieldFunctions);
-
-  std::shared_ptr<const core::ITypedExpr> connectWithAnd(
-      std::vector<std::string> inputNameList,
-      std::vector<TypePtr> inputTypeList,
-      const std::vector<::substrait::Expression_ScalarFunction>&
-          remainingFunctions);
-
-  template <typename T>
-  void setColInfoMap(
-      const std::string& filterName,
-      uint32_t colIdx,
-      std::optional<variant> literalVariant,
-      bool reverse,
-      std::unordered_map<uint32_t, std::shared_ptr<FilterInfo>>& colInfoMap);
-
-  template <typename T, typename RangeType, typename MultiRangeType>
-  void constructSubfieldFilters(
-      uint32_t colIdx,
-      const std::string& inputName,
-      const std::shared_ptr<FilterInfo>& filterInfo,
-      connector::hive::SubfieldFilters& filters);
-
-  void constructSubfieldFiltersForInt(
-      uint32_t colIdx,
-      const std::string& inputName,
-      const std::shared_ptr<FilterInfo>& filterInfo,
-      connector::hive::SubfieldFilters& filters);
-
-  void constructSubfieldFiltersForString(
-      uint32_t colIdx,
-      const std::string& inputName,
-      const std::shared_ptr<FilterInfo>& filterInfo,
-      connector::hive::SubfieldFilters& filters);
-
-  /// Used to check if some of the input columns of Aggregation
-  /// should be combined into a single column. Currently, this case occurs in
-  /// final Average. The phase of Aggregation will also be set.
-  bool needsRowConstruct(
-      const ::substrait::AggregateRel& sAgg,
-      core::AggregationNode::Step& aggStep);
-
-  /// Used to convert AggregateRel into Velox plan node.
-  /// This method will add a Project node before Aggregation to combine columns.
-  std::shared_ptr<const core::PlanNode> toVeloxAggWithRowConstruct(
-      const ::substrait::AggregateRel& sAgg,
-      const std::shared_ptr<const core::PlanNode>& childNode,
-      const core::AggregationNode::Step& aggStep);
-
-  /// Used to convert AggregateRel into Velox plan node.
-  /// The output of child node will be used as the input of Aggregation.
-  std::shared_ptr<const core::PlanNode> toVeloxAgg(
-      const ::substrait::AggregateRel& sAgg,
-      const std::shared_ptr<const core::PlanNode>& childNode,
-      const core::AggregationNode::Step& aggStep);
 };
 
 } // namespace facebook::velox::substrait

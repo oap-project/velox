@@ -16,84 +16,9 @@
 
 #include "velox/substrait/SubstraitToVeloxExpr.h"
 #include "velox/substrait/TypeUtils.h"
+#include "velox/substrait/VectorCreater.h"
 
 namespace facebook::velox::substrait {
-
-template <TypeKind KIND>
-VectorPtr SubstraitVeloxExprConverter::setVectorFromVariantsByKind(
-    const std::vector<velox::variant>& value,
-    memory::MemoryPool* pool) {
-  using T = typename TypeTraits<KIND>::NativeType;
-
-  auto flatVector = std::dynamic_pointer_cast<FlatVector<T>>(
-      BaseVector::create(CppToType<T>::create(), value.size(), pool));
-
-  for (vector_size_t i = 0; i < value.size(); i++) {
-    if (value[i].isNull()) {
-      flatVector->setNull(i, true);
-    } else {
-      flatVector->set(i, value[i].value<T>());
-    }
-  }
-  return flatVector;
-}
-
-template <>
-VectorPtr
-SubstraitVeloxExprConverter::setVectorFromVariantsByKind<TypeKind::VARBINARY>(
-    const std::vector<velox::variant>& value,
-    memory::MemoryPool* pool) {
-  throw std::invalid_argument("Return of VARBINARY data is not supported");
-}
-
-template <>
-VectorPtr
-SubstraitVeloxExprConverter::setVectorFromVariantsByKind<TypeKind::VARCHAR>(
-    const std::vector<velox::variant>& value,
-    memory::MemoryPool* pool) {
-  auto flatVector = std::dynamic_pointer_cast<FlatVector<StringView>>(
-      BaseVector::create(VARCHAR(), value.size(), pool));
-
-  for (vector_size_t i = 0; i < value.size(); i++) {
-    if (value[i].isNull()) {
-      flatVector->setNull(i, true);
-    } else {
-      flatVector->set(i, StringView(value[i].value<Varchar>()));
-    }
-  }
-  return flatVector;
-}
-
-VectorPtr SubstraitVeloxExprConverter::setVectorFromVariants(
-    const TypePtr& type,
-    const std::vector<velox::variant>& value,
-    velox::memory::MemoryPool* pool) {
-  return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-      setVectorFromVariantsByKind, type->kind(), value, pool);
-}
-
-ArrayVectorPtr SubstraitVeloxExprConverter::toArrayVector(
-    TypePtr type,
-    VectorPtr vector,
-    memory::MemoryPool* pool) {
-  vector_size_t size = 1;
-  BufferPtr offsets = AlignedBuffer::allocate<vector_size_t>(size, pool);
-  BufferPtr sizes = AlignedBuffer::allocate<vector_size_t>(size, pool);
-  BufferPtr nulls = AlignedBuffer::allocate<uint64_t>(size, pool);
-
-  auto rawOffsets = offsets->asMutable<vector_size_t>();
-  auto rawSizes = sizes->asMutable<vector_size_t>();
-  auto rawNulls = nulls->asMutable<uint64_t>();
-
-  bits::fillBits(rawNulls, 0, size, pool);
-  vector_size_t nullCount = 0;
-
-  *rawSizes++ = vector->size();
-  *rawOffsets++ = 0;
-
-  return std::make_shared<ArrayVector>(
-      pool, ARRAY(type), nulls, size, offsets, sizes, vector, nullCount);
-}
 
 std::shared_ptr<const core::FieldAccessTypedExpr>
 SubstraitVeloxExprConverter::toVeloxExpr(
@@ -130,6 +55,7 @@ std::shared_ptr<const core::ITypedExpr>
 SubstraitVeloxExprConverter::toAliasExpr(
     const std::vector<std::shared_ptr<const core::ITypedExpr>>& params) {
   VELOX_CHECK(params.size() == 1, "Alias expects one parameter.");
+  // Alias is omitted due to name change is not needed.
   return params[0];
 }
 
@@ -161,7 +87,6 @@ SubstraitVeloxExprConverter::toVeloxExpr(
   const auto& veloxType =
       toVeloxType(subParser_->parseType(sFunc.output_type())->type);
 
-  // Omit alias because because name change is not needed.
   if (veloxFunction == "alias") {
     return toAliasExpr(params);
   }
@@ -170,44 +95,6 @@ SubstraitVeloxExprConverter::toVeloxExpr(
   }
   return std::make_shared<const core::CallTypedExpr>(
       veloxType, std::move(params), veloxFunction);
-}
-
-TypePtr SubstraitVeloxExprConverter::literalToType(
-    const ::substrait::Expression::Literal& literal) {
-  auto typeCase = literal.literal_type_case();
-  switch (typeCase) {
-    case ::substrait::Expression_Literal::LiteralTypeCase::kBoolean:
-      return BOOLEAN();
-    case ::substrait::Expression_Literal::LiteralTypeCase::kI32:
-      return INTEGER();
-    case ::substrait::Expression_Literal::LiteralTypeCase::kI64:
-      return BIGINT();
-    case ::substrait::Expression_Literal::LiteralTypeCase::kFp64:
-      return DOUBLE();
-    case ::substrait::Expression_Literal::LiteralTypeCase::kString:
-      return VARCHAR();
-    default:
-      VELOX_NYI("LiteralToType not supported for type case '{}'", typeCase);
-  }
-}
-
-variant SubstraitVeloxExprConverter::toVariant(
-    const ::substrait::Expression::Literal& literal) {
-  auto typeCase = literal.literal_type_case();
-  switch (typeCase) {
-    case ::substrait::Expression_Literal::LiteralTypeCase::kBoolean:
-      return variant(literal.boolean());
-    case ::substrait::Expression_Literal::LiteralTypeCase::kI32:
-      return variant(literal.i32());
-    case ::substrait::Expression_Literal::LiteralTypeCase::kI64:
-      return variant(literal.i64());
-    case ::substrait::Expression_Literal::LiteralTypeCase::kFp64:
-      return variant(literal.fp64());
-    case ::substrait::Expression_Literal::LiteralTypeCase::kString:
-      return variant(literal.string());
-    default:
-      VELOX_NYI("ToVariant not supported for type case '{}'", typeCase);
-  }
 }
 
 std::shared_ptr<const core::ConstantTypedExpr>
@@ -220,8 +107,11 @@ SubstraitVeloxExprConverter::toVeloxExpr(
     case ::substrait::Expression_Literal::LiteralTypeCase::kI64:
     case ::substrait::Expression_Literal::LiteralTypeCase::kFp64:
     case ::substrait::Expression_Literal::LiteralTypeCase::kString:
-      return std::make_shared<core::ConstantTypedExpr>(toVariant(sLit));
+      return std::make_shared<core::ConstantTypedExpr>(
+          toTypedVariant(sLit)->veloxVariant);
     case ::substrait::Expression_Literal::LiteralTypeCase::kList: {
+      // List is used in 'in' expression. Will wrap a constant
+      // vector with an array vector inside to create the constant expression.
       std::vector<variant> variants;
       variants.reserve(sLit.list().values().size());
       VELOX_CHECK(
@@ -229,15 +119,20 @@ SubstraitVeloxExprConverter::toVeloxExpr(
           "List should have at least one item.");
       std::optional<TypePtr> literalType = std::nullopt;
       for (const auto& literal : sLit.list().values()) {
+        auto typedVariant = toTypedVariant(literal);
         if (!literalType.has_value()) {
-          literalType = literalToType(literal);
+          literalType = typedVariant->variantType;
         }
-        variants.emplace_back(toVariant(literal));
+        variants.emplace_back(typedVariant->veloxVariant);
       }
       VELOX_CHECK(literalType.has_value(), "Type expected.");
-      auto type = literalType.value();
-      VectorPtr vector = setVectorFromVariants(type, variants, pool_.get());
-      ArrayVectorPtr arrayVector = toArrayVector(type, vector, pool_.get());
+      // Create flat vector from the variants.
+      VectorPtr vector =
+          setVectorFromVariants(literalType.value(), variants, pool_.get());
+      // Create array vector from the flat vector.
+      ArrayVectorPtr arrayVector =
+          toArrayVector(literalType.value(), vector, pool_.get());
+      // Wrap the array vector into constant vector.
       auto constantVector = BaseVector::wrapInConstant(1, 0, arrayVector);
       auto constantExpr =
           std::make_shared<core::ConstantTypedExpr>(constantVector);
@@ -282,6 +177,36 @@ SubstraitVeloxExprConverter::toVeloxExpr(
     default:
       VELOX_NYI(
           "Substrait conversion not supported for Expression '{}'", typeCase);
+  }
+}
+
+std::shared_ptr<SubstraitVeloxExprConverter::TypedVariant>
+SubstraitVeloxExprConverter::toTypedVariant(
+    const ::substrait::Expression::Literal& literal) {
+  auto typeCase = literal.literal_type_case();
+  switch (typeCase) {
+    case ::substrait::Expression_Literal::LiteralTypeCase::kBoolean: {
+      TypedVariant typedVariant = {variant(literal.boolean()), BOOLEAN()};
+      return std::make_shared<TypedVariant>(typedVariant);
+    }
+    case ::substrait::Expression_Literal::LiteralTypeCase::kI32: {
+      TypedVariant typedVariant = {variant(literal.i32()), INTEGER()};
+      return std::make_shared<TypedVariant>(typedVariant);
+    }
+    case ::substrait::Expression_Literal::LiteralTypeCase::kI64: {
+      TypedVariant typedVariant = {variant(literal.i64()), BIGINT()};
+      return std::make_shared<TypedVariant>(typedVariant);
+    }
+    case ::substrait::Expression_Literal::LiteralTypeCase::kFp64: {
+      TypedVariant typedVariant = {variant(literal.fp64()), DOUBLE()};
+      return std::make_shared<TypedVariant>(typedVariant);
+    }
+    case ::substrait::Expression_Literal::LiteralTypeCase::kString: {
+      TypedVariant typedVariant = {variant(literal.string()), VARCHAR()};
+      return std::make_shared<TypedVariant>(typedVariant);
+    }
+    default:
+      VELOX_NYI("ToVariant not supported for type case '{}'", typeCase);
   }
 }
 

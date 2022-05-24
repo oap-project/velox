@@ -37,6 +37,12 @@ class SubstraitVeloxExprConverter {
       const std::unordered_map<uint64_t, std::string>& functionMap)
       : functionMap_(functionMap) {}
 
+  /// Stores the variant and its type.
+  struct TypedVariant {
+    variant veloxVariant;
+    TypePtr variantType;
+  };
+
   /// Used to convert Substrait Field into Velox Field Expression.
   std::shared_ptr<const core::FieldAccessTypedExpr> toVeloxExpr(
       const ::substrait::Expression::FieldReference& sField,
@@ -52,16 +58,14 @@ class SubstraitVeloxExprConverter {
       const ::substrait::Expression::Cast& castExpr,
       const RowTypePtr& inputType);
 
+  /// Create expression for alias.
   std::shared_ptr<const core::ITypedExpr> toAliasExpr(
       const std::vector<std::shared_ptr<const core::ITypedExpr>>& params);
 
+  /// Create expression for is_not_null.
   std::shared_ptr<const core::ITypedExpr> toIsNotNullExpr(
       const std::vector<std::shared_ptr<const core::ITypedExpr>>& params,
       const TypePtr& outputType);
-
-  TypePtr literalToType(const ::substrait::Expression::Literal& literal);
-
-  variant toVariant(const ::substrait::Expression::Literal& literal);
 
   /// Used to convert Substrait Literal into Velox Expression.
   std::shared_ptr<const core::ConstantTypedExpr> toVeloxExpr(
@@ -72,21 +76,12 @@ class SubstraitVeloxExprConverter {
       const ::substrait::Expression& sExpr,
       const RowTypePtr& inputType);
 
+  /// Get variant and its type from Substrait Literal.
+  std::shared_ptr<TypedVariant> toTypedVariant(
+      const ::substrait::Expression::Literal& literal);
+
  private:
-  template <TypeKind KIND>
-  VectorPtr setVectorFromVariantsByKind(
-      const std::vector<velox::variant>& value,
-      memory::MemoryPool* pool);
-
-  VectorPtr setVectorFromVariants(
-      const TypePtr& type,
-      const std::vector<velox::variant>& value,
-      velox::memory::MemoryPool* pool);
-
-  ArrayVectorPtr
-  toArrayVector(TypePtr type, VectorPtr vector, memory::MemoryPool* pool);
-
-  // A tmp used memory pool. Needs to be removed.
+  // Memory pool.
   std::unique_ptr<memory::MemoryPool> pool_{
       memory::getDefaultScopedMemoryPool()};
 

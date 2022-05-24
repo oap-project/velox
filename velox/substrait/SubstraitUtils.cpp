@@ -91,8 +91,7 @@ SubstraitParser::parseNamedStruct(const ::substrait::NamedStruct& namedStruct) {
   // Parse Struct.
   const auto& sStruct = namedStruct.struct_();
   const auto& sTypes = sStruct.types();
-  std::vector<std::shared_ptr<SubstraitParser::SubstraitType>>
-      substraitTypeList;
+  std::vector<std::shared_ptr<SubstraitType>> substraitTypeList;
   substraitTypeList.reserve(sTypes.size());
   for (const auto& type : sTypes) {
     substraitTypeList.emplace_back(parseType(type));
