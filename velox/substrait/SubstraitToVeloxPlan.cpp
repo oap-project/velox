@@ -549,11 +549,9 @@ std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxPlan(
 
 std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxPlan(
     const ::substrait::Plan& sPlan) {
-  // Construct the function map based on the Substrait representation.
+  // Construct the function map based on the Substrait representation,
+  // and initialize the expression converter with it.
   constructFuncMap(sPlan);
-
-  // Create the expression converter.
-  exprConverter_ = std::make_shared<SubstraitVeloxExprConverter>(functionMap_);
 
   // In fact, only one RelRoot or Rel is expected here.
   for (const auto& sRel : sPlan.relations()) {
@@ -579,6 +577,7 @@ void SubstraitVeloxPlanConverter::constructFuncMap(
     auto name = sFmap.name();
     functionMap_[id] = name;
   }
+  exprConverter_ = std::make_shared<SubstraitVeloxExprConverter>(functionMap_);
 }
 
 std::string SubstraitVeloxPlanConverter::nextPlanNodeId() {
@@ -673,6 +672,9 @@ int32_t SubstraitVeloxPlanConverter::streamIsInput(
     } catch (const std::exception& err) {
       VELOX_FAIL(err.what());
     }
+  }
+  if (validationMode_) {
+    return -1;
   }
   VELOX_FAIL("Local file is expected.");
 }
@@ -1316,7 +1318,7 @@ SubstraitVeloxPlanConverter::connectWithAnd(
   while (idx < remainingFunctions.size()) {
     std::vector<std::shared_ptr<const core::ITypedExpr>> params;
     params.reserve(2);
-    params.emplace_back(std::move(remainingFilter));
+    params.emplace_back(remainingFilter);
     params.emplace_back(
         exprConverter_->toVeloxExpr(remainingFunctions[idx], inputType));
     remainingFilter = std::make_shared<const core::CallTypedExpr>(

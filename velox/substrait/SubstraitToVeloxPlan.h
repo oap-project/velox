@@ -25,6 +25,9 @@ namespace facebook::velox::substrait {
 /// This class is used to convert the Substrait plan into Velox plan.
 class SubstraitVeloxPlanConverter {
  public:
+  SubstraitVeloxPlanConverter(bool validationMode = false)
+      : validationMode_(validationMode) {}
+
   /// Used to convert Substrait JoinRel into Velox PlanNode.
   std::shared_ptr<const core::PlanNode> toVeloxPlan(
       const ::substrait::JoinRel& sJoin);
@@ -65,7 +68,8 @@ class SubstraitVeloxPlanConverter {
       const ::substrait::Plan& sPlan);
 
   /// Used to construct the function map between the index
-  /// and the Substrait function name.
+  /// and the Substrait function name. Initialize the expression
+  /// converter based on the constructed function map.
   void constructFuncMap(const ::substrait::Plan& sPlan);
 
   /// Will return the function map used by this plan converter.
@@ -371,6 +375,9 @@ class SubstraitVeloxPlanConverter {
   /// The Expression converter used to convert Substrait representations into
   /// Velox expressions.
   std::shared_ptr<SubstraitVeloxExprConverter> exprConverter_;
+
+  /// A flag used to specify validation.
+  bool validationMode_ = false;
 };
 
 } // namespace facebook::velox::substrait
