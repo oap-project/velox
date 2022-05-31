@@ -32,6 +32,7 @@ add_library(
   ChecksumAggregate.cpp
   MapAggAggregate.cpp
   MinMaxAggregates.cpp
+  MinMaxAggregates.h
   MinMaxByAggregates.cpp
   CountAggregate.cpp
   CountAggregate.h
