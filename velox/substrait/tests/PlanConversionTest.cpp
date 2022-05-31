@@ -186,7 +186,7 @@ class PlanConversionTest : public virtual HiveConnectorTestBase,
     std::unique_ptr<memory::MemoryPool> memoryPool_{
         memory::getDefaultScopedMemoryPool()};
   };
-  
+
   void SetUp() override {
     useAsyncCache_ = GetParam();
     HiveConnectorTestBase::SetUp();

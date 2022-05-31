@@ -81,6 +81,11 @@ class SubstraitVeloxExprConverter {
   std::shared_ptr<TypedVariant> toTypedVariant(
       const ::substrait::Expression::Literal& literal);
 
+  /// Convert Substrait IfThen into switch or if expression.
+  std::shared_ptr<const core::ITypedExpr> toVeloxExpr(
+      const ::substrait::Expression::IfThen& ifThenExpr,
+      const RowTypePtr& inputType);
+
  private:
   /// Memory pool.
   memory::MemoryPool* pool_;

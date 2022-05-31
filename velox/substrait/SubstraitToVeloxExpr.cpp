@@ -161,6 +161,43 @@ SubstraitVeloxExprConverter::toVeloxExpr(
 
 std::shared_ptr<const core::ITypedExpr>
 SubstraitVeloxExprConverter::toVeloxExpr(
+    const ::substrait::Expression::IfThen& ifThenExpr,
+    const RowTypePtr& inputType) {
+  VELOX_CHECK(ifThenExpr.ifs().size() > 0, "If clause expected.");
+
+  // Params are concatenated conditions and results with an optional "else" at
+  // the end, e.g. {condition1, result1, condition2, result2,..else}
+  std::vector<core::TypedExprPtr> params;
+  // If and then expressions are in pairs.
+  params.reserve(ifThenExpr.ifs().size() * 2);
+  std::optional<TypePtr> outputType = std::nullopt;
+  for (const auto& ifThen : ifThenExpr.ifs()) {
+    params.emplace_back(toVeloxExpr(ifThen.if_(), inputType));
+    const auto& thenExpr = toVeloxExpr(ifThen.then(), inputType);
+    // Get output type from the first then expression.
+    if (!outputType.has_value()) {
+      outputType = thenExpr->type();
+    }
+    params.emplace_back(thenExpr);
+  }
+
+  if (ifThenExpr.has_else_()) {
+    params.reserve(1);
+    params.emplace_back(toVeloxExpr(ifThenExpr.else_(), inputType));
+  }
+
+  VELOX_CHECK(outputType.has_value(), "Output type should be set.");
+  if (ifThenExpr.ifs().size() == 1) {
+    // If there is only one if-then clause, use if expression.
+    return std::make_shared<const core::CallTypedExpr>(
+        outputType.value(), std::move(params), "if");
+  }
+  return std::make_shared<const core::CallTypedExpr>(
+      outputType.value(), std::move(params), "switch");
+}
+
+std::shared_ptr<const core::ITypedExpr>
+SubstraitVeloxExprConverter::toVeloxExpr(
     const ::substrait::Expression& sExpr,
     const RowTypePtr& inputType) {
   std::shared_ptr<const core::ITypedExpr> veloxExpr;
@@ -174,6 +211,8 @@ SubstraitVeloxExprConverter::toVeloxExpr(
       return toVeloxExpr(sExpr.selection(), inputType);
     case ::substrait::Expression::RexTypeCase::kCast:
       return toVeloxExpr(sExpr.cast(), inputType);
+    case ::substrait::Expression::RexTypeCase::kIfThen:
+      return toVeloxExpr(sExpr.if_then(), inputType);
     default:
       VELOX_NYI(
           "Substrait conversion not supported for Expression '{}'", typeCase);
