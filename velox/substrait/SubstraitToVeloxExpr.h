@@ -34,8 +34,9 @@ class SubstraitVeloxExprConverter {
   /// into recognizable representations. functionMap: A pre-constructed map
   /// storing the relations between the function id and the function name.
   explicit SubstraitVeloxExprConverter(
+      memory::MemoryPool* pool,
       const std::unordered_map<uint64_t, std::string>& functionMap)
-      : functionMap_(functionMap) {}
+      : pool_(pool), functionMap_(functionMap) {}
 
   /// Stores the variant and its type.
   struct TypedVariant {
@@ -81,9 +82,8 @@ class SubstraitVeloxExprConverter {
       const ::substrait::Expression::Literal& literal);
 
  private:
-  // Memory pool.
-  std::unique_ptr<memory::MemoryPool> pool_{
-      memory::getDefaultScopedMemoryPool()};
+  /// Memory pool.
+  memory::MemoryPool* pool_;
 
   /// The Substrait parser used to convert Substrait representations into
   /// recognizable representations.

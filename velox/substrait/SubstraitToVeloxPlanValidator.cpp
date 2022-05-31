@@ -103,7 +103,7 @@ bool SubstraitToVeloxPlanValidator::validate(
     }
     // Try to compile the expressions. If there is any unregistred funciton or
     // mismatched type, exception will be thrown.
-    exec::ExprSet exprSet(std::move(expressions), &execCtx_);
+    exec::ExprSet exprSet(std::move(expressions), execCtx_);
   } catch (const VeloxException& err) {
     std::cout << "Validation failed for expression in ProjectRel due to:"
               << err.message() << std::endl;
@@ -146,7 +146,7 @@ bool SubstraitToVeloxPlanValidator::validate(
         exprConverter_->toVeloxExpr(sFilter.condition(), rowType));
     // Try to compile the expressions. If there is any unregistred funciton
     // or mismatched type, exception will be thrown.
-    exec::ExprSet exprSet(std::move(expressions), &execCtx_);
+    exec::ExprSet exprSet(std::move(expressions), execCtx_);
   } catch (const VeloxException& err) {
     std::cout << "Validation failed for expression in ProjectRel due to:"
               << err.message() << std::endl;
@@ -214,7 +214,7 @@ bool SubstraitToVeloxPlanValidator::validate(
     try {
       auto expression =
           exprConverter_->toVeloxExpr(sJoin.post_join_filter(), rowType);
-      exec::ExprSet exprSet({std::move(expression)}, &execCtx_);
+      exec::ExprSet exprSet({std::move(expression)}, execCtx_);
     } catch (const VeloxException& err) {
       std::cout << "Validation failed for expression in ProjectRel due to:"
                 << err.message() << std::endl;
@@ -346,7 +346,7 @@ bool SubstraitToVeloxPlanValidator::validate(const ::substrait::Plan& sPlan) {
   // Create plan converter and expression converter to help the validation.
   planConverter_->constructFuncMap(sPlan);
   exprConverter_ = std::make_shared<SubstraitVeloxExprConverter>(
-      planConverter_->getFunctionMap());
+      pool_, planConverter_->getFunctionMap());
 
   for (const auto& sRel : sPlan.relations()) {
     if (sRel.has_root()) {

@@ -577,7 +577,8 @@ void SubstraitVeloxPlanConverter::constructFuncMap(
     auto name = sFmap.name();
     functionMap_[id] = name;
   }
-  exprConverter_ = std::make_shared<SubstraitVeloxExprConverter>(functionMap_);
+  exprConverter_ =
+      std::make_shared<SubstraitVeloxExprConverter>(pool_, functionMap_);
 }
 
 std::string SubstraitVeloxPlanConverter::nextPlanNodeId() {

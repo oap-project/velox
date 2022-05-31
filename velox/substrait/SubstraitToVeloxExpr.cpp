@@ -128,10 +128,10 @@ SubstraitVeloxExprConverter::toVeloxExpr(
       VELOX_CHECK(literalType.has_value(), "Type expected.");
       // Create flat vector from the variants.
       VectorPtr vector =
-          setVectorFromVariants(literalType.value(), variants, pool_.get());
+          setVectorFromVariants(literalType.value(), variants, pool_);
       // Create array vector from the flat vector.
       ArrayVectorPtr arrayVector =
-          toArrayVector(literalType.value(), vector, pool_.get());
+          toArrayVector(literalType.value(), vector, pool_);
       // Wrap the array vector into constant vector.
       auto constantVector = BaseVector::wrapInConstant(1, 0, arrayVector);
       auto constantExpr =

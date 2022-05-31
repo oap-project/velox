@@ -65,7 +65,7 @@ VectorPtr setVectorFromVariantsByKind<TypeKind::VARCHAR>(
 VectorPtr setVectorFromVariants(
     const TypePtr& type,
     const std::vector<velox::variant>& value,
-    velox::memory::MemoryPool* pool) {
+    memory::MemoryPool* pool) {
   return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
       setVectorFromVariantsByKind, type->kind(), value, pool);
 }

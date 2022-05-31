@@ -25,8 +25,10 @@ namespace facebook::velox::substrait {
 /// This class is used to convert the Substrait plan into Velox plan.
 class SubstraitVeloxPlanConverter {
  public:
-  SubstraitVeloxPlanConverter(bool validationMode = false)
-      : validationMode_(validationMode) {}
+  SubstraitVeloxPlanConverter(
+      memory::MemoryPool* pool,
+      bool validationMode = false)
+      : pool_(pool), validationMode_(validationMode) {}
 
   /// Used to convert Substrait JoinRel into Velox PlanNode.
   std::shared_ptr<const core::PlanNode> toVeloxPlan(
@@ -134,6 +136,9 @@ class SubstraitVeloxPlanConverter {
       std::vector<const ::substrait::Expression::FieldReference*>& rightExprs);
 
  private:
+  /// Memory pool.
+  memory::MemoryPool* pool_;
+
   /// Filter info for a column used in filter push down.
   class FilterInfo {
    public:
