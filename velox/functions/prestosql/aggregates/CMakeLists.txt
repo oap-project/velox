@@ -33,6 +33,7 @@ add_library(
   HistogramAggregate.cpp
   MapAggAggregate.cpp
   MinMaxAggregates.cpp
+  MinMaxAggregates.h
   MinMaxByAggregates.cpp
   CountAggregate.cpp
   CountAggregate.h

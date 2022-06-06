@@ -19,6 +19,11 @@
 #include "velox/core/Expressions.h"
 #include "velox/substrait/SubstraitParser.h"
 
+#include "velox/type/StringView.h"
+#include "velox/vector/FlatVector.h"
+
+#include "velox/vector/ComplexVector.h"
+
 namespace facebook::velox::substrait {
 
 /// This class is used to convert Substrait representations to Velox
@@ -29,8 +34,15 @@ class SubstraitVeloxExprConverter {
   /// into recognizable representations. functionMap: A pre-constructed map
   /// storing the relations between the function id and the function name.
   explicit SubstraitVeloxExprConverter(
+      memory::MemoryPool* pool,
       const std::unordered_map<uint64_t, std::string>& functionMap)
-      : functionMap_(functionMap) {}
+      : pool_(pool), functionMap_(functionMap) {}
+
+  /// Stores the variant and its type.
+  struct TypedVariant {
+    variant veloxVariant;
+    TypePtr variantType;
+  };
 
   /// Convert Substrait Field into Velox Field Expression.
   std::shared_ptr<const core::FieldAccessTypedExpr> toVeloxExpr(
@@ -47,16 +59,42 @@ class SubstraitVeloxExprConverter {
       const ::substrait::Expression::Cast& castExpr,
       const RowTypePtr& inputType);
 
-  /// Convert Substrait Literal into Velox Expression.
+  /// Create expression for alias.
+  std::shared_ptr<const core::ITypedExpr> toAliasExpr(
+      const std::vector<std::shared_ptr<const core::ITypedExpr>>& params);
+
+  /// Create expression for is_not_null.
+  std::shared_ptr<const core::ITypedExpr> toIsNotNullExpr(
+      const std::vector<std::shared_ptr<const core::ITypedExpr>>& params,
+      const TypePtr& outputType);
+
+  /// Create expression for extract.
+  std::shared_ptr<const core::ITypedExpr> toExtractExpr(
+      const std::vector<std::shared_ptr<const core::ITypedExpr>>& params,
+      const TypePtr& outputType);
+
+  /// Used to convert Substrait Literal into Velox Expression.
   std::shared_ptr<const core::ConstantTypedExpr> toVeloxExpr(
       const ::substrait::Expression::Literal& substraitLit);
 
   /// Convert Substrait Expression into Velox Expression.
   std::shared_ptr<const core::ITypedExpr> toVeloxExpr(
-      const ::substrait::Expression& substraitExpr,
+      const ::substrait::Expression& sExpr,
+      const RowTypePtr& inputType);
+
+  /// Get variant and its type from Substrait Literal.
+  std::shared_ptr<TypedVariant> toTypedVariant(
+      const ::substrait::Expression::Literal& literal);
+
+  /// Convert Substrait IfThen into switch or if expression.
+  std::shared_ptr<const core::ITypedExpr> toVeloxExpr(
+      const ::substrait::Expression::IfThen& ifThenExpr,
       const RowTypePtr& inputType);
 
  private:
+  /// Memory pool.
+  memory::MemoryPool* pool_;
+
   /// The Substrait parser used to convert Substrait representations into
   /// recognizable representations.
   std::shared_ptr<SubstraitParser> subParser_ =

@@ -13,12 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#include <cstdint>
-#include <limits>
-#include <memory>
-
-#include "velox/common/base/Exceptions.h"
 #include "velox/type/Filter.h"
 
 namespace facebook::velox::common {
@@ -50,14 +44,11 @@ std::string Filter::toString() const {
     case FilterKind::kBigintValuesUsingBitmask:
       strKind = "BigintValuesUsingBitmask";
       break;
-    case FilterKind::kNegatedBigintValuesUsingHashTable:
-      strKind = "NegatedBigintValuesUsingHashTable";
-      break;
-    case FilterKind::kNegatedBigintValuesUsingBitmask:
-      strKind = "NegatedBigintValuesUsingBitmask";
-      break;
     case FilterKind::kDoubleRange:
       strKind = "DoubleRange";
+      break;
+    case FilterKind::kDoubleValues:
+      strKind = "DoubleValues";
       break;
     case FilterKind::kFloatRange:
       strKind = "FloatRange";
@@ -196,6 +187,103 @@ bool BigintValuesUsingHashTable::testInt64(int64_t value) const {
   return false;
 }
 
+DoubleValues::DoubleValues(
+    double min,
+    double max,
+    const std::vector<double>& values,
+    bool nullAllowed)
+    : Filter(true, nullAllowed, FilterKind::kDoubleValues),
+      min_(min),
+      max_(max) {
+  VELOX_CHECK(min < max, "min must be less than max");
+  VELOX_CHECK(values.size() > 1, "values must contain at least 2 entries");
+
+  bitmask_.resize(toInt64(max) - toInt64(min) + 1);
+
+  for (double value : values) {
+    bitmask_[toInt64(value) - toInt64(min)] = true;
+  }
+}
+
+bool DoubleValues::testDouble(double value) const {
+  if (value < min_ || value > max_) {
+    return false;
+  }
+  return bitmask_[toInt64(value) - toInt64(min_)];
+}
+
+std::vector<double> DoubleValues::values() const {
+  std::vector<double> values;
+  for (int i = 0; i < bitmask_.size(); i++) {
+    if (bitmask_[i]) {
+      values.push_back(min_ + i);
+    }
+  }
+  return values;
+}
+
+bool DoubleValues::testDoubleRange(double min, double max, bool hasNull) const {
+  if (hasNull && nullAllowed_) {
+    return true;
+  }
+
+  if (toInt64(min) == toInt64(max)) {
+    return testDouble(min);
+  }
+
+  return !(min > max_ || max < min_);
+}
+
+std::unique_ptr<Filter> DoubleValues::mergeWith(const Filter* other) const {
+  switch (other->kind()) {
+    case FilterKind::kAlwaysTrue:
+    case FilterKind::kAlwaysFalse:
+    case FilterKind::kIsNull:
+      return other->mergeWith(this);
+    case FilterKind::kIsNotNull:
+      return std::make_unique<DoubleValues>(*this, false);
+    case FilterKind::kDoubleRange: {
+      auto otherRange = dynamic_cast<const DoubleRange*>(other);
+
+      auto min = std::max(min_, otherRange->lower());
+      auto max = std::min(max_, otherRange->upper());
+
+      return mergeWith(min, max, other);
+    }
+    case FilterKind::kFloatRange: {
+      auto otherRange = dynamic_cast<const FloatRange*>(other);
+
+      auto min = std::max(min_, otherRange->lower());
+      auto max = std::min(max_, otherRange->upper());
+
+      return mergeWith(min, max, other);
+    }
+    case FilterKind::kDoubleValues: {
+      auto otherValues = dynamic_cast<const DoubleValues*>(other);
+
+      auto min = std::max(min_, otherValues->min_);
+      auto max = std::min(max_, otherValues->max_);
+
+      return mergeWith(min, max, other);
+    }
+    default:
+      VELOX_UNREACHABLE();
+  }
+}
+
+std::unique_ptr<Filter>
+DoubleValues::mergeWith(double min, double max, const Filter* other) const {
+  bool bothNullAllowed = nullAllowed_ && other->testNull();
+
+  std::vector<double> valuesToKeep;
+  for (auto i = min; i <= max; ++i) {
+    if (bitmask_[toInt64(i) - toInt64(min_)] && other->testDouble(i)) {
+      valuesToKeep.push_back(i);
+    }
+  }
+  return createDoubleValues(valuesToKeep, bothNullAllowed);
+}
+
 xsimd::batch_bool<int64_t> BigintValuesUsingHashTable::testValues(
     xsimd::batch<int64_t> x) const {
   auto outOfRange = (x < xsimd::broadcast<int64_t>(min_)) |
@@ -288,82 +376,6 @@ bool BigintValuesUsingHashTable::testInt64Range(
   return max >= *it;
 }
 
-NegatedBigintValuesUsingBitmask::NegatedBigintValuesUsingBitmask(
-    int64_t min,
-    int64_t max,
-    const std::vector<int64_t>& values,
-    bool nullAllowed)
-    : Filter(true, nullAllowed, FilterKind::kNegatedBigintValuesUsingBitmask),
-      min_(min),
-      max_(max) {
-  VELOX_CHECK(min <= max, "min must be no greater than max");
-
-  nonNegated_ = std::make_unique<BigintValuesUsingBitmask>(
-      min, max, values, !nullAllowed);
-}
-
-bool NegatedBigintValuesUsingBitmask::testInt64Range(
-    int64_t min,
-    int64_t max,
-    bool hasNull) const {
-  if (hasNull && nullAllowed_) {
-    return true;
-  }
-
-  if (min == max) {
-    return testInt64(min);
-  }
-
-  return true;
-}
-
-NegatedBigintValuesUsingHashTable::NegatedBigintValuesUsingHashTable(
-    int64_t min,
-    int64_t max,
-    const std::vector<int64_t>& values,
-    bool nullAllowed)
-    : Filter(
-          true,
-          nullAllowed,
-          FilterKind::kNegatedBigintValuesUsingHashTable) {
-  nonNegated_ = std::make_unique<BigintValuesUsingHashTable>(
-      min, max, values, !nullAllowed);
-}
-
-bool NegatedBigintValuesUsingHashTable::testInt64Range(
-    int64_t min,
-    int64_t max,
-    bool hasNull) const {
-  if (hasNull && nullAllowed_) {
-    return true;
-  }
-
-  if (min == max) {
-    return testInt64(min);
-  }
-
-  if (max > nonNegated_->max() || min < nonNegated_->min()) {
-    return true;
-  }
-
-  auto lo = std::lower_bound(
-      nonNegated_->values().begin(), nonNegated_->values().end(), min);
-  auto hi = std::lower_bound(
-      nonNegated_->values().begin(), nonNegated_->values().end(), max);
-  assert(
-      lo !=
-      nonNegated_->values().end()); // min is already tested to be <= max_.
-  if (min != *lo || max != *hi) {
-    // at least one of the endpoints of the range succeeds
-    return true;
-  }
-  // Check if all values in this range are in values_ by counting the number
-  // of things between min and max
-  // if distance is any less, then we are missing an element => something
-  // in the range is accepted
-  return (std::distance(lo, hi) != max - min);
-}
-
 namespace {
 std::unique_ptr<Filter> nullOrFalse(bool nullAllowed) {
   if (nullAllowed) {
@@ -371,26 +383,41 @@ std::unique_ptr<Filter> nullOrFalse(bool nullAllowed) {
   }
   return std::make_unique<AlwaysFalse>();
 }
+} // namespace
 
-std::unique_ptr<Filter> notNullOrTrue(bool nullAllowed) {
-  if (nullAllowed) {
-    return std::make_unique<AlwaysTrue>();
+std::unique_ptr<Filter> createDoubleValues(
+    const std::vector<double>& values,
+    bool nullAllowed) {
+  if (values.empty()) {
+    return nullOrFalse(nullAllowed);
   }
-  return std::make_unique<IsNotNull>();
+  if (values.size() == 1) {
+    return std::make_unique<DoubleRange>(
+        values.front(),
+        false,
+        false,
+        values.front(),
+        false,
+        false,
+        nullAllowed);
+  }
+  double min = values.front();
+  double max = values.front();
+  for (const auto& value : values) {
+    min = (value < min) ? value : min;
+    max = (value > max) ? value : max;
+  }
+  return std::make_unique<DoubleValues>(min, max, values, nullAllowed);
 }
 
-std::unique_ptr<Filter> createBigintValuesFilter(
+std::unique_ptr<Filter> createBigintValues(
     const std::vector<int64_t>& values,
-    bool nullAllowed,
-    bool negated) {
+    bool nullAllowed) {
   if (values.empty()) {
-    if (!negated) {
-      return nullOrFalse(nullAllowed);
-    }
-    return notNullOrTrue(nullAllowed);
+    return nullOrFalse(nullAllowed);
   }
-  // single-value filter aka ==, the != filter is handled below
-  if (values.size() == 1 && !negated) {
+
+  if (values.size() == 1) {
     return std::make_unique<BigintRange>(
         values.front(), values.front(), nullAllowed);
   }
@@ -409,61 +436,17 @@ std::unique_ptr<Filter> createBigintValuesFilter(
   int64_t range;
   bool overflow = __builtin_sub_overflow(max, min, &range);
   if (LIKELY(!overflow)) {
-    // all accepted/rejected values form one contiguous block
     if (range + 1 == values.size()) {
-      if (!negated) {
-        return std::make_unique<BigintRange>(min, max, nullAllowed);
-      }
-      std::vector<std::unique_ptr<BigintRange>> ranges;
-      ranges.reserve(2);
-      // add inclusive ranges for above and below the desired range of values
-      if (min != std::numeric_limits<int64_t>::min()) {
-        ranges.emplace_back(std::make_unique<BigintRange>(
-            std::numeric_limits<int64_t>::min(), min - 1, false));
-      }
-      if (max != std::numeric_limits<int64_t>::max()) {
-        ranges.emplace_back(std::make_unique<BigintRange>(
-            max + 1, std::numeric_limits<int64_t>::max(), false));
-      }
-      // all values are rejected
-      if (ranges.size() == 0) {
-        return nullOrFalse(nullAllowed);
-      }
-      // range above or range below does not exist
-      if (ranges.size() == 1) {
-        return std::move(ranges[0]);
-      }
-      return std::make_unique<BigintMultiRange>(std::move(ranges), nullAllowed);
+      return std::make_unique<BigintRange>(min, max, nullAllowed);
     }
 
     if (range < 32 * 64 || range < values.size() * 4 * 64) {
-      if (negated) {
-        return std::make_unique<NegatedBigintValuesUsingBitmask>(
-            min, max, values, nullAllowed);
-      }
       return std::make_unique<BigintValuesUsingBitmask>(
           min, max, values, nullAllowed);
     }
   }
-  if (negated) {
-    return std::make_unique<NegatedBigintValuesUsingHashTable>(
-        min, max, values, nullAllowed);
-  }
   return std::make_unique<BigintValuesUsingHashTable>(
       min, max, values, nullAllowed);
-}
-} // namespace
-
-std::unique_ptr<Filter> createBigintValues(
-    const std::vector<int64_t>& values,
-    bool nullAllowed) {
-  return createBigintValuesFilter(values, nullAllowed, false);
-}
-
-std::unique_ptr<Filter> createNegatedBigintValues(
-    const std::vector<int64_t>& values,
-    bool nullAllowed) {
-  return createBigintValuesFilter(values, nullAllowed, true);
 }
 
 BigintMultiRange::BigintMultiRange(
@@ -1067,21 +1050,6 @@ std::unique_ptr<Filter> BigintValuesUsingBitmask::mergeWith(
     default:
       VELOX_UNREACHABLE();
   }
-}
-
-std::unique_ptr<Filter> NegatedBigintValuesUsingHashTable::mergeWith(
-    const Filter* other) const {
-  // TODO: Add this method to merge with null and other integer filters
-  // and update other mergeWith methods to match
-  (void)other; // silence the linter for now
-  VELOX_NYI("Negated-values merge is not supported yet");
-}
-
-std::unique_ptr<Filter> NegatedBigintValuesUsingBitmask::mergeWith(
-    const Filter* other) const {
-  // TODO: Add this method to merge with null and other integer filters
-  (void)other; // silence the linter for now
-  VELOX_NYI("Negated-values merge is not supported yet");
 }
 
 std::unique_ptr<Filter> BigintValuesUsingBitmask::mergeWith(

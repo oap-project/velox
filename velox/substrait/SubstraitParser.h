@@ -37,17 +37,16 @@ class SubstraitParser {
     bool nullable;
   };
 
-  /// Parse Substrait NamedStruct.
-  std::vector<std::shared_ptr<SubstraitParser::SubstraitType>> parseNamedStruct(
+  /// Used to parse Substrait NamedStruct.
+  std::vector<std::shared_ptr<SubstraitType>> parseNamedStruct(
       const ::substrait::NamedStruct& namedStruct);
 
-  /// Parse Substrait Type.
-  std::shared_ptr<SubstraitType> parseType(
-      const ::substrait::Type& substraitType);
+  /// Used to parse Substrait Type.
+  std::shared_ptr<SubstraitType> parseType(const ::substrait::Type& sType);
 
   /// Parse Substrait ReferenceSegment.
   int32_t parseReferenceSegment(
-      const ::substrait::Expression::ReferenceSegment& refSegment);
+      const ::substrait::Expression::ReferenceSegment& sRef);
 
   /// Make names in the format of {prefix}_{index}.
   std::vector<std::string> makeNames(const std::string& prefix, int size);
@@ -58,37 +57,34 @@ class SubstraitParser {
   /// Used to get the column index from node name.
   int getIdxFromNodeName(const std::string& nodeName);
 
+  /// Find the Substrait function name according to the function id
   /// from a pre-constructed function map. The function specification can be
   /// a simple name or a compound name. The compound name format is:
   /// <function name>:<short_arg_type0>_<short_arg_type1>_..._<short_arg_typeN>.
   /// Currently, the input types in the function specification are not used. But
   /// in the future, they should be used for the validation according the
   /// specifications in Substrait yaml files.
-  const std::string& findFunctionSpec(
+  std::string findSubstraitFuncSpec(
       const std::unordered_map<uint64_t, std::string>& functionMap,
       uint64_t id) const;
 
-  /// Extracts the function name for a function from specified compound name.
+  /// This function is used to get the function name from the compound name.
   /// When the input is a simple name, it will be returned.
-  std::string getFunctionName(const std::string& functionSpec) const;
-
-  /// Extracts argument types for a function from specified compound name.
-  void getFunctionTypes(
-      const std::string& functionSpec,
-      std::vector<std::string>& types) const;
+  std::string getSubFunctionName(const std::string& subFuncSpec) const;
 
   /// This function is used get the types from the compound name.
   void getSubFunctionTypes(
       const std::string& subFuncSpec,
       std::vector<std::string>& types) const;
 
+  /// Used to find the Velox function name according to the function id
   /// from a pre-constructed function map.
   std::string findVeloxFunction(
       const std::unordered_map<uint64_t, std::string>& functionMap,
       uint64_t id) const;
 
-  /// Map the Substrait function keyword into Velox function keyword.
-  std::string mapToVeloxFunction(const std::string& substraitFunction) const;
+  /// Used to map the Substrait function key word into Velox function key word.
+  std::string mapToVeloxFunction(const std::string& subFunc) const;
 
  private:
   /// A map used for mapping Substrait function keywords into Velox functions'
@@ -103,7 +99,6 @@ class SubstraitParser {
       {"ends_with", "endswith"},
       {"starts_with", "startswith"},
       {"equal", "eq"}};
-};
 };
 
 } // namespace facebook::velox::substrait

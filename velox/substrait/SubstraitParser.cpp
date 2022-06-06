@@ -95,24 +95,23 @@ SubstraitParser::parseNamedStruct(const ::substrait::NamedStruct& namedStruct) {
   // Nte that "names" are not used.
 
   // Parse Struct.
-  const auto& substraitStruct = namedStruct.struct_();
-  const auto& substraitTypes = substraitStruct.types();
-  std::vector<std::shared_ptr<SubstraitParser::SubstraitType>>
-      substraitTypeList;
-  substraitTypeList.reserve(substraitTypes.size());
-  for (const auto& type : substraitTypes) {
+  const auto& sStruct = namedStruct.struct_();
+  const auto& sTypes = sStruct.types();
+  std::vector<std::shared_ptr<SubstraitType>> substraitTypeList;
+  substraitTypeList.reserve(sTypes.size());
+  for (const auto& type : sTypes) {
     substraitTypeList.emplace_back(parseType(type));
   }
   return substraitTypeList;
 }
 
 int32_t SubstraitParser::parseReferenceSegment(
-    const ::substrait::Expression::ReferenceSegment& refSegment) {
-  auto typeCase = refSegment.reference_type_case();
+    const ::substrait::Expression::ReferenceSegment& sRef) {
+  auto typeCase = sRef.reference_type_case();
   switch (typeCase) {
     case ::substrait::Expression::ReferenceSegment::ReferenceTypeCase::
         kStructField: {
-      return refSegment.struct_field().field();
+      return sRef.struct_field().field();
     }
     default:
       VELOX_NYI(
@@ -165,44 +164,20 @@ std::string SubstraitParser::findSubstraitFuncSpec(
   return map[id];
 }
 
-std::string SubstraitParser::getFunctionName(
-    const std::string& functionSpec) const {
+std::string SubstraitParser::getSubFunctionName(
+    const std::string& subFuncSpec) const {
   // Get the position of ":" in the function name.
-  std::size_t pos = functionSpec.find(":");
+  std::size_t pos = subFuncSpec.find(":");
   if (pos == std::string::npos) {
-    return functionSpec;
+    return subFuncSpec;
   }
-  return functionSpec.substr(0, pos);
-}
-
-void SubstraitParser::getFunctionTypes(
-    const std::string& functionSpec,
-    std::vector<std::string>& types) const {
-  types.clear();
-  // Get the position of ":" in the function name.
-  std::size_t pos = functionSpec.find(":");
-  // Get the parameter types.
-  std::string funcTypes;
-  if (pos == std::string::npos) {
-    return;
-  } else {
-    if (pos == functionSpec.size() - 1) {
-      return;
-    }
-    funcTypes = functionSpec.substr(pos + 1);
-  }
-  // Split the types with delimiter.
-  std::string delimiter = "_";
-  while ((pos = funcTypes.find(delimiter)) != std::string::npos) {
-    types.emplace_back(funcTypes.substr(0, pos));
-    funcTypes.erase(0, pos + delimiter.length());
-  }
-  types.emplace_back(funcTypes);
+  return subFuncSpec.substr(0, pos);
 }
 
 void SubstraitParser::getSubFunctionTypes(
     const std::string& subFuncSpec,
     std::vector<std::string>& types) const {
+  types.clear();
   // Get the position of ":" in the function name.
   std::size_t pos = subFuncSpec.find(":");
   // Get the parameter types.
@@ -227,9 +202,9 @@ void SubstraitParser::getSubFunctionTypes(
 std::string SubstraitParser::findVeloxFunction(
     const std::unordered_map<uint64_t, std::string>& functionMap,
     uint64_t id) const {
-  std::string funcSpec = findFunctionSpec(functionMap, id);
-  std::string funcName = getFunctionName(funcSpec);
-  return mapToVeloxFunction(funcName);
+  std::string subFuncSpec = findSubstraitFuncSpec(functionMap, id);
+  std::string subFuncName = getSubFunctionName(subFuncSpec);
+  return mapToVeloxFunction(subFuncName);
 }
 
 std::string SubstraitParser::mapToVeloxFunction(

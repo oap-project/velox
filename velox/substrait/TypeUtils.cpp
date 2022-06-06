@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/type/Type.h"
+#include "velox/substrait/TypeUtils.h"
 
 namespace facebook::velox::substrait {
 
