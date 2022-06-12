@@ -1089,15 +1089,15 @@ void SubstraitVeloxPlanConverter::createNotEqualFilter(
     variant notVariant,
     bool nullAllowed,
     std::vector<std::unique_ptr<FilterType>>& colFilters) {
-  using T = typename RangeTraits<KIND>::NativeType;
+  using NativeType = typename RangeTraits<KIND>::NativeType;
   using RangeType = typename RangeTraits<KIND>::RangeType;
 
   // Value > lower
   std::unique_ptr<FilterType> lowerFilter = std::make_unique<RangeType>(
-      notVariant.value<T>(), /*lower*/
+      notVariant.value<NativeType>(), /*lower*/
       false, /*lowerUnbounded*/
       true, /*lowerExclusive*/
-      getMax<T>(), /*upper*/
+      getMax<NativeType>(), /*upper*/
       true, /*upperUnbounded*/
       false, /*upperExclusive*/
       nullAllowed); /*nullAllowed*/
@@ -1105,10 +1105,10 @@ void SubstraitVeloxPlanConverter::createNotEqualFilter(
 
   // Value < upper
   std::unique_ptr<FilterType> upperFilter = std::make_unique<RangeType>(
-      getLowest<T>(), /*lower*/
+      getLowest<NativeType>(), /*lower*/
       true, /*lowerUnbounded*/
       false, /*lowerExclusive*/
-      notVariant.value<T>(), /*upper*/
+      notVariant.value<NativeType>(), /*upper*/
       false, /*upperUnbounded*/
       true, /*upperExclusive*/
       nullAllowed); /*nullAllowed*/
@@ -1155,6 +1155,24 @@ void SubstraitVeloxPlanConverter::setInFilter<TypeKind::BIGINT>(
 }
 
 template <>
+void SubstraitVeloxPlanConverter::setInFilter<TypeKind::INTEGER>(
+    const std::vector<variant>& variants,
+    bool nullAllowed,
+    const std::string& inputName,
+    connector::hive::SubfieldFilters& filters) {
+  // Use bigint values for int type.
+  std::vector<int64_t> values;
+  values.reserve(variants.size());
+  for (const auto& variant : variants) {
+    // Use the matched type to get value from variant.
+    int64_t value = variant.value<int32_t>();
+    values.emplace_back(value);
+  }
+  filters[common::Subfield(inputName)] =
+      common::createBigintValues(values, nullAllowed);
+}
+
+template <>
 void SubstraitVeloxPlanConverter::setInFilter<TypeKind::VARCHAR>(
     const std::vector<variant>& variants,
     bool nullAllowed,
@@ -1192,7 +1210,7 @@ void SubstraitVeloxPlanConverter::constructSubfieldFilters(
     const std::string& inputName,
     const std::shared_ptr<FilterInfo>& filterInfo,
     connector::hive::SubfieldFilters& filters) {
-  using T = typename RangeTraits<KIND>::NativeType;
+  using NativeType = typename RangeTraits<KIND>::NativeType;
   using RangeType = typename RangeTraits<KIND>::RangeType;
   using MultiRangeType = typename RangeTraits<KIND>::MultiRangeType;
 
@@ -1216,8 +1234,8 @@ void SubstraitVeloxPlanConverter::constructSubfieldFilters(
 
   // Construct the Filters.
   std::vector<std::unique_ptr<FilterType>> colFilters;
-  T lowerBound = getLowest<T>();
-  T upperBound = getMax<T>();
+  NativeType lowerBound = getLowest<NativeType>();
+  NativeType upperBound = getMax<NativeType>();
   bool lowerUnbounded = true;
   bool upperUnbounded = true;
   bool lowerExclusive = false;
@@ -1235,18 +1253,18 @@ void SubstraitVeloxPlanConverter::constructSubfieldFilters(
         filterInfo->lowerBounds_.size(), filterInfo->upperBounds_.size());
     bool nullAllowed = filterInfo->nullAllowed_;
     for (uint32_t idx = 0; idx < rangeSize; idx++) {
-      if (filterInfo->lowerBounds_.size() >= (idx + 1) &&
+      if (idx < filterInfo->lowerBounds_.size() &&
           filterInfo->lowerBounds_[idx]) {
         lowerUnbounded = false;
         variant lowerVariant = filterInfo->lowerBounds_[idx].value();
-        lowerBound = lowerVariant.value<T>();
+        lowerBound = lowerVariant.value<NativeType>();
         lowerExclusive = filterInfo->lowerExclusives_[idx];
       }
-      if (filterInfo->upperBounds_.size() >= (idx + 1) &&
+      if (idx < filterInfo->upperBounds_.size() &&
           filterInfo->upperBounds_[idx]) {
         upperUnbounded = false;
         variant upperVariant = filterInfo->upperBounds_[idx].value();
-        upperBound = upperVariant.value<T>();
+        upperBound = upperVariant.value<NativeType>();
         upperExclusive = filterInfo->upperExclusives_[idx];
       }
       std::unique_ptr<FilterType> filter = std::make_unique<RangeType>(
@@ -1275,7 +1293,7 @@ connector::hive::SubfieldFilters SubstraitVeloxPlanConverter::mapToFilters(
     auto inputType = inputTypeList[colIdx];
     switch (inputType->kind()) {
       case TypeKind::INTEGER:
-        constructSubfieldFilters<TypeKind::BIGINT, common::BigintRange>(
+        constructSubfieldFilters<TypeKind::INTEGER, common::BigintRange>(
             colIdx, inputNameList[colIdx], colInfoMap[colIdx], filters);
         break;
       case TypeKind::BIGINT:
