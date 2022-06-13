@@ -86,9 +86,11 @@ SubstraitVeloxExprConverter::toExtractExpr(
     if (!variant.hasValue()) {
       VELOX_FAIL("Value expected in variant.");
     }
-    // Extract from which field. Only year supported currently.
+    // The first parameter specifies extracting from which field.
+    // Only year is supported currently.
     std::string from = variant.value<std::string>();
 
+    // The second parameter is the function parameter.
     std::vector<std::shared_ptr<const core::ITypedExpr>> exprParams;
     exprParams.reserve(1);
     exprParams.emplace_back(params[1]);
