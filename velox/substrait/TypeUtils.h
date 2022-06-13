@@ -39,7 +39,7 @@ template <>
 struct RangeTraits<TypeKind::INTEGER> {
   using RangeType = common::BigintRange;
   using MultiRangeType = common::BigintMultiRange;
-  using NativeType = int64_t;
+  using NativeType = int32_t;
 };
 
 template <>
