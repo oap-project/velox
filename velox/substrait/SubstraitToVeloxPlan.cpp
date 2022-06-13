@@ -469,7 +469,11 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
       splitInfo->starts.emplace_back(file.start());
       splitInfo->lengths.emplace_back(file.length());
       auto format = file.format();
+<<<<<<< HEAD
       if (format == 2 || format == 3) {
+=======
+      if (format == 0) {
+>>>>>>> put the split info into struct
         splitInfo->format = dwio::common::FileFormat::ORC;
       } else if (format == 1) {
         splitInfo->format = dwio::common::FileFormat::PARQUET;
