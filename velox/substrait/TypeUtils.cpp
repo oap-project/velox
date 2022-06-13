@@ -56,6 +56,8 @@ TypePtr toVeloxType(const std::string& typeName) {
       return DOUBLE();
     case TypeKind::VARCHAR:
       return VARCHAR();
+    case TypeKind::DATE:
+      return DATE();
     default:
       VELOX_NYI("Velox type conversion not supported for type {}.", typeName);
   }
