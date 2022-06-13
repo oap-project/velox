@@ -74,6 +74,34 @@ SubstraitVeloxExprConverter::toIsNotNullExpr(
 }
 
 std::shared_ptr<const core::ITypedExpr>
+SubstraitVeloxExprConverter::toExtractExpr(
+    const std::vector<std::shared_ptr<const core::ITypedExpr>>& params,
+    const TypePtr& outputType) {
+  VELOX_CHECK_EQ(params.size(), 2);
+  auto functionArg =
+      std::dynamic_pointer_cast<const core::ConstantTypedExpr>(params[0]);
+  if (functionArg) {
+    // Get the function argument.
+    auto variant = functionArg->value();
+    if (!variant.hasValue()) {
+      VELOX_FAIL("Value expected in variant.");
+    }
+    // Extract from which field. Only year supported currently.
+    std::string from = variant.value<std::string>();
+
+    std::vector<std::shared_ptr<const core::ITypedExpr>> exprParams;
+    exprParams.reserve(1);
+    exprParams.emplace_back(params[1]);
+    if (from == "YEAR") {
+      return std::make_shared<const core::CallTypedExpr>(
+          outputType, std::move(exprParams), "year");
+    }
+    VELOX_NYI("Extract from {} not supported.", from);
+  }
+  VELOX_FAIL("Constant is expected to be the first parameter in extract.");
+}
+
+std::shared_ptr<const core::ITypedExpr>
 SubstraitVeloxExprConverter::toVeloxExpr(
     const ::substrait::Expression::ScalarFunction& sFunc,
     const RowTypePtr& inputType) {
@@ -87,12 +115,16 @@ SubstraitVeloxExprConverter::toVeloxExpr(
   const auto& veloxType =
       toVeloxType(subParser_->parseType(sFunc.output_type())->type);
 
+  if (veloxFunction == "extract") {
+    return toExtractExpr(params, veloxType);
+  }
   if (veloxFunction == "alias") {
     return toAliasExpr(params);
   }
   if (veloxFunction == "is_not_null") {
     return toIsNotNullExpr(params, veloxType);
   }
+
   return std::make_shared<const core::CallTypedExpr>(
       veloxType, std::move(params), veloxFunction);
 }

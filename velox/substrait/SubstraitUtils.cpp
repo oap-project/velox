@@ -66,7 +66,8 @@ std::shared_ptr<SubstraitParser::SubstraitType> SubstraitParser::parseType(
       break;
     }
     default:
-      VELOX_NYI("Substrait parsing for type {} not supported.", sType.kind_case());
+      VELOX_NYI(
+          "Substrait parsing for type {} not supported.", sType.kind_case());
   }
 
   bool nullable;
