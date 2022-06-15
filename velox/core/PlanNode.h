@@ -214,6 +214,62 @@ class ValuesNode : public PlanNode {
   const bool parallelizable_;
 };
 
+<<<<<<< HEAD
+=======
+class ArrowStreamNode : public PlanNode {
+ public:
+  ArrowStreamNode(
+      const PlanNodeId& id,
+      const RowTypePtr& outputType,
+      std::shared_ptr<ArrowArrayStream> arrowStream,
+      memory::MemoryPool* pool,
+      bool parallelizable = false)
+      : PlanNode(id),
+        outputType_(outputType),
+        arrowStream_(arrowStream),
+        pool_(pool),
+        parallelizable_(parallelizable) {
+    VELOX_CHECK(arrowStream != nullptr);
+  }
+
+  const RowTypePtr& outputType() const override {
+    return outputType_;
+  }
+
+  const std::vector<PlanNodePtr>& sources() const override;
+
+  bool requiresSplits() const override {
+    return true;
+  }
+
+  // For testing only.
+  bool isParallelizable() const {
+    return parallelizable_;
+  }
+
+  std::shared_ptr<ArrowArrayStream> arrowStream() const {
+    return arrowStream_;
+  }
+
+
+  memory::MemoryPool* memoryPool() const {
+    return pool_;
+  }
+
+  std::string_view name() const override {
+    return "ArrowStream";
+  }
+
+ private:
+  void addDetails(std::stringstream& stream) const override;
+
+  const RowTypePtr outputType_;
+  std::shared_ptr<ArrowArrayStream> arrowStream_;
+  memory::MemoryPool* pool_;
+  const bool parallelizable_;
+};
+
+>>>>>>> use setted pool
 class FilterNode : public PlanNode {
  public:
   FilterNode(const PlanNodeId& id, TypedExprPtr filter, PlanNodePtr source)
