@@ -470,10 +470,14 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
       splitInfo->lengths.emplace_back(file.length());
       auto format = file.format();
 <<<<<<< HEAD
+<<<<<<< HEAD
       if (format == 2 || format == 3) {
 =======
       if (format == 0) {
 >>>>>>> put the split info into struct
+=======
+      if (format == 2 || format == 3) {
+>>>>>>> add dwrf support in substrait (#21)
         splitInfo->format = dwio::common::FileFormat::ORC;
       } else if (format == 1) {
         splitInfo->format = dwio::common::FileFormat::PARQUET;
