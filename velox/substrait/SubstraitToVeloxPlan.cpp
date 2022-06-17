@@ -457,7 +457,7 @@ std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxPlan(
       splitInfo->starts.emplace_back(file.start());
       splitInfo->lengths.emplace_back(file.length());
       auto format = file.format();
-      if (format == 0) {
+      if (format == 2 || format == 3) {
         splitInfo->format = dwio::common::FileFormat::ORC;
       } else if (format == 1) {
         splitInfo->format = dwio::common::FileFormat::PARQUET;
