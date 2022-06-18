@@ -116,7 +116,7 @@ TaskCursor::TaskCursor(const CursorParameters& params)
     queryCtx = core::QueryCtx::createForTest();
   }
 
-  queue_ = std::make_shared<TaskQueue>(params.bufferedBytes);
+  queue_ = std::make_shared<TaskQueue>(params.queryCtx->pool(), params.bufferedBytes);
   // Captured as a shared_ptr by the consumer callback of task_.
   auto queue = queue_;
   core::PlanFragment planFragment{

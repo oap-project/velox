@@ -58,6 +58,11 @@ class TaskQueue {
         maxBytes_(maxBytes),
         consumerFuture_(false) {}
 
+  TaskQueue(velox::memory::MemoryPool* raw_pool, uint64_t maxBytes)
+      : raw_pool_(raw_pool),
+        maxBytes_(maxBytes),
+        consumerFuture_(false) {}
+
   void setNumProducers(int32_t n) {
     numProducers_ = n;
   }
@@ -78,11 +83,15 @@ class TaskQueue {
   bool hasNext();
 
   velox::memory::MemoryPool* pool() const {
+    if (raw_pool_ != nullptr) {
+      return raw_pool_;
+    }
     return pool_.get();
   }
 
  private:
   // Owns the vectors in 'queue_', hence must be declared first.
+  velox::memory::MemoryPool* raw_pool_;
   std::unique_ptr<velox::memory::MemoryPool> pool_;
   std::deque<TaskQueueEntry> queue_;
   std::optional<int32_t> numProducers_;

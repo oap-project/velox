@@ -37,6 +37,25 @@ class QueryCtx : public Context {
     return std::make_shared<QueryCtx>(std::move(executor), std::move(config));
   }
 
+  QueryCtx(
+      memory::MemoryPool* raw_pool,
+      std::shared_ptr<folly::Executor> executor = nullptr,
+      std::shared_ptr<Config> config = std::make_shared<MemConfig>(),
+      std::unordered_map<std::string, std::shared_ptr<Config>>
+          connectorConfigs = {},
+      memory::MappedMemory* mappedMemory = memory::MappedMemory::getInstance())
+      : Context{ContextScope::QUERY},
+        raw_pool_(raw_pool),
+        mappedMemory_(mappedMemory),
+        connectorConfigs_(connectorConfigs),
+        executor_{std::move(executor)},
+        config_{this} {
+    setConfigOverrides(config);
+    if (!raw_pool_) {
+      initPool();
+    }
+  }
+
   // QueryCtx is used in different places. When used with `Task`, it's required
   // that callers supply executors. In contrast, when used in expression
   // evaluation through `ExecCtx`, executor is not needed. Hence, we don't
@@ -87,6 +106,9 @@ class QueryCtx : public Context {
   }
 
   memory::MemoryPool* pool() const {
+    if (raw_pool_ != nullptr) {
+      return raw_pool_;
+    }
     return pool_.get();
   }
 
@@ -150,6 +172,7 @@ class QueryCtx : public Context {
 
   static constexpr const char* kQueryRootMemoryPool = "query_root";
 
+  memory::MemoryPool* raw_pool_;
   std::unique_ptr<memory::MemoryPool> pool_;
   memory::MappedMemory* mappedMemory_;
   std::unordered_map<std::string, std::shared_ptr<Config>> connectorConfigs_;
