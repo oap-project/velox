@@ -299,9 +299,7 @@ bool SubstraitToVeloxPlanValidator::validate(
 bool SubstraitToVeloxPlanValidator::validate(
     const ::substrait::ReadRel& sRead) {
   try {
-    auto splitInfo = std::make_shared<SplitInfo>();
-
-    planConverter_->toVeloxPlan(sRead, splitInfo);
+    planConverter_->toVeloxPlan(sRead);
   } catch (const VeloxException& err) {
     std::cout << "ReadRel validation failed due to:" << err.message()
               << std::endl;

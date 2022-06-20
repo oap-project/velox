@@ -414,17 +414,20 @@ std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxPlan(
 }
 
 std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxPlan(
-    const ::substrait::ReadRel& sRead,
-    std::shared_ptr<SplitInfo>& splitInfo) {
+    const ::substrait::ReadRel& sRead) {
   // Check if the ReadRel specifies an input of stream. If yes, the pre-built
   // input node will be used as the data source.
+  auto splitInfo = std::make_shared<SplitInfo>();
   auto streamIdx = streamIsInput(sRead);
   if (streamIdx >= 0) {
     if (inputNodesMap_.find(streamIdx) == inputNodesMap_.end()) {
       VELOX_FAIL(
           "Could not find source index {} in input nodes map.", streamIdx);
     }
-    return inputNodesMap_[streamIdx];
+    auto streamNode = inputNodesMap_[streamIdx];
+    splitInfo->isStream = true;
+    splitInfoMap_[streamNode->id()] = splitInfo;
+    return streamNode;
   }
 
   // Otherwise, will create TableScan node for ReadRel.
@@ -444,7 +447,7 @@ std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxPlan(
     }
   }
 
-  // Parse local files
+  // Parse local files and construct split info.
   if (sRead.has_local_files()) {
     const auto& fileList = sRead.local_files().items();
     splitInfo->paths.reserve(fileList.size());
@@ -518,6 +521,8 @@ std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxPlan(
 
   auto tableScanNode = std::make_shared<core::TableScanNode>(
       nextPlanNodeId(), outputType, tableHandle, assignments);
+  // Set split info map.
+  splitInfoMap_[tableScanNode->id()] = splitInfo;
   return tableScanNode;
 }
 
@@ -536,11 +541,7 @@ std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxPlan(
     return toVeloxPlan(sRel.join());
   }
   if (sRel.has_read()) {
-    auto splitInfo = std::make_shared<SplitInfo>();
-
-    auto planNode = toVeloxPlan(sRel.read(), splitInfo);
-    splitInfoMap_[planNode->id()] = splitInfo;
-    return planNode;
+    return toVeloxPlan(sRel.read());
   }
   VELOX_NYI("Substrait conversion not supported for Rel.");
 }

@@ -23,6 +23,9 @@
 namespace facebook::velox::substrait {
 
 struct SplitInfo {
+  /// Whether the split comes from arrow array stream node.
+  bool isStream = false;
+
   /// The Partition index.
   u_int32_t partitionIndex;
 
@@ -68,8 +71,7 @@ class SubstraitVeloxPlanConverter {
   /// Starts: the start positions in byte to read from the items.
   /// Lengths: the lengths in byte to read from the items.
   std::shared_ptr<const core::PlanNode> toVeloxPlan(
-      const ::substrait::ReadRel& sRead,
-      std::shared_ptr<SplitInfo>& splitInfo);
+      const ::substrait::ReadRel& sRead);
 
   /// Used to convert Substrait Rel into Velox PlanNode.
   std::shared_ptr<const core::PlanNode> toVeloxPlan(
