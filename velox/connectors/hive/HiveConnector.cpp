@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 #include "velox/connectors/hive/HiveConnector.h"
-
 #include <memory>
+#include "velox/dwio/common/exception/Exception.h"
 
 #include "velox/dwio/common/InputStream.h"
 #include "velox/dwio/dwrf/reader/SelectiveColumnReader.h"

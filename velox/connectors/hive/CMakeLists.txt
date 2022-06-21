@@ -14,7 +14,7 @@
 
 add_library(velox_hive_connector HiveConnector.cpp FileHandle.cpp)
 
-target_link_libraries(velox_hive_connector velox_connector
+target_link_libraries(velox_hive_connector velox_connector velox_dwio_common_exception
                       velox_dwio_dwrf_reader velox_dwio_dwrf_writer velox_file)
 
 add_library(velox_hive_partition_function HivePartitionFunction.cpp)

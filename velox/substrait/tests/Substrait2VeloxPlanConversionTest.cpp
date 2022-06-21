@@ -68,6 +68,9 @@ class Substrait2VeloxPlanConversionTest
 
   std::shared_ptr<exec::test::TempDirectoryPath> tmpDir_{
       exec::test::TempDirectoryPath::create()};
+
+  std::unique_ptr<memory::MemoryPool> memoryPool_{
+      memory::getDefaultScopedMemoryPool()};
 };
 
 // This test will firstly generate mock TPC-H lineitem ORC file. Then, Velox's
@@ -275,8 +278,8 @@ TEST_F(Substrait2VeloxPlanConversionTest, q6) {
   JsonToProtoConverter::readFromFile(planPath, substraitPlan);
 
   // Convert to Velox PlanNode.
-  facebook::velox::substrait::SubstraitVeloxPlanConverter planConverter;
-  auto planNode = planConverter.toVeloxPlan(substraitPlan, pool_.get());
+  facebook::velox::substrait::SubstraitVeloxPlanConverter planConverter(memoryPool_.get());
+  auto planNode = planConverter.toVeloxPlan(substraitPlan);
 
   auto expectedResult = makeRowVector({
       makeFlatVector<double>(1, [](auto /*row*/) { return 13613.1921; }),

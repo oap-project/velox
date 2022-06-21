@@ -146,23 +146,6 @@ class FilterInfo {
   std::vector<variant> valuesVector_;
 };
 
-struct SplitInfo {
-  /// The Partition index.
-  u_int32_t partitionIndex;
-
-  /// The file paths to be scanned.
-  std::vector<std::string> paths;
-
-  /// The file starts in the scan.
-  std::vector<u_int64_t> starts;
-
-  /// The lengths to be scanned.
-  std::vector<u_int64_t> lengths;
-
-  /// The file format of the files to be scanned.
-  dwio::common::FileFormat format;
-};
-
 /// This class is used to convert the Substrait plan into Velox plan.
 class SubstraitVeloxPlanConverter {
  public:

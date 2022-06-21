@@ -214,8 +214,6 @@ class ValuesNode : public PlanNode {
   const bool parallelizable_;
 };
 
-<<<<<<< HEAD
-=======
 class ArrowStreamNode : public PlanNode {
  public:
   ArrowStreamNode(
@@ -251,7 +249,6 @@ class ArrowStreamNode : public PlanNode {
     return arrowStream_;
   }
 
-
   memory::MemoryPool* memoryPool() const {
     return pool_;
   }
@@ -268,8 +265,6 @@ class ArrowStreamNode : public PlanNode {
   memory::MemoryPool* pool_;
   const bool parallelizable_;
 };
-
->>>>>>> use setted pool
 class FilterNode : public PlanNode {
  public:
   FilterNode(const PlanNodeId& id, TypedExprPtr filter, PlanNodePtr source)
