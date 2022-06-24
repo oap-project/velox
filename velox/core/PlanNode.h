@@ -265,6 +265,7 @@ class ArrowStreamNode : public PlanNode {
   memory::MemoryPool* pool_;
   const bool parallelizable_;
 };
+
 class FilterNode : public PlanNode {
  public:
   FilterNode(const PlanNodeId& id, TypedExprPtr filter, PlanNodePtr source)
