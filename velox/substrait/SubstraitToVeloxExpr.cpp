@@ -22,9 +22,9 @@ namespace facebook::velox::substrait {
 
 std::shared_ptr<const core::FieldAccessTypedExpr>
 SubstraitVeloxExprConverter::toVeloxExpr(
-    const ::substrait::Expression::FieldReference& substraitField,
+    const ::substrait::Expression::FieldReference& sField,
     const RowTypePtr& inputType) {
-  auto typeCase = substraitField.reference_type_case();
+  auto typeCase = sField.reference_type_case();
   switch (typeCase) {
     case ::substrait::Expression::FieldReference::ReferenceTypeCase::
         kDirectReference: {
@@ -105,11 +105,11 @@ SubstraitVeloxExprConverter::toExtractExpr(
 
 std::shared_ptr<const core::ITypedExpr>
 SubstraitVeloxExprConverter::toVeloxExpr(
-    const ::substrait::Expression::ScalarFunction& substraitFunc,
+    const ::substrait::Expression::ScalarFunction& sFunc,
     const RowTypePtr& inputType) {
   std::vector<std::shared_ptr<const core::ITypedExpr>> params;
-  params.reserve(substraitFunc.args().size());
-  for (const auto& sArg : substraitFunc.args()) {
+  params.reserve(sFunc.args().size());
+  for (const auto& sArg : sFunc.args()) {
     params.emplace_back(toVeloxExpr(sArg, inputType));
   }
   const auto& veloxFunction =
@@ -133,8 +133,8 @@ SubstraitVeloxExprConverter::toVeloxExpr(
 
 std::shared_ptr<const core::ConstantTypedExpr>
 SubstraitVeloxExprConverter::toVeloxExpr(
-    const ::substrait::Expression::Literal& substraitLit) {
-  auto typeCase = substraitLit.literal_type_case();
+    const ::substrait::Expression::Literal& sLit) {
+  auto typeCase = sLit.literal_type_case();
   switch (typeCase) {
     case ::substrait::Expression_Literal::LiteralTypeCase::kBoolean:
       return std::make_shared<core::ConstantTypedExpr>(variant(sLit.boolean()));
@@ -145,150 +145,151 @@ SubstraitVeloxExprConverter::toVeloxExpr(
     case ::substrait::Expression_Literal::LiteralTypeCase::kFp64:
       return std::make_shared<core::ConstantTypedExpr>(variant(sLit.fp64()));
     case ::substrait::Expression_Literal::LiteralTypeCase::kNull: {
-      auto veloxType =
-          toVeloxType(substraitParser_.parseType(substraitLit.null())->type);
+      auto veloxType = toVeloxType(subParser_->parseType(sLit.null())->type);
       return std::make_shared<core::ConstantTypedExpr>(
           veloxType, variant::null(veloxType->kind()));
-      case ::substrait::Expression_Literal::LiteralTypeCase::kString:
-        return std::make_shared<core::ConstantTypedExpr>(
-            toTypedVariant(sLit)->veloxVariant);
-      case ::substrait::Expression_Literal::LiteralTypeCase::kList: {
-        // List is used in 'in' expression. Will wrap a constant
-        // vector with an array vector inside to create the constant expression.
-        std::vector<variant> variants;
-        variants.reserve(sLit.list().values().size());
-        VELOX_CHECK(
-            sLit.list().values().size() > 0,
-            "List should have at least one item.");
-        std::optional<TypePtr> literalType = std::nullopt;
-        for (const auto& literal : sLit.list().values()) {
-          auto typedVariant = toTypedVariant(literal);
-          if (!literalType.has_value()) {
-            literalType = typedVariant->variantType;
-          }
-          variants.emplace_back(typedVariant->veloxVariant);
+    }
+    case ::substrait::Expression_Literal::LiteralTypeCase::kString:
+      return std::make_shared<core::ConstantTypedExpr>(
+          toTypedVariant(sLit)->veloxVariant);
+    case ::substrait::Expression_Literal::LiteralTypeCase::kList: {
+      // List is used in 'in' expression. Will wrap a constant
+      // vector with an array vector inside to create the constant expression.
+      std::vector<variant> variants;
+      variants.reserve(sLit.list().values().size());
+      VELOX_CHECK(
+          sLit.list().values().size() > 0,
+          "List should have at least one item.");
+      std::optional<TypePtr> literalType = std::nullopt;
+      for (const auto& literal : sLit.list().values()) {
+        auto typedVariant = toTypedVariant(literal);
+        if (!literalType.has_value()) {
+          literalType = typedVariant->variantType;
         }
-        VELOX_CHECK(literalType.has_value(), "Type expected.");
-        // Create flat vector from the variants.
-        VectorPtr vector =
-            setVectorFromVariants(literalType.value(), variants, pool_);
-        // Create array vector from the flat vector.
-        ArrayVectorPtr arrayVector =
-            toArrayVector(literalType.value(), vector, pool_);
-        // Wrap the array vector into constant vector.
-        auto constantVector = BaseVector::wrapInConstant(1, 0, arrayVector);
-        auto constantExpr =
-            std::make_shared<core::ConstantTypedExpr>(constantVector);
-        return constantExpr;
+        variants.emplace_back(typedVariant->veloxVariant);
       }
-      default:
-        VELOX_NYI(
-            "Substrait conversion not supported for type case '{}'", typeCase);
+      VELOX_CHECK(literalType.has_value(), "Type expected.");
+      // Create flat vector from the variants.
+      VectorPtr vector =
+          setVectorFromVariants(literalType.value(), variants, pool_);
+      // Create array vector from the flat vector.
+      ArrayVectorPtr arrayVector =
+          toArrayVector(literalType.value(), vector, pool_);
+      // Wrap the array vector into constant vector.
+      auto constantVector = BaseVector::wrapInConstant(1, 0, arrayVector);
+      auto constantExpr =
+          std::make_shared<core::ConstantTypedExpr>(constantVector);
+      return constantExpr;
     }
+    default:
+      VELOX_NYI(
+          "Substrait conversion not supported for type case '{}'", typeCase);
+  }
+}
+
+std::shared_ptr<const core::ITypedExpr>
+SubstraitVeloxExprConverter::toVeloxExpr(
+    const ::substrait::Expression::Cast& castExpr,
+    const RowTypePtr& inputType) {
+  auto substraitType = subParser_->parseType(castExpr.type());
+  auto type = toVeloxType(substraitType->type);
+  // TODO add flag in substrait after. now is set false.
+  bool nullOnFailure = false;
+
+  std::vector<core::TypedExprPtr> inputs{
+      toVeloxExpr(castExpr.input(), inputType)};
+
+  return std::make_shared<core::CastTypedExpr>(type, inputs, nullOnFailure);
+}
+
+std::shared_ptr<const core::ITypedExpr>
+SubstraitVeloxExprConverter::toVeloxExpr(
+    const ::substrait::Expression::IfThen& ifThenExpr,
+    const RowTypePtr& inputType) {
+  VELOX_CHECK(ifThenExpr.ifs().size() > 0, "If clause expected.");
+
+  // Params are concatenated conditions and results with an optional "else" at
+  // the end, e.g. {condition1, result1, condition2, result2,..else}
+  std::vector<core::TypedExprPtr> params;
+  // If and then expressions are in pairs.
+  params.reserve(ifThenExpr.ifs().size() * 2);
+  std::optional<TypePtr> outputType = std::nullopt;
+  for (const auto& ifThen : ifThenExpr.ifs()) {
+    params.emplace_back(toVeloxExpr(ifThen.if_(), inputType));
+    const auto& thenExpr = toVeloxExpr(ifThen.then(), inputType);
+    // Get output type from the first then expression.
+    if (!outputType.has_value()) {
+      outputType = thenExpr->type();
+    }
+    params.emplace_back(thenExpr);
   }
 
-  std::shared_ptr<const core::ITypedExpr>
-  SubstraitVeloxExprConverter::toVeloxExpr(
-      const ::substrait::Expression::Cast& castExpr,
-      const RowTypePtr& inputType) {
-    auto substraitType = substraitParser_.parseType(castExpr.type());
-    auto type = toVeloxType(substraitType->type);
-    // TODO add flag in substrait after. now is set false.
-    bool nullOnFailure = false;
-
-    std::vector<core::TypedExprPtr> inputs{
-        toVeloxExpr(castExpr.input(), inputType)};
-
-    return std::make_shared<core::CastTypedExpr>(type, inputs, nullOnFailure);
+  if (ifThenExpr.has_else_()) {
+    params.reserve(1);
+    params.emplace_back(toVeloxExpr(ifThenExpr.else_(), inputType));
   }
 
-  std::shared_ptr<const core::ITypedExpr>
-  SubstraitVeloxExprConverter::toVeloxExpr(
-      const ::substrait::Expression::IfThen& ifThenExpr,
-      const RowTypePtr& inputType) {
-    VELOX_CHECK(ifThenExpr.ifs().size() > 0, "If clause expected.");
-
-    // Params are concatenated conditions and results with an optional "else" at
-    // the end, e.g. {condition1, result1, condition2, result2,..else}
-    std::vector<core::TypedExprPtr> params;
-    // If and then expressions are in pairs.
-    params.reserve(ifThenExpr.ifs().size() * 2);
-    std::optional<TypePtr> outputType = std::nullopt;
-    for (const auto& ifThen : ifThenExpr.ifs()) {
-      params.emplace_back(toVeloxExpr(ifThen.if_(), inputType));
-      const auto& thenExpr = toVeloxExpr(ifThen.then(), inputType);
-      // Get output type from the first then expression.
-      if (!outputType.has_value()) {
-        outputType = thenExpr->type();
-      }
-      params.emplace_back(thenExpr);
-    }
-
-    if (ifThenExpr.has_else_()) {
-      params.reserve(1);
-      params.emplace_back(toVeloxExpr(ifThenExpr.else_(), inputType));
-    }
-
-    VELOX_CHECK(outputType.has_value(), "Output type should be set.");
-    if (ifThenExpr.ifs().size() == 1) {
-      // If there is only one if-then clause, use if expression.
-      return std::make_shared<const core::CallTypedExpr>(
-          outputType.value(), std::move(params), "if");
-    }
+  VELOX_CHECK(outputType.has_value(), "Output type should be set.");
+  if (ifThenExpr.ifs().size() == 1) {
+    // If there is only one if-then clause, use if expression.
     return std::make_shared<const core::CallTypedExpr>(
-        outputType.value(), std::move(params), "switch");
+        outputType.value(), std::move(params), "if");
   }
+  return std::make_shared<const core::CallTypedExpr>(
+      outputType.value(), std::move(params), "switch");
+}
 
-  std::shared_ptr<const core::ITypedExpr>
-  SubstraitVeloxExprConverter::toVeloxExpr(
-      const ::substrait::Expression& sExpr, const RowTypePtr& inputType) {
-    std::shared_ptr<const core::ITypedExpr> veloxExpr;
-    auto typeCase = substraitExpr.rex_type_case();
-    switch (typeCase) {
-      case ::substrait::Expression::RexTypeCase::kLiteral:
-        return toVeloxExpr(substraitExpr.literal());
-      case ::substrait::Expression::RexTypeCase::kScalarFunction:
-        return toVeloxExpr(substraitExpr.scalar_function(), inputType);
-      case ::substrait::Expression::RexTypeCase::kSelection:
-        return toVeloxExpr(substraitExpr.selection(), inputType);
-      case ::substrait::Expression::RexTypeCase::kCast:
-        return toVeloxExpr(sExpr.cast(), inputType);
-      case ::substrait::Expression::RexTypeCase::kIfThen:
-        return toVeloxExpr(sExpr.if_then(), inputType);
-      default:
-        VELOX_NYI(
-            "Substrait conversion not supported for Expression '{}'", typeCase);
-    }
+std::shared_ptr<const core::ITypedExpr>
+SubstraitVeloxExprConverter::toVeloxExpr(
+    const ::substrait::Expression& sExpr,
+    const RowTypePtr& inputType) {
+  std::shared_ptr<const core::ITypedExpr> veloxExpr;
+  auto typeCase = sExpr.rex_type_case();
+  switch (typeCase) {
+    case ::substrait::Expression::RexTypeCase::kLiteral:
+      return toVeloxExpr(sExpr.literal());
+    case ::substrait::Expression::RexTypeCase::kScalarFunction:
+      return toVeloxExpr(sExpr.scalar_function(), inputType);
+    case ::substrait::Expression::RexTypeCase::kSelection:
+      return toVeloxExpr(sExpr.selection(), inputType);
+    case ::substrait::Expression::RexTypeCase::kCast:
+      return toVeloxExpr(sExpr.cast(), inputType);
+    case ::substrait::Expression::RexTypeCase::kIfThen:
+      return toVeloxExpr(sExpr.if_then(), inputType);
+    default:
+      VELOX_NYI(
+          "Substrait conversion not supported for Expression '{}'", typeCase);
   }
+}
 
-  std::shared_ptr<SubstraitVeloxExprConverter::TypedVariant>
-  SubstraitVeloxExprConverter::toTypedVariant(
-      const ::substrait::Expression::Literal& literal) {
-    auto typeCase = literal.literal_type_case();
-    switch (typeCase) {
-      case ::substrait::Expression_Literal::LiteralTypeCase::kBoolean: {
-        TypedVariant typedVariant = {variant(literal.boolean()), BOOLEAN()};
-        return std::make_shared<TypedVariant>(typedVariant);
-      }
-      case ::substrait::Expression_Literal::LiteralTypeCase::kI32: {
-        TypedVariant typedVariant = {variant(literal.i32()), INTEGER()};
-        return std::make_shared<TypedVariant>(typedVariant);
-      }
-      case ::substrait::Expression_Literal::LiteralTypeCase::kI64: {
-        TypedVariant typedVariant = {variant(literal.i64()), BIGINT()};
-        return std::make_shared<TypedVariant>(typedVariant);
-      }
-      case ::substrait::Expression_Literal::LiteralTypeCase::kFp64: {
-        TypedVariant typedVariant = {variant(literal.fp64()), DOUBLE()};
-        return std::make_shared<TypedVariant>(typedVariant);
-      }
-      case ::substrait::Expression_Literal::LiteralTypeCase::kString: {
-        TypedVariant typedVariant = {variant(literal.string()), VARCHAR()};
-        return std::make_shared<TypedVariant>(typedVariant);
-      }
-      default:
-        VELOX_NYI("ToVariant not supported for type case '{}'", typeCase);
+std::shared_ptr<SubstraitVeloxExprConverter::TypedVariant>
+SubstraitVeloxExprConverter::toTypedVariant(
+    const ::substrait::Expression::Literal& literal) {
+  auto typeCase = literal.literal_type_case();
+  switch (typeCase) {
+    case ::substrait::Expression_Literal::LiteralTypeCase::kBoolean: {
+      TypedVariant typedVariant = {variant(literal.boolean()), BOOLEAN()};
+      return std::make_shared<TypedVariant>(typedVariant);
     }
+    case ::substrait::Expression_Literal::LiteralTypeCase::kI32: {
+      TypedVariant typedVariant = {variant(literal.i32()), INTEGER()};
+      return std::make_shared<TypedVariant>(typedVariant);
+    }
+    case ::substrait::Expression_Literal::LiteralTypeCase::kI64: {
+      TypedVariant typedVariant = {variant(literal.i64()), BIGINT()};
+      return std::make_shared<TypedVariant>(typedVariant);
+    }
+    case ::substrait::Expression_Literal::LiteralTypeCase::kFp64: {
+      TypedVariant typedVariant = {variant(literal.fp64()), DOUBLE()};
+      return std::make_shared<TypedVariant>(typedVariant);
+    }
+    case ::substrait::Expression_Literal::LiteralTypeCase::kString: {
+      TypedVariant typedVariant = {variant(literal.string()), VARCHAR()};
+      return std::make_shared<TypedVariant>(typedVariant);
+    }
+    default:
+      VELOX_NYI("ToVariant not supported for type case '{}'", typeCase);
   }
+}
 
 } // namespace facebook::velox::substrait

@@ -37,7 +37,12 @@ class FunctionTest : public ::testing::Test {
       std::make_shared<vestrait::SubstraitParser>();
 
   std::shared_ptr<vestrait::SubstraitVeloxPlanConverter> planConverter_ =
-      std::make_shared<vestrait::SubstraitVeloxPlanConverter>();
+      std::make_shared<vestrait::SubstraitVeloxPlanConverter>(
+          memoryPool_.get());
+
+ private:
+  std::unique_ptr<memory::MemoryPool> memoryPool_{
+      memory::getDefaultScopedMemoryPool()};
 };
 
 TEST_F(FunctionTest, makeNames) {
@@ -66,71 +71,80 @@ TEST_F(FunctionTest, getIdxFromNodeName) {
   ASSERT_EQ(index, 0);
 }
 
-TEST_F(FunctionTest, getFunctionName) {
+TEST_F(FunctionTest, getSubFunctionName) {
   std::string functionSpec = "lte:fp64_fp64";
-  std::string funcName = substraitParser_->getFunctionName(functionSpec);
+  std::string funcName = substraitParser_->getSubFunctionName(functionSpec);
   ASSERT_EQ(funcName, "lte");
 
   functionSpec = "lte:";
-  funcName = substraitParser_->getFunctionName(functionSpec);
+  funcName = substraitParser_->getSubFunctionName(functionSpec);
   ASSERT_EQ(funcName, "lte");
 
   functionSpec = "lte";
-  funcName = substraitParser_->getFunctionName(functionSpec);
+  funcName = substraitParser_->getSubFunctionName(functionSpec);
   ASSERT_EQ(funcName, "lte");
 }
 
-TEST_F(FunctionTest, getFunctionTypes) {
+TEST_F(FunctionTest, getSubFunctionTypes) {
   std::string functionSpec = "lte:fp64_fp64";
   std::vector<std::string> types;
-  substraitParser_->getFunctionTypes(functionSpec, types);
+  substraitParser_->getSubFunctionTypes(functionSpec, types);
   ASSERT_EQ(types.size(), 2);
   ASSERT_EQ(types[0], "fp64");
   ASSERT_EQ(types[1], "fp64");
 
   functionSpec = "lte:";
-  substraitParser_->getFunctionTypes(functionSpec, types);
+  substraitParser_->getSubFunctionTypes(functionSpec, types);
   ASSERT_EQ(types.size(), 0);
 
   functionSpec = "lte";
-  substraitParser_->getFunctionTypes(functionSpec, types);
+  substraitParser_->getSubFunctionTypes(functionSpec, types);
   ASSERT_EQ(types.size(), 0);
 }
 
-TEST_F(FunctionTest, constructFunctionMap) {
+TEST_F(FunctionTest, constructFuncMap) {
   std::string planPath =
       getDataFilePath("velox/substrait/tests", "data/q1_first_stage.json");
   ::substrait::Plan substraitPlan;
   JsonToProtoConverter::readFromFile(planPath, substraitPlan);
-  planConverter_->constructFunctionMap(substraitPlan);
+  planConverter_->constructFuncMap(substraitPlan);
 
   auto functionMap = planConverter_->getFunctionMap();
   ASSERT_EQ(functionMap.size(), 9);
 
-  std::string function = planConverter_->findFunction(0);
+  std::string function = planConverter_->findFuncSpec(0);
   ASSERT_EQ(function, "is_not_null:fp64");
 
-  function = planConverter_->findFunction(1);
+  function = planConverter_->findFuncSpec(1);
   ASSERT_EQ(function, "lte:fp64_fp64");
 
-  function = planConverter_->findFunction(2);
+  function = planConverter_->findFuncSpec(2);
   ASSERT_EQ(function, "and:bool_bool");
 
-  function = planConverter_->findFunction(3);
+  function = planConverter_->findFuncSpec(3);
   ASSERT_EQ(function, "subtract:opt_fp64_fp64");
 
-  function = planConverter_->findFunction(4);
+  function = planConverter_->findFuncSpec(4);
   ASSERT_EQ(function, "multiply:opt_fp64_fp64");
 
-  function = planConverter_->findFunction(5);
+  function = planConverter_->findFuncSpec(5);
   ASSERT_EQ(function, "add:opt_fp64_fp64");
 
-  function = planConverter_->findFunction(6);
+  function = planConverter_->findFuncSpec(6);
   ASSERT_EQ(function, "sum:opt_fp64");
 
-  function = planConverter_->findFunction(7);
+  function = planConverter_->findFuncSpec(7);
   ASSERT_EQ(function, "avg:opt_fp64");
 
-  function = planConverter_->findFunction(8);
+  function = planConverter_->findFuncSpec(8);
   ASSERT_EQ(function, "count:opt_i32");
+}
+
+TEST_F(FunctionTest, streamIsInput) {
+  std::string planPath =
+      getDataFilePath("velox/substrait/tests", "data/read_second_stage.json");
+  ::substrait::Rel substraitRel;
+  JsonToProtoConverter::readFromFile(planPath, substraitRel);
+  int index = planConverter_->streamIsInput(substraitRel.read());
+  ASSERT_EQ(index, 0);
 }

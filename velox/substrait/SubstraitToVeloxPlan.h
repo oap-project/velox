@@ -60,14 +60,10 @@ class SubstraitVeloxPlanConverter {
       const ::substrait::AggregateRel& sAgg);
 
   /// Convert Substrait ProjectRel into Velox PlanNode.
-  core::PlanNodePtr toVeloxPlan(
-      const ::substrait::ProjectRel& projectRel,
-      memory::MemoryPool* pool);
+  core::PlanNodePtr toVeloxPlan(const ::substrait::ProjectRel& projectRel);
 
   /// Convert Substrait FilterRel into Velox PlanNode.
-  core::PlanNodePtr toVeloxPlan(
-      const ::substrait::FilterRel& filterRel,
-      memory::MemoryPool* pool);
+  core::PlanNodePtr toVeloxPlan(const ::substrait::FilterRel& filterRel);
 
   /// Convert Substrait ReadRel into Velox Values Node.
   core::PlanNodePtr toVeloxPlan(
