@@ -332,19 +332,10 @@ class SubstraitVeloxPlanConverter {
       const std::vector<::substrait::Expression_ScalarFunction>&
           remainingFunctions);
 
-  /// Used to check if some of the input columns of Aggregation
-  /// should be combined into a single column. Currently, this case occurs in
-  /// final Average. The phase of Aggregation will also be set.
-  bool needsRowConstruct(
+  /// Set the phase of Aggregation.
+  void setPhase(
       const ::substrait::AggregateRel& sAgg,
       core::AggregationNode::Step& aggStep);
-
-  /// Used to convert AggregateRel into Velox plan node.
-  /// This method will add a Project node before Aggregation to combine columns.
-  std::shared_ptr<const core::PlanNode> toVeloxAggWithRowConstruct(
-      const ::substrait::AggregateRel& sAgg,
-      const std::shared_ptr<const core::PlanNode>& childNode,
-      const core::AggregationNode::Step& aggStep);
 
   /// Used to convert AggregateRel into Velox plan node.
   /// The output of child node will be used as the input of Aggregation.
