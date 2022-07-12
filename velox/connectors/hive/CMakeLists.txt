@@ -11,10 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+include_directories(${ARROW_PREFIX}/install/include)
 add_library(velox_hive_connector HiveConnector.cpp FileHandle.cpp)
 
-target_link_libraries(velox_hive_connector velox_connector velox_dwio_common_exception
+add_dependencies(velox_hive_connector arrow)
+target_link_libraries(velox_hive_connector arrow velox_connector velox_dwio_common_exception
                       velox_dwio_dwrf_reader velox_dwio_dwrf_writer velox_file)
 
 add_library(velox_hive_partition_function HivePartitionFunction.cpp)

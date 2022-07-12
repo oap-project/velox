@@ -13,10 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <arrow/c/abi.h>
 #include "velox/core/PlanNode.h"
 #include "velox/exec/Operator.h"
-
-#include "velox/vector/arrow/c/abi.h"
 
 namespace facebook::velox::exec {
 

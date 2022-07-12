@@ -14,11 +14,9 @@
  * limitations under the License.
  */
 #pragma once
-
 #include "velox/connectors/Connector.h"
 #include "velox/core/Expressions.h"
-
-#include "velox/vector/arrow/c/Bridge.h"
+#include "velox/vector/arrow/Bridge.h"
 
 namespace facebook::velox::core {
 
@@ -248,7 +246,6 @@ class ArrowStreamNode : public PlanNode {
   std::shared_ptr<ArrowArrayStream> arrowStream() const {
     return arrowStream_;
   }
-
 
   memory::MemoryPool* memoryPool() const {
     return pool_;

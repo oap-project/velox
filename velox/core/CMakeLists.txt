@@ -19,9 +19,10 @@ add_library(velox_config Context.cpp)
 target_link_libraries(velox_config ${FOLLY_WITH_DEPENDENCIES})
 
 add_library(velox_core PlanNode.cpp)
-
+add_dependencies(velox_core arrow)
 target_link_libraries(
   velox_core
+  arrow
   velox_config
   velox_expression_functions
   velox_type

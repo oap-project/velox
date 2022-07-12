@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-#include <arrow/c/abi.h>
 #include <gtest/gtest.h>
 
 #include "velox/common/base/Nulls.h"
 #include "velox/core/QueryCtx.h"
-#include "velox/vector/arrow/c/Bridge.h"
+#include "velox/vector/arrow/Bridge.h"
 #include "velox/vector/tests/VectorMaker.h"
 
 namespace {

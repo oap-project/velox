@@ -166,7 +166,7 @@ std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxPlan(
       joinType = core::JoinType::kRight;
       break;
     case ::substrait::JoinRel_JoinType::JoinRel_JoinType_JOIN_TYPE_SEMI:
-      joinType = core::JoinType::kSemi;
+      joinType = core::JoinType::kLeftSemi;
       break;
     case ::substrait::JoinRel_JoinType::JoinRel_JoinType_JOIN_TYPE_ANTI:
       joinType = core::JoinType::kAnti;
