@@ -1280,10 +1280,7 @@ class BytesRange final : public AbstractRange {
         upper_(upper),
         singleValue_(
             !lowerExclusive_ && !upperExclusive_ && !lowerUnbounded_ &&
-            !upperUnbounded_ && lower_ == upper_) {
-    // Always-true filters should be specified using AlwaysTrue.
-    VELOX_CHECK(!lowerUnbounded_ || !upperUnbounded_);
-  }
+            !upperUnbounded_ && lower_ == upper_) {}
 
   BytesRange(const BytesRange& other, bool nullAllowed)
       : AbstractRange(
