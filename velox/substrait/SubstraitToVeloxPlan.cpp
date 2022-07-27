@@ -1287,6 +1287,14 @@ void SubstraitVeloxPlanConverter::constructSubfieldFilters(
     return;
   }
 
+  // Handle null filtering.
+  if (rangeSize == 0 && !nullAllowed) {
+    std::unique_ptr<common::IsNotNull> filter =
+        std::make_unique<common::IsNotNull>();
+    filters[common::Subfield(inputName)] = std::move(filter);
+    return;
+  }
+
   // Handle other filter ranges.
   NativeType lowerBound = getLowest<NativeType>();
   NativeType upperBound = getMax<NativeType>();
@@ -1294,19 +1302,6 @@ void SubstraitVeloxPlanConverter::constructSubfieldFilters(
   bool upperUnbounded = true;
   bool lowerExclusive = false;
   bool upperExclusive = false;
-
-  // Handle null value.
-  if (rangeSize == 0 && !nullAllowed) {
-    std::unique_ptr<FilterType> filter = std::make_unique<RangeType>(
-        lowerBound,
-        lowerUnbounded,
-        lowerExclusive,
-        upperBound,
-        upperUnbounded,
-        upperExclusive,
-        nullAllowed);
-    colFilters.emplace_back(std::move(filter));
-  }
 
   for (uint32_t idx = 0; idx < rangeSize; idx++) {
     if (idx < filterInfo->lowerBounds_.size() &&
