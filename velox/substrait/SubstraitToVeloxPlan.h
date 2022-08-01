@@ -261,7 +261,7 @@ class SubstraitVeloxPlanConverter {
       const ::substrait::Expression_ScalarFunction& scalarFunction,
       const std::unordered_set<uint32_t>& inCols);
 
-  /// Returns a set of unique column indices for IN function.
+  /// Returns a set of unique column indices for IN function to be pushed down.
   std::unordered_set<uint32_t> getInColIndices(
       const std::vector<::substrait::Expression_ScalarFunction>&
           scalarFunctions);

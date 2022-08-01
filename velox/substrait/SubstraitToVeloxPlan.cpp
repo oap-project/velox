@@ -891,9 +891,14 @@ std::unordered_set<uint32_t> SubstraitVeloxPlanConverter::getInColIndices(
             functionMap_, scalarFunction.function_reference()));
 
     if (filterName == sIn) {
-      uint32_t colIdx = getColumnIndexFromIn(scalarFunction);
-      if (inCols.find(colIdx) == inCols.end()) {
-        inCols.insert(colIdx);
+      VELOX_CHECK(
+          scalarFunction.args().size() > 0, "Arg is expected for IN function.");
+      if (scalarFunction.args()[0].has_selection()) {
+        // If the arg is other types, eg., function, it cannot be pushed down.
+        uint32_t colIdx = getColumnIndexFromIn(scalarFunction);
+        if (inCols.find(colIdx) == inCols.end()) {
+          inCols.insert(colIdx);
+        }
       }
     }
   }
