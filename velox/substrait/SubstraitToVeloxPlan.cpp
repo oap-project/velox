@@ -239,6 +239,7 @@ std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxAgg(
   // Each measure represents one aggregate expression.
   std::vector<std::shared_ptr<const core::CallTypedExpr>> aggExprs;
   aggExprs.reserve(sAgg.measures().size());
+
   for (const auto& smea : sAgg.measures()) {
     const auto& aggFunction = smea.measure();
     std::string funcName = subParser_->findVeloxFunction(
