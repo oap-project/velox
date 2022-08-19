@@ -1434,6 +1434,8 @@ void SubstraitVeloxPlanConverter::constructSubfieldFilters(
 
   // Handle 'in' filter.
   if (filterInfo->valuesVector_.size() > 0) {
+    // To filter out null is a default behaviour of Spark IN expression.
+    nullAllowed = false;
     setInFilter<KIND>(
         filterInfo->valuesVector_, nullAllowed, inputName, filters);
     // Currently, In cannot coexist with other filter conditions
