@@ -338,35 +338,7 @@ bool isPushDownSupportedByFormat(
     const dwio::common::FileFormat& format,
     connector::hive::SubfieldFilters& subfieldFilters) {
   switch (format) {
-    case dwio::common::FileFormat::PARQUET: {
-      for (const auto& filter : subfieldFilters) {
-        switch (filter.second->kind()) {
-          // see ParquetReader.cpp:175
-
-          // supported
-          case common::FilterKind::kBigintRange:
-          case common::FilterKind::kDoubleRange:
-          case common::FilterKind::kBytesValues:
-          case common::FilterKind::kBytesRange:
-          case common::FilterKind::kBigintValuesUsingBitmask:
-          case common::FilterKind::kBigintValuesUsingHashTable:
-            break;
-
-          // not supported
-          case common::FilterKind::kAlwaysFalse:
-          case common::FilterKind::kAlwaysTrue:
-          case common::FilterKind::kIsNull:
-          case common::FilterKind::kIsNotNull:
-          case common::FilterKind::kBoolValue:
-          case common::FilterKind::kFloatRange:
-          case common::FilterKind::kBigintMultiRange:
-          case common::FilterKind::kMultiRange:
-          default:
-            return false;
-        }
-      }
-      break;
-    }
+    case dwio::common::FileFormat::PARQUET:
     case dwio::common::FileFormat::ORC:
     case dwio::common::FileFormat::DWRF:
     case dwio::common::FileFormat::RC:
