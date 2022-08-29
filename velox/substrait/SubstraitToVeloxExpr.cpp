@@ -143,6 +143,20 @@ SubstraitVeloxExprConverter::toVeloxExpr(
       toVeloxType(typeName), std::move(params), veloxFunction);
 }
 
+std::shared_ptr<const core::ITypedExpr>
+SubstraitVeloxExprConverter::toVeloxExpr(
+    const ::substrait::Expression::SingularOrList& singularOrList,
+    const RowTypePtr& inputType) {
+  std::vector<std::shared_ptr<const core::ITypedExpr>> params;
+  auto inLists = singularOrList.options().data()[0];
+  params.reserve(2);
+  // first is the value, second is the list
+  params.emplace_back(toVeloxExpr(singularOrList.value(), inputType));
+  params.emplace_back(toVeloxExpr(*inLists, inputType));
+  return std::make_shared<const core::CallTypedExpr>(
+      BOOLEAN(), std::move(params), "in");
+}
+
 std::shared_ptr<const core::ConstantTypedExpr>
 SubstraitVeloxExprConverter::toVeloxExpr(
     const ::substrait::Expression::Literal& substraitLit) {
@@ -273,6 +287,8 @@ SubstraitVeloxExprConverter::toVeloxExpr(
       return toVeloxExpr(sExpr.cast(), inputType);
     case ::substrait::Expression::RexTypeCase::kIfThen:
       return toVeloxExpr(sExpr.if_then(), inputType);
+    case ::substrait::Expression::RexTypeCase::kSingularOrList:
+      return toVeloxExpr(sExpr.singular_or_list(), inputType);
     default:
       VELOX_NYI(
           "Substrait conversion not supported for Expression '{}'", typeCase);
