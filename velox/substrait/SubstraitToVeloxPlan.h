@@ -293,6 +293,13 @@ class SubstraitVeloxPlanConverter {
       std::unordered_map<uint32_t, std::shared_ptr<FilterInfo>>& colInfoMap,
       bool reverse = false);
 
+  uint32_t getColumnIndexFromSingularOrList(
+    const ::substrait::Expression_SingularOrList& singularOrList);
+
+  void setSingularListValues(
+    const ::substrait::Expression_SingularOrList& singularOrList,
+    std::unordered_map<uint32_t, std::shared_ptr<FilterInfo>>& colInfoMap);
+
   /// Set the filter info for a column base on the information
   /// extracted from filter condition.
   template <typename T>
@@ -353,7 +360,8 @@ class SubstraitVeloxPlanConverter {
       const std::vector<std::string>& inputNameList,
       const std::vector<TypePtr>& inputTypeList,
       const std::vector<::substrait::Expression_ScalarFunction>&
-          subfieldFunctions);
+          subfieldFunctions,
+      const ::substrait::Expression_SingularOrList& singularOrList);
 
   /// Connect all remaining functions with 'and' relation
   /// for the use of remaingFilter in Hive Connector.

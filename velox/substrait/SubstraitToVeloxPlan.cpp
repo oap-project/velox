@@ -20,6 +20,8 @@
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
 
+#include <iostream>
+
 namespace facebook::velox::substrait {
 
 namespace {
@@ -469,7 +471,7 @@ std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxPlan(
 
     // Create the filters to be pushed down.
     connector::hive::SubfieldFilters subfieldFilters =
-        toSubfieldFilters(colNameList, veloxTypeList, subfieldFunctions);
+        toSubfieldFilters(colNameList, veloxTypeList, subfieldFunctions, sRead.filter().singular_or_list());
 
     // Connect the remaining filters with 'and'.
     std::shared_ptr<const core::ITypedExpr> remainingFilter;
@@ -574,6 +576,10 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
 
 core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
     const ::substrait::Rel& sRel) {
+  std::cout << "sleep to get the pid toVeloxPlan"<< std::endl;
+  pid_t pid = getpid();
+  printf("----------------------------------pid: %d\n", pid);
+  sleep(20);
   if (sRel.has_aggregate()) {
     return toVeloxPlan(sRel.aggregate());
   }
@@ -665,6 +671,9 @@ void SubstraitVeloxPlanConverter::flattenConditions(
       } else {
         scalarFunctions.emplace_back(sFunc);
       }
+      break;
+    }
+    case ::substrait::Expression::RexTypeCase::kSingularOrList: {
       break;
     }
     default:
@@ -779,7 +788,8 @@ connector::hive::SubfieldFilters SubstraitVeloxPlanConverter::toSubfieldFilters(
     const std::vector<std::string>& inputNameList,
     const std::vector<TypePtr>& inputTypeList,
     const std::vector<::substrait::Expression_ScalarFunction>&
-        scalarFunctions) {
+        scalarFunctions,
+    const ::substrait::Expression_SingularOrList& singularOrList) {
   // A map between the column index and the FilterInfo.
   std::unordered_map<uint32_t, std::shared_ptr<FilterInfo>> colInfoMap;
   for (uint32_t idx = 0; idx < inputTypeList.size(); idx++) {
@@ -827,6 +837,7 @@ connector::hive::SubfieldFilters SubstraitVeloxPlanConverter::toSubfieldFilters(
     }
 
     setFilterMap(scalarFunction, inputTypeList, colInfoMap);
+    setSingularListValues(singularOrList, colInfoMap);
   }
 
   // Create subfield filters based on the constructed filter info map.
@@ -1592,6 +1603,44 @@ SubstraitVeloxPlanConverter::connectWithAnd(
     idx += 1;
   }
   return remainingFilter;
+}
+
+uint32_t SubstraitVeloxPlanConverter::getColumnIndexFromSingularOrList(
+    const ::substrait::Expression_SingularOrList& singularOrList) {
+  VELOX_CHECK(
+      singularOrList.options_size() > 0,
+      "Not empty options list expected in SingularOrList expression.");
+  VELOX_CHECK(
+      singularOrList.value()
+          .has_selection(),
+      "Field expected.");
+
+  // Get the column index.
+  uint32_t colIdx = subParser_->parseReferenceSegment(
+      singularOrList.value()
+          .selection()
+          .direct_reference());
+  return colIdx;
+}
+
+void SubstraitVeloxPlanConverter::setSingularListValues(
+    const ::substrait::Expression_SingularOrList& singularOrList,
+    std::unordered_map<uint32_t, std::shared_ptr<FilterInfo>>& colInfoMap) {
+  // Get the column index.
+  uint32_t colIdx = getColumnIndexFromSingularOrList(singularOrList);
+
+  // Get the value list.
+  std::vector<variant> variants;
+  auto valuePtr = singularOrList.options().data();
+  variants.reserve(singularOrList.options_size());
+  for (int i = 0; i < singularOrList.options_size(); i++) {
+    auto expr = valuePtr[i];
+    VELOX_CHECK(expr->has_literal(), "Literal fileld expected");
+    variants.emplace_back(
+        exprConverter_->toTypedVariant(expr->literal())->veloxVariant);
+  }
+  // Set the value list to filter info.
+  colInfoMap[colIdx]->setValues(variants);
 }
 
 } // namespace facebook::velox::substrait

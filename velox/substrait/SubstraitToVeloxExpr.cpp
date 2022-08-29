@@ -17,6 +17,7 @@
 #include "velox/substrait/SubstraitToVeloxExpr.h"
 #include "velox/substrait/TypeUtils.h"
 #include "velox/substrait/VectorCreater.h"
+#include <iostream>
 
 namespace facebook::velox::substrait {
 
@@ -271,6 +272,8 @@ std::shared_ptr<const core::ITypedExpr>
 SubstraitVeloxExprConverter::toVeloxExpr(
     const ::substrait::Expression& sExpr,
     const RowTypePtr& inputType) {
+  // std::cout << "sleep to get the pid "<< std::endl;
+  // sleep(20);
   std::shared_ptr<const core::ITypedExpr> veloxExpr;
   auto typeCase = sExpr.rex_type_case();
   switch (typeCase) {
@@ -284,6 +287,8 @@ SubstraitVeloxExprConverter::toVeloxExpr(
       return toVeloxExpr(sExpr.cast(), inputType);
     case ::substrait::Expression::RexTypeCase::kIfThen:
       return toVeloxExpr(sExpr.if_then(), inputType);
+    // case ::substrait::Expression::RexTypeCase::kSingularOrList:
+    //   return toVeloxExpr(sExpr.singular_or_list(), inputType);
     default:
       VELOX_NYI(
           "Substrait conversion not supported for Expression '{}'", typeCase);
