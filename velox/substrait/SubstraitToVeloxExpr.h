@@ -54,7 +54,7 @@ class SubstraitVeloxExprConverter {
       const ::substrait::Expression::ScalarFunction& sFunc,
       const RowTypePtr& inputType);
 
-  std::shared_ptr<const core::ITypedExpr> toVeloxExpr(
+  core::TypedExprPtr toVeloxExpr(
       const ::substrait::Expression::SingularOrList& singularOrList,
       const RowTypePtr& inputType);
 

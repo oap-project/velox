@@ -351,8 +351,7 @@ bool fieldOrWithLiteral(
 
   /// Convert subfield functions into subfieldFilters to
   /// be used in Hive Connector.
-  void setSubfieldFilters(
-      std::unordered_map<uint32_t, std::shared_ptr<FilterInfo>>& colInfoMap,
+  connector::hive::SubfieldFilters toSubfieldFilters(
       const std::vector<std::string>& inputNameList,
       const std::vector<TypePtr>& inputTypeList,
       const std::vector<::substrait::Expression_ScalarFunction>&

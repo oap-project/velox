@@ -481,17 +481,14 @@ std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxPlan(
         remainingFunctions,
         subfieldrOrLists);
 
-    std::unordered_map<uint32_t, std::shared_ptr<FilterInfo>> colInfoMap;
     // Create the filters to be pushed down.
-    setSubfieldFilters(
-        colInfoMap,
+    
+    // Create subfield filters based on the constructed filter info map.
+    connector::hive::SubfieldFilters subfieldFilters = toSubfieldFilters(
         colNameList,
         veloxTypeList,
         subfieldFunctions,
         subfieldrOrLists);
-    // Create subfield filters based on the constructed filter info map.
-    connector::hive::SubfieldFilters subfieldFilters =
-        mapToFilters(colNameList, veloxTypeList, colInfoMap);
     // Connect the remaining filters with 'and'.
     std::shared_ptr<const core::ITypedExpr> remainingFilter;
 
@@ -807,13 +804,13 @@ void SubstraitVeloxPlanConverter::extractJoinKeys(
   }
 }
 
-void SubstraitVeloxPlanConverter::setSubfieldFilters(
-    std::unordered_map<uint32_t, std::shared_ptr<FilterInfo>>& colInfoMap,
+connector::hive::SubfieldFilters SubstraitVeloxPlanConverter::toSubfieldFilters(
     const std::vector<std::string>& inputNameList,
     const std::vector<TypePtr>& inputTypeList,
     const std::vector<::substrait::Expression_ScalarFunction>& scalarFunctions,
     const std::vector<::substrait::Expression_SingularOrList>&
         singularOrLists) {
+  std::unordered_map<uint32_t, std::shared_ptr<FilterInfo>> colInfoMap;
   // A map between the column index and the FilterInfo.
   for (uint32_t idx = 0; idx < inputTypeList.size(); idx++) {
     colInfoMap[idx] = std::make_shared<FilterInfo>();
@@ -876,6 +873,7 @@ void SubstraitVeloxPlanConverter::setSubfieldFilters(
   for (const auto& list : singularOrLists) {
     setSingularListValues(list, colInfoMap);
   }
+  return mapToFilters(inputNameList, inputTypeList, colInfoMap);
 }
 
 bool SubstraitVeloxPlanConverter::fieldOrWithLiteral(
@@ -1095,6 +1093,7 @@ bool SubstraitVeloxPlanConverter::canPushdownOr(
         auto type = literal.literal_type_case();
         if (type != ::substrait::Expression_Literal::LiteralTypeCase::kI32 &&
             type != ::substrait::Expression_Literal::LiteralTypeCase::kI64) {
+              
           return false;
         }
       }

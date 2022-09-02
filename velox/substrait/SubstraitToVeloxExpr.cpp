@@ -143,7 +143,7 @@ SubstraitVeloxExprConverter::toVeloxExpr(
       toVeloxType(typeName), std::move(params), veloxFunction);
 }
 
-std::shared_ptr<const core::ITypedExpr>
+core::TypedExprPtr
 SubstraitVeloxExprConverter::toVeloxExpr(
     const ::substrait::Expression::SingularOrList& singularOrList,
     const RowTypePtr& inputType) {
