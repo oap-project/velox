@@ -1663,7 +1663,6 @@ uint32_t SubstraitVeloxPlanConverter::getColumnIndexFromSingularOrList(
     selection = singularOrList.value().selection();
   }
   return subParser_->parseReferenceSegment(selection.direct_reference());
-  ;
 }
 
 void SubstraitVeloxPlanConverter::setSingularListValues(
