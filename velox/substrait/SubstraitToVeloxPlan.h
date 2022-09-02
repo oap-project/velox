@@ -234,9 +234,10 @@ class SubstraitVeloxPlanConverter {
 
   /// Returns whether the args of a scalar function being field or
   /// field with literal. If yes, extract and set the field index.
-bool fieldOrWithLiteral(
-  const ::google::protobuf::RepeatedPtrField<::substrait::FunctionArgument>& arguments,
-    uint32_t& fieldIndex);
+  bool fieldOrWithLiteral(
+      const ::google::protobuf::RepeatedPtrField<::substrait::FunctionArgument>&
+          arguments,
+      uint32_t& fieldIndex);
 
   /// Separate the functions to be two parts:
   /// subfield functions to be handled by the subfieldFilters in HiveConnector,
@@ -367,16 +368,16 @@ bool fieldOrWithLiteral(
       const std::vector<::substrait::Expression_ScalarFunction>&
           remainingFunctions);
 
-  std::shared_ptr<const core::ITypedExpr> connectWithAnd(
-      std::shared_ptr<const core::ITypedExpr> remainingFilter,
+  core::TypedExprPtr connectWithAnd(
+      core::TypedExprPtr remainingFilter,
       std::vector<std::string> inputNameList,
       std::vector<TypePtr> inputTypeList,
       const std::vector<::substrait::Expression_SingularOrList>&
           singularOrLists);
 
-  std::shared_ptr<const core::ITypedExpr> connectWithAnd(
-      std::shared_ptr<const core::ITypedExpr> filters,
-      std::shared_ptr<const core::ITypedExpr> expr);
+  core::TypedExprPtr connectWithAnd(
+      core::TypedExprPtr filters,
+      core::TypedExprPtr expr);
 
   /// Set the phase of Aggregation.
   void setPhase(

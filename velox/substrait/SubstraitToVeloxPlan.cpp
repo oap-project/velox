@@ -482,13 +482,10 @@ std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxPlan(
         subfieldrOrLists);
 
     // Create the filters to be pushed down.
-    
+
     // Create subfield filters based on the constructed filter info map.
     connector::hive::SubfieldFilters subfieldFilters = toSubfieldFilters(
-        colNameList,
-        veloxTypeList,
-        subfieldFunctions,
-        subfieldrOrLists);
+        colNameList, veloxTypeList, subfieldFunctions, subfieldrOrLists);
     // Connect the remaining filters with 'and'.
     std::shared_ptr<const core::ITypedExpr> remainingFilter;
 
@@ -1093,7 +1090,6 @@ bool SubstraitVeloxPlanConverter::canPushdownOr(
         auto type = literal.literal_type_case();
         if (type != ::substrait::Expression_Literal::LiteralTypeCase::kI32 &&
             type != ::substrait::Expression_Literal::LiteralTypeCase::kI64) {
-              
           return false;
         }
       }
@@ -1118,10 +1114,9 @@ void SubstraitVeloxPlanConverter::separateFilters(
   // Used to record the columns indices for not(equal) conditions.
   std::unordered_set<uint32_t> notEqualCols;
 
-  // Get the unique columns indices for IN condition. Only the in condition that can push down
+  // Get the unique columns indices for IN condition. Only the in condition that
+  // can push down
   std::unordered_set<uint32_t> inCols = getInColIndices(singularOrLists);
-  // only all the scalarfunction if one fieldIdx
-  bool onlyIsNotNull = false;
   for (const auto& scalarFunction : scalarFunctions) {
     auto filterNameSpec = subParser_->findSubstraitFuncSpec(
         functionMap_, scalarFunction.function_reference());
@@ -1566,8 +1561,7 @@ connector::hive::SubfieldFilters SubstraitVeloxPlanConverter::mapToFilters(
   return filters;
 }
 
-std::shared_ptr<const core::ITypedExpr>
-SubstraitVeloxPlanConverter::connectWithAnd(
+core::TypedExprPtr SubstraitVeloxPlanConverter::connectWithAnd(
     std::vector<std::string> inputNameList,
     std::vector<TypePtr> inputTypeList,
     const std::vector<::substrait::Expression_ScalarFunction>&
@@ -1576,7 +1570,7 @@ SubstraitVeloxPlanConverter::connectWithAnd(
     return nullptr;
   }
   auto inputType = ROW(std::move(inputNameList), std::move(inputTypeList));
-  std::shared_ptr<const core::ITypedExpr> remainingFilter =
+  auto remainingFilter =
       exprConverter_->toVeloxExpr(remainingFunctions[0], inputType);
   if (remainingFunctions.size() == 1) {
     return remainingFilter;
@@ -1596,9 +1590,8 @@ SubstraitVeloxPlanConverter::connectWithAnd(
   return remainingFilter;
 }
 
-std::shared_ptr<const core::ITypedExpr>
-SubstraitVeloxPlanConverter::connectWithAnd(
-    std::shared_ptr<const core::ITypedExpr> filters,
+core::TypedExprPtr SubstraitVeloxPlanConverter::connectWithAnd(
+    core::TypedExprPtr filters,
     std::vector<std::string> inputNameList,
     std::vector<TypePtr> inputTypeList,
     const std::vector<::substrait::Expression_SingularOrList>&
@@ -1607,7 +1600,7 @@ SubstraitVeloxPlanConverter::connectWithAnd(
   if (singularOrLists.size() == 0) {
     return filters;
   }
-  std::shared_ptr<const core::ITypedExpr> singularOrListFilter =
+  auto singularOrListFilter =
       exprConverter_->toVeloxExpr(singularOrLists[0], inputType);
   if (filters == nullptr) {
     filters = singularOrListFilter;
@@ -1622,11 +1615,11 @@ SubstraitVeloxPlanConverter::connectWithAnd(
   return filters;
 }
 
-std::shared_ptr<const core::ITypedExpr>
+core::TypedExprPtr
 SubstraitVeloxPlanConverter::connectWithAnd(
-    std::shared_ptr<const core::ITypedExpr> filters,
-    std::shared_ptr<const core::ITypedExpr> expr) {
-  std::vector<std::shared_ptr<const core::ITypedExpr>> params;
+    core::TypedExprPtr filters,
+    core::TypedExprPtr expr) {
+  std::vector<core::TypedExprPtr> params;
   params.reserve(2);
   params.emplace_back(filters);
   params.emplace_back(expr);
