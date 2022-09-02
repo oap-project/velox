@@ -54,6 +54,7 @@ class SubstraitVeloxExprConverter {
       const ::substrait::Expression::ScalarFunction& sFunc,
       const RowTypePtr& inputType);
 
+  /// Convert Substrait SingularOrList into Velox Expression.
   core::TypedExprPtr toVeloxExpr(
       const ::substrait::Expression::SingularOrList& singularOrList,
       const RowTypePtr& inputType);
