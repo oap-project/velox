@@ -966,7 +966,7 @@ bool SubstraitVeloxPlanConverter::canPushdownNot(
   if (supportedNotFunctions.find(functionName) != supportedNotFunctions.end() &&
       isFieldOrWithLiteral &&
       rangeRecorders.at(fieldIdx)->setCertainRangeForFunction(
-          functionName, true)) {
+          functionName, true /*reverse*/)) {
     return true;
   }
   return false;
@@ -1002,7 +1002,7 @@ bool SubstraitVeloxPlanConverter::canPushdownOr(
               supportedOrFunctions.end() ||
           !isFieldOrWithLiteral ||
           !rangeRecorders.at(fieldIdx)->setCertainRangeForFunction(
-              functionName)) {
+              functionName, false /*reverse*/, true /*forOrRelation*/)) {
         // The arg should be field or field with literal.
         return false;
       }
@@ -1013,7 +1013,7 @@ bool SubstraitVeloxPlanConverter::canPushdownOr(
       }
       uint32_t fieldIdx = getColumnIndexFromSingularOrList(singularOrList);
       // Disable IN pushdown for int-like types.
-      if (!rangeRecorders.at(fieldIdx)->setInRange()) {
+      if (!rangeRecorders.at(fieldIdx)->setInRange(true /*forOrRelation*/)) {
         return false;
       }
     } else {
