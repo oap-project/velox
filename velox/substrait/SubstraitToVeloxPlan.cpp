@@ -1588,15 +1588,13 @@ bool SubstraitVeloxPlanConverter::canPushdownSingularOrList(
     const ::substrait::Expression_SingularOrList& singularOrList,
     bool disableIntLike) {
   VELOX_CHECK(
-      singularOrList.options_size() == 1,
-      "Only one options list is expected in SingularOrList expression.");
+      singularOrList.options_size() > 0, "At least one option is expected.");
   // Check whether the value is field.
   bool hasField = singularOrList.value().has_selection();
-  // TODO: improve the logic here.
-  auto literals = singularOrList.options()[0].literal().list().values();
-  std::vector<std::string> types;
-  for (auto& literal : literals) {
-    auto type = literal.literal_type_case();
+  auto options = singularOrList.options();
+  for (const auto& option : options) {
+    VELOX_CHECK(option.has_literal(), "Literal is expected as option.");
+    auto type = option.literal().literal_type_case();
     // Only BigintValues and BytesValues are supported.
     if (type != ::substrait::Expression_Literal::LiteralTypeCase::kI32 &&
         type != ::substrait::Expression_Literal::LiteralTypeCase::kI64 &&
@@ -1633,23 +1631,19 @@ uint32_t SubstraitVeloxPlanConverter::getColumnIndexFromSingularOrList(
 void SubstraitVeloxPlanConverter::setSingularListValues(
     const ::substrait::Expression_SingularOrList& singularOrList,
     std::unordered_map<uint32_t, std::shared_ptr<FilterInfo>>& colInfoMap) {
+  VELOX_CHECK(
+      singularOrList.options_size() > 0, "At least one option is expected.");
   // Get the column index.
   uint32_t colIdx = getColumnIndexFromSingularOrList(singularOrList);
 
   // Get the value list.
+  auto options = singularOrList.options();
   std::vector<variant> variants;
-  VELOX_CHECK(
-      singularOrList.options_size() == 1,
-      "Options list size 1 expected in SingularOrList expression.");
-  auto option = singularOrList.options()[0];
-  VELOX_CHECK(
-      option.has_literal(),
-      "Options list has literal expected in SingularOrList expression.");
-  auto valueList = option.literal().list();
-  variants.reserve(valueList.values().size());
-  for (const auto& literal : valueList.values()) {
+  variants.reserve(options.size());
+  for (const auto& option : options) {
+    VELOX_CHECK(option.has_literal(), "Literal is expected as option.");
     variants.emplace_back(
-        exprConverter_->toTypedVariant(literal)->veloxVariant);
+        exprConverter_->toVeloxExpr(option.literal())->value());
   }
   // Set the value list to filter info.
   colInfoMap[colIdx]->setValues(variants);
