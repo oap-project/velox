@@ -349,6 +349,58 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
 }
 
 core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
+    const ::substrait::SortRel& sortRel) {
+  core::PlanNodePtr childNode;
+  if (sortRel.has_input()) {
+    childNode = toVeloxPlan(sortRel.input());
+  } else {
+    VELOX_FAIL("Child Rel is expected in SortRel.");
+  }
+
+  const auto& inputType = childNode->outputType();
+
+  std::vector<core::FieldAccessTypedExprPtr> sortingKeys;
+  std::vector<core::SortOrder> sortingOrders;
+
+  const auto& sorts = sortRel.sorts();
+  sortingKeys.reserve(sorts.size());
+  sortingOrders.reserve(sorts.size());
+
+  for (const auto& sort : sorts) {
+    if (sort.sort_kind_case() == 2) {
+      switch (sort.direction()) {
+        case ::substrait::
+            SortField_SortDirection_SORT_DIRECTION_ASC_NULLS_FIRST:
+          sortingOrders.emplace_back(core::kAscNullsFirst);
+          break;
+        case ::substrait::SortField_SortDirection_SORT_DIRECTION_ASC_NULLS_LAST:
+          sortingOrders.emplace_back(core::kAscNullsLast);
+          break;
+        case ::substrait::
+            SortField_SortDirection_SORT_DIRECTION_DESC_NULLS_FIRST:
+          sortingOrders.emplace_back(core::kDescNullsFirst);
+          break;
+        case ::substrait::
+            SortField_SortDirection_SORT_DIRECTION_DESC_NULLS_LAST:
+          sortingOrders.emplace_back(core::kDescNullsLast);
+          break;
+        default:
+          VELOX_FAIL("Sort direction is not support in SortRel");
+      }
+    }
+
+    if (sort.has_expr()) {
+      sortingKeys.emplace_back(
+          std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
+              exprConverter_->toVeloxExpr(sort.expr(), inputType)));
+    }
+  }
+
+  return std::make_shared<core::OrderByNode>(
+      nextPlanNodeId(), sortingKeys, sortingOrders, false, childNode);
+}
+
+core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
     const ::substrait::FilterRel& filterRel) {
   core::PlanNodePtr childNode;
   if (filterRel.has_input()) {
@@ -607,6 +659,9 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
   }
   if (sRel.has_read()) {
     return toVeloxPlan(sRel.read());
+  }
+  if (sRel.has_sort()) {
+    return toVeloxPlan(sRel.sort());
   }
   VELOX_NYI("Substrait conversion not supported for Rel.");
 }
