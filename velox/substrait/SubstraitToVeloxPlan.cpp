@@ -367,32 +367,34 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
   sortingOrders.reserve(sorts.size());
 
   for (const auto& sort : sorts) {
-    if (sort.sort_kind_case() == 2) {
-      switch (sort.direction()) {
-        case ::substrait::
-            SortField_SortDirection_SORT_DIRECTION_ASC_NULLS_FIRST:
-          sortingOrders.emplace_back(core::kAscNullsFirst);
-          break;
-        case ::substrait::SortField_SortDirection_SORT_DIRECTION_ASC_NULLS_LAST:
-          sortingOrders.emplace_back(core::kAscNullsLast);
-          break;
-        case ::substrait::
-            SortField_SortDirection_SORT_DIRECTION_DESC_NULLS_FIRST:
-          sortingOrders.emplace_back(core::kDescNullsFirst);
-          break;
-        case ::substrait::
-            SortField_SortDirection_SORT_DIRECTION_DESC_NULLS_LAST:
-          sortingOrders.emplace_back(core::kDescNullsLast);
-          break;
-        default:
-          VELOX_FAIL("Sort direction is not support in SortRel");
-      }
+    switch (sort.direction()) {
+      case ::substrait::SortField_SortDirection_SORT_DIRECTION_ASC_NULLS_FIRST:
+        sortingOrders.emplace_back(core::kAscNullsFirst);
+        break;
+      case ::substrait::SortField_SortDirection_SORT_DIRECTION_ASC_NULLS_LAST:
+        sortingOrders.emplace_back(core::kAscNullsLast);
+        break;
+      case ::substrait::SortField_SortDirection_SORT_DIRECTION_DESC_NULLS_FIRST:
+        sortingOrders.emplace_back(core::kDescNullsFirst);
+        break;
+      case ::substrait::SortField_SortDirection_SORT_DIRECTION_DESC_NULLS_LAST:
+        sortingOrders.emplace_back(core::kDescNullsLast);
+        break;
+      default:
+        VELOX_FAIL("Sort direction is not support in SortRel");
     }
 
     if (sort.has_expr()) {
+      auto expression = exprConverter_->toVeloxExpr(sort.expr(), inputType);
+      auto expr_field =
+          dynamic_cast<const core::FieldAccessTypedExpr*>(expression.get());
+      VELOX_CHECK(
+          expr_field != nullptr,
+          " the sorting key in Sort Operator only support field")
+
       sortingKeys.emplace_back(
           std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
-              exprConverter_->toVeloxExpr(sort.expr(), inputType)));
+              expression));
     }
   }
 

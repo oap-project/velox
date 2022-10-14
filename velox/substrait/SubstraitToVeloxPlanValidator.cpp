@@ -92,24 +92,25 @@ bool SubstraitToVeloxPlanValidator::validate(
 
   const auto& sorts = sSort.sorts();
   for (const auto& sort : sorts) {
-    if (sort.sort_kind_case() == 2) {
-      switch (sort.direction()) {
-        case ::substrait::
-            SortField_SortDirection_SORT_DIRECTION_ASC_NULLS_FIRST:
-        case ::substrait::SortField_SortDirection_SORT_DIRECTION_ASC_NULLS_LAST:
-        case ::substrait::
-            SortField_SortDirection_SORT_DIRECTION_DESC_NULLS_FIRST:
-        case ::substrait::
-            SortField_SortDirection_SORT_DIRECTION_DESC_NULLS_LAST:
-          break;
-        default:
-          return false;
-      }
+    switch (sort.direction()) {
+      case ::substrait::SortField_SortDirection_SORT_DIRECTION_ASC_NULLS_FIRST:
+      case ::substrait::SortField_SortDirection_SORT_DIRECTION_ASC_NULLS_LAST:
+      case ::substrait::SortField_SortDirection_SORT_DIRECTION_DESC_NULLS_FIRST:
+      case ::substrait::SortField_SortDirection_SORT_DIRECTION_DESC_NULLS_LAST:
+        break;
+      default:
+        return false;
     }
 
     if (sort.has_expr()) {
       try {
         auto expression = exprConverter_->toVeloxExpr(sort.expr(), rowType);
+        auto expr_field =
+            dynamic_cast<const core::FieldAccessTypedExpr*>(expression.get());
+        VELOX_CHECK(
+            expr_field != nullptr,
+            " the sorting key in Sort Operator only support field")
+
         exec::ExprSet exprSet({std::move(expression)}, execCtx_);
       } catch (const VeloxException& err) {
         std::cout << "Validation failed for expression in SortRel due to:"
