@@ -98,10 +98,16 @@ class AverageAggregate : public exec::Aggregate {
         auto value = decodedRaw_.valueAt<T>(0);
         rows.applyToSelected(
             [&](vector_size_t i) { updateNonNullValue(groups[i], value); });
+      } else {
+        // Spark expects the result of partial avg to be non-nullable.
+        rows.applyToSelected(
+            [&](vector_size_t i) { exec::Aggregate::clearNull(groups[i]); });
       }
     } else if (decodedRaw_.mayHaveNulls()) {
       rows.applyToSelected([&](vector_size_t i) {
         if (decodedRaw_.isNullAt(i)) {
+          // Spark expects the result of partial avg to be non-nullable.
+          exec::Aggregate::clearNull(groups[i]);
           return;
         }
         updateNonNullValue(groups[i], decodedRaw_.valueAt<T>(i));
@@ -130,11 +136,17 @@ class AverageAggregate : public exec::Aggregate {
         const T value = decodedRaw_.valueAt<T>(0);
         const auto numRows = rows.countSelected();
         updateNonNullValue(group, numRows, value * numRows);
+      } else {
+        // Spark expects the result of partial avg to be non-nullable.
+        exec::Aggregate::clearNull(group);
       }
     } else if (decodedRaw_.mayHaveNulls()) {
       rows.applyToSelected([&](vector_size_t i) {
         if (!decodedRaw_.isNullAt(i)) {
           updateNonNullValue(group, decodedRaw_.valueAt<T>(i));
+        } else {
+          // Spark expects the result of partial avg to be non-nullable.
+          exec::Aggregate::clearNull(group);
         }
       });
     } else if (!exec::Aggregate::numNulls_ && decodedRaw_.isIdentityMapping()) {
@@ -270,9 +282,15 @@ class AverageAggregate : public exec::Aggregate {
       if (isNull(group)) {
         vector->setNull(i, true);
       } else {
-        clearNull(rawNulls, i);
         auto* sumCount = accumulator(group);
-        rawValues[i] = (TResult)sumCount->sum / sumCount->count;
+        if (sumCount->count == 0) {
+          // To align with Spark, if all input are nulls, count will be 0,
+          // and the result of final avg will be null.
+          vector->setNull(i, true);
+        } else {
+          clearNull(rawNulls, i);
+          rawValues[i] = (TResult)sumCount->sum / sumCount->count;
+        }
       }
     }
   }
