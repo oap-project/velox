@@ -407,6 +407,7 @@ void exportFlat(
     case TypeKind::BIGINT:
     case TypeKind::REAL:
     case TypeKind::DOUBLE:
+    case TypeKind::DATE:
       exportValues(vec, rows, out, pool, holder);
       break;
     case TypeKind::VARCHAR:

@@ -87,7 +87,9 @@ function install_protobuf {
   wget https://github.com/protocolbuffers/protobuf/releases/download/v21.4/protobuf-all-21.4.tar.gz
   tar -xzf protobuf-all-21.4.tar.gz
   cd protobuf-21.4
-  ./configure --prefix=/usr
+  ./configure \
+      CXXFLAGS="-fPIC" \
+      --prefix=/usr
   make "-j$(nproc)"
   sudo make install
   sudo ldconfig
