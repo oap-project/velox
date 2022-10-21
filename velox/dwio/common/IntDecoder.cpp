@@ -2570,6 +2570,10 @@ void IntDecoder<isSigned>::decodeBitsLE(
     const char* bufferEnd,
     T* FOLLY_NONNULL result) {
   uint64_t mask = bits::lowMask(bitWidth);
+  if (bitWidth == 0) {
+    memset(result, 0, rows.size() * sizeof(T));
+    return;
+  }
   // We subtract rowBias * bitWidth bits from the starting position.
   bitOffset -= rowBias * bitWidth;
   if (bitOffset < 0) {
