@@ -1102,6 +1102,9 @@ std::string SubstraitVeloxPlanConverter::findFuncSpec(uint64_t id) {
 
 int32_t SubstraitVeloxPlanConverter::streamIsInput(
     const ::substrait::ReadRel& sRead) {
+  if (validationMode_) {
+    return -1;
+  }
   if (sRead.has_local_files()) {
     const auto& fileList = sRead.local_files().items();
     if (fileList.size() == 0) {
@@ -1124,9 +1127,6 @@ int32_t SubstraitVeloxPlanConverter::streamIsInput(
     } catch (const std::exception& err) {
       VELOX_FAIL(err.what());
     }
-  }
-  if (validationMode_) {
-    return -1;
   }
   VELOX_FAIL("Local file is expected.");
 }
