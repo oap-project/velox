@@ -1366,16 +1366,13 @@ void SubstraitVeloxPlanConverter::setSubfieldFilter(
     filters[common::Subfield(inputName)] = std::move(colFilters[0]);
   } else if (colFilters.size() > 1) {
     // BigintMultiRange should have been sorted
-    if (colFilters[0]->kind() ==
-        facebook::velox::common::FilterKind::kBigintRange) {
+    if (colFilters[0]->kind() == common::FilterKind::kBigintRange) {
       std::sort(
           colFilters.begin(),
           colFilters.end(),
           [](const auto& a, const auto& b) {
-            return dynamic_cast<facebook::velox::common::BigintRange*>(a.get())
-                       ->lower() <
-                dynamic_cast<facebook::velox::common::BigintRange*>(b.get())
-                    ->lower();
+            return dynamic_cast<common::BigintRange*>(a.get())->lower() <
+                dynamic_cast<common::BigintRange*>(b.get())->lower();
           });
     }
     filters[common::Subfield(inputName)] =
