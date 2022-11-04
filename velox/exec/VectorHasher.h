@@ -138,7 +138,7 @@ class VectorHasher {
   static constexpr int64_t kMaxRange = ~0UL >> 5;
   static constexpr uint64_t kRangeTooLarge = ~0UL;
   // Stop counting distinct values after this many and revert to regular hash.
-  static constexpr int32_t kMaxDistinct = 100'000;
+  static constexpr int32_t kMaxDistinct = 1L << 31;
 
   // Indicates reserving kMaxDistinct possible values when supplied as
   // reservePct to enableValueIds().
