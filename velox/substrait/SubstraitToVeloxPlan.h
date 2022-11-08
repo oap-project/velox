@@ -300,10 +300,6 @@ class SubstraitVeloxPlanConverter {
   /// one once called.
   std::string nextPlanNodeId();
 
-  bool configSetInOptimization(
-    const ::substrait::extensions::AdvancedExtension& advancedExtension,
-    const std::string& config);
-
   /// Returns whether the args of a scalar function being field or
   /// field with literal. If yes, extract and set the field index.
   bool fieldOrWithLiteral(
