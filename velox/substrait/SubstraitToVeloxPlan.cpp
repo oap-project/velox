@@ -84,6 +84,20 @@ const std::string sI32 = "i32";
 const std::string sI64 = "i64";
 } // namespace
 
+bool SubstraitVeloxPlanConverter::configSetInOptimization(
+  const ::substrait::extensions::AdvancedExtension& extension,
+  const std::string& config) {
+  if (extension.has_optimization()) {
+    std::string msg = extension.optimization().value();
+    std::size_t pos = msg.find(config);
+    if ((pos != std::string::npos) &&
+        (msg.substr(pos + config.size(), 1) == "1")) {
+      return true;
+    }
+  }
+  return false;
+}
+
 core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
     const ::substrait::JoinRel& sJoin) {
   if (!sJoin.has_left()) {
@@ -151,25 +165,27 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
       joinType = core::JoinType::kRight;
       break;
     case ::substrait::JoinRel_JoinType::JoinRel_JoinType_JOIN_TYPE_LEFT_SEMI:
-      joinType = core::JoinType::kLeftSemi;
+      // Determine the semi join type based on extracted information.
+      if (sJoin.has_advanced_extension() &&
+          configSetInOptimization(sJoin.advanced_extension(), "isExistenceJoin=")) {
+        joinType = core::JoinType::kLeftSemiProject;
+      } else {
+        joinType = core::JoinType::kLeftSemi;
+      }
       break;
     case ::substrait::JoinRel_JoinType::JoinRel_JoinType_JOIN_TYPE_RIGHT_SEMI:
-      joinType = core::JoinType::kRightSemi;
+      // Determine the semi join type based on extracted information.
+      if (sJoin.has_advanced_extension() &&
+          configSetInOptimization(sJoin.advanced_extension(), "isExistenceJoin=")) {
+        joinType = core::JoinType::kRightSemiProject;
+      } else {
+        joinType = core::JoinType::kRightSemi;
+      }
       break;
     case ::substrait::JoinRel_JoinType::JoinRel_JoinType_JOIN_TYPE_ANTI: {
       // Determine the anti join type based on extracted information.
-      bool isNullAwareAntiJoin = false;
       if (sJoin.has_advanced_extension() &&
-          sJoin.advanced_extension().has_optimization()) {
-        std::string msg = sJoin.advanced_extension().optimization().value();
-        std::string nullAwareKey = "isNullAwareAntiJoin=";
-        std::size_t pos = msg.find(nullAwareKey);
-        if ((pos != std::string::npos) &&
-            (msg.substr(pos + nullAwareKey.size(), 1) == "1")) {
-          isNullAwareAntiJoin = true;
-        }
-      }
-      if (isNullAwareAntiJoin) {
+          configSetInOptimization(sJoin.advanced_extension(), "isNullAwareAntiJoin=")) {
         joinType = core::JoinType::kNullAwareAnti;
       } else {
         joinType = core::JoinType::kAnti;
