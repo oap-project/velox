@@ -119,6 +119,19 @@ SubstraitVeloxExprConverter::toVeloxExpr(
       subParser_->findVeloxFunction(functionMap_, sFunc.function_reference());
   std::string typeName = subParser_->parseType(sFunc.output_type())->type;
 
+  // length(binary) gets incorrect result with Vanilla Spark
+  if (veloxFunction == "length") {
+    for (const auto& input : params) {
+      switch (input->type()->kind()) {
+        case TypeKind::VARBINARY: {
+          VELOX_UNSUPPORTED("Invalid from type in {}(): {}", veloxFunction, input->type());
+        }
+        default: {
+        }
+      }
+    }
+  }
+
   if (veloxFunction == "extract") {
     return toExtractExpr(std::move(params), toVeloxType(typeName));
   }
