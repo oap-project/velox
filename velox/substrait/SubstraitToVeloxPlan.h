@@ -467,12 +467,16 @@ class SubstraitVeloxPlanConverter {
       const std::shared_ptr<const core::PlanNode>& childNode,
       const core::AggregationNode::Step& aggStep);
 
+  void toFunctionNameToId();
+
   /// The unique identification for each PlanNode.
   int planNodeId_ = 0;
 
   /// The map storing the relations between the function id and the function
   /// name. Will be constructed based on the Substrait representation.
   std::unordered_map<uint64_t, std::string> functionMap_;
+
+  std::unordered_map<std::string, uint64_t> functionNameToId_;
 
   /// The map storing the split stats for each PlanNode.
   std::unordered_map<core::PlanNodeId, std::shared_ptr<SplitInfo>>

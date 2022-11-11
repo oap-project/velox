@@ -375,6 +375,15 @@ std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxAgg(
   return aggNode;
 }
 
+void SubstraitVeloxPlanConverter::toFunctionNameToId() {
+  if (functionNameToId_.size() != 0) {
+    return;
+  }
+  for (auto& [key, value] : functionMap_) {
+    functionNameToId_[value] = key;
+  }
+}
+
 core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
     const ::substrait::ProjectRel& sProject) {
   core::PlanNodePtr childNode;
@@ -858,6 +867,87 @@ std::string SubstraitVeloxPlanConverter::nextPlanNodeId() {
   return id;
 }
 
+namespace {
+const std::string kOr = "or";
+
+uint32_t newScalarFunction(
+    std::unordered_map<std::string, std::uint64_t>& functionMap,
+    const std::string& functionName) {
+  if (functionMap.find(functionName) == functionMap.end()) {
+    auto functionId = functionMap.size();
+    functionMap.emplace(functionName, functionId);
+    return functionId;
+  } else {
+    return functionMap.at(functionName);
+  }
+}
+
+const ::substrait::Expression& makeExpression(
+    google::protobuf::Arena& arena,
+    ::substrait::Expression_ScalarFunction* function) {
+  ::substrait::Expression* expr =
+      google::protobuf::Arena::CreateMessage<::substrait::Expression>(&arena);
+  expr->set_allocated_scalar_function(function);
+  return *expr;
+}
+
+const ::substrait::Expression& makeExpression(
+    google::protobuf::Arena& arena,
+    ::substrait::Expression_SingularOrList* list) {
+  ::substrait::Expression* expr =
+      google::protobuf::Arena::CreateMessage<::substrait::Expression>(&arena);
+  expr->set_allocated_singular_or_list(list);
+  return *expr;
+}
+
+const ::substrait::Expression& makeOrFunction(
+    google::protobuf::Arena& arena,
+    std::unordered_map<std::string, std::uint64_t>& functionMap,
+    const ::substrait::Expression& left,
+    const ::substrait::Expression& right) {
+  ::substrait::Expression* orExpr =
+      google::protobuf::Arena::CreateMessage<::substrait::Expression>(&arena);
+  auto orFunc = orExpr->mutable_scalar_function();
+  orFunc->set_function_reference(newScalarFunction(functionMap, kOr));
+  orFunc->add_arguments()->mutable_value()->MergeFrom(left);
+  orFunc->add_arguments()->mutable_value()->MergeFrom(right);
+
+  ::substrait::Type* type =
+      google::protobuf::Arena::CreateMessage<::substrait::Type>(&arena);
+  ::substrait::Type_Boolean* boolType =
+      google::protobuf::Arena::CreateMessage<::substrait::Type_Boolean>(&arena);
+  ;
+  type->set_allocated_bool_(boolType);
+
+  orFunc->set_allocated_output_type(type);
+  return *orExpr;
+}
+
+const ::substrait::Expression_ScalarFunction& connectWithOr(
+    google::protobuf::Arena& arena,
+    std::unordered_map<std::string, std::uint64_t>& functionMap,
+    ::substrait::Expression& origin,
+    std::vector<::substrait::Expression_ScalarFunction>& scalarFunctions,
+    std::vector<::substrait::Expression_SingularOrList>& singularOrLists) {
+  for (auto scalarFunc : scalarFunctions) {
+    auto expr = makeExpression(arena, &scalarFunc);
+    origin = makeOrFunction(
+        arena, functionMap, const_cast<::substrait::Expression&>(origin), expr);
+  }
+
+  for (auto list : singularOrLists) {
+    auto expr = makeExpression(arena, &list);
+    origin = makeOrFunction(
+        arena, functionMap, const_cast<::substrait::Expression&>(origin), expr);
+  }
+  VELOX_CHECK(
+      origin.has_scalar_function(),
+      "connectWithOr should have inupu scalar function or singularOrList");
+  return origin.scalar_function();
+}
+
+} // namespace
+
 void SubstraitVeloxPlanConverter::flattenConditions(
     const ::substrait::Expression& substraitFilter,
     std::vector<::substrait::Expression_ScalarFunction>& scalarFunctions,
@@ -881,6 +971,52 @@ void SubstraitVeloxPlanConverter::flattenConditions(
     }
     case ::substrait::Expression::RexTypeCase::kSingularOrList: {
       singularOrLists.emplace_back(substraitFilter.singular_or_list());
+      break;
+    }
+    // case when
+    case ::substrait::Expression::RexTypeCase::kIfThen: {
+      auto ifs = substraitFilter.if_then().ifs();
+      VELOX_CHECK_GT(ifs.size(), 0);
+      std::vector<::substrait::Expression_ScalarFunction> scalarFunctionsIf;
+      std::vector<::substrait::Expression_SingularOrList> singularOrListsIf;
+      for (auto it = ifs.begin(); it != ifs.end(); it++) {
+        flattenConditions(it->if_(), scalarFunctionsIf, singularOrListsIf);
+      }
+
+      // connect with or function
+      if (scalarFunctionsIf.size() != 0) {
+        auto first = scalarFunctionsIf[0];
+        scalarFunctionsIf.erase(scalarFunctionsIf.begin());
+        if (scalarFunctionsIf.size() != 0) {
+          google::protobuf::Arena* arena = first.GetArena();
+          auto origin = makeExpression(*arena, &first);
+          scalarFunctions.emplace_back(connectWithOr(
+              *arena,
+              functionNameToId_,
+              origin,
+              scalarFunctionsIf,
+              singularOrListsIf));
+        } else {
+          scalarFunctions.emplace_back(first);
+        }
+      } else if (singularOrListsIf.size() != 0) {
+        auto first = singularOrListsIf[0];
+        singularOrListsIf.erase(singularOrListsIf.begin());
+        if (singularOrListsIf.size() != 0) {
+          auto arena = first.GetArena();
+          auto origin = makeExpression(*arena, &first);
+          scalarFunctions.emplace_back(connectWithOr(
+              *arena,
+              functionNameToId_,
+              origin,
+              scalarFunctionsIf,
+              singularOrListsIf));
+        } else {
+          singularOrLists.emplace_back(first);
+        }
+      } else {
+        VELOX_NYI("GetFlatConditions not find if then expression");
+      }
       break;
     }
     default:
