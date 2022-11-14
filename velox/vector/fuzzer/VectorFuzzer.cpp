@@ -16,6 +16,7 @@
 
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
+#include <boost/random/uniform_int_distribution.hpp>
 #include <fmt/format.h>
 #include <codecvt>
 #include <locale>
@@ -34,6 +35,32 @@ namespace {
 // the dependency on DWRF.
 constexpr int64_t MAX_NANOS = 1'000'000'000;
 
+// Structure to help temporary changes to Options. This objects saves the
+// current state of the Options object, and restores it when it's destructed.
+// For instance, if you would like to temporarily disable nulls for a particular
+// recursive call:
+//
+//  {
+//    ScopedOptions scopedOptions(this);
+//    opts_.nullRatio = 0;
+//    // perhaps change other opts_ values.
+//    vector = fuzzFlat(...);
+//  }
+//  // At this point, opts_ would have the original values again.
+//
+struct ScopedOptions {
+  explicit ScopedOptions(VectorFuzzer* fuzzer)
+      : fuzzer(fuzzer), savedOpts(fuzzer->getOptions()) {}
+
+  ~ScopedOptions() {
+    fuzzer->setOptions(savedOpts);
+  }
+
+  // Stores a copy of Options so we can restore at destruction time.
+  VectorFuzzer* fuzzer;
+  VectorFuzzer::Options savedOpts;
+};
+
 // Generate random values for the different supported types.
 template <typename T>
 T rand(FuzzerGenerator&) {
@@ -42,67 +69,65 @@ T rand(FuzzerGenerator&) {
 
 template <>
 int8_t rand(FuzzerGenerator& rng) {
-  return folly::Random::rand32(rng);
+  return boost::random::uniform_int_distribution<int8_t>()(rng);
 }
 
 template <>
 int16_t rand(FuzzerGenerator& rng) {
-  return folly::Random::rand32(rng);
+  return boost::random::uniform_int_distribution<int16_t>()(rng);
 }
 
 template <>
 int32_t rand(FuzzerGenerator& rng) {
-  return folly::Random::rand32(rng);
+  return boost::random::uniform_int_distribution<int32_t>()(rng);
 }
 
 template <>
 int64_t rand(FuzzerGenerator& rng) {
-  return folly::Random::rand32(rng);
+  return boost::random::uniform_int_distribution<int64_t>()(rng);
 }
 
 template <>
 double rand(FuzzerGenerator& rng) {
-  return folly::Random::randDouble01(rng);
+  return boost::random::uniform_01<double>()(rng);
 }
 
 template <>
 float rand(FuzzerGenerator& rng) {
-  return folly::Random::randDouble01(rng);
+  return boost::random::uniform_01<float>()(rng);
 }
 
 template <>
 bool rand(FuzzerGenerator& rng) {
-  return folly::Random::oneIn(2, rng);
+  return boost::random::uniform_int_distribution<uint32_t>(0, 1)(rng);
 }
 
 template <>
 uint32_t rand(FuzzerGenerator& rng) {
-  return folly::Random::rand32(rng);
+  return boost::random::uniform_int_distribution<uint32_t>()(rng);
 }
 
 Timestamp randTimestamp(
     FuzzerGenerator& rng,
     bool useMicrosecondPrecisionTimestamp = false) {
   return useMicrosecondPrecisionTimestamp
-      ? Timestamp::fromMicros(folly::Random::rand32(rng))
-      : Timestamp(
-            folly::Random::rand32(rng),
-            (folly::Random::rand32(rng) % MAX_NANOS));
+      ? Timestamp::fromMicros(rand<int64_t>(rng))
+      : Timestamp(rand<int32_t>(rng), (rand<int64_t>(rng) % MAX_NANOS));
 }
 
 Date randDate(FuzzerGenerator& rng) {
-  return Date(folly::Random::rand32(rng));
+  return Date(rand<int32_t>(rng));
 }
 
 IntervalDayTime randIntervalDayTime(FuzzerGenerator& rng) {
-  return IntervalDayTime(folly::Random::rand64(rng));
+  return IntervalDayTime(rand<int64_t>(rng));
 }
 
 size_t genContainerLength(
     const VectorFuzzer::Options& opts,
     FuzzerGenerator& rng) {
   return opts.containerVariableLength
-      ? folly::Random::rand32(rng) % opts.containerLength
+      ? rand<uint32_t>(rng) % opts.containerLength
       : opts.containerLength;
 }
 
@@ -164,7 +189,7 @@ StringView randString(
   buf.clear();
   std::u16string wbuf;
   const size_t stringLength = opts.stringVariableLength
-      ? folly::Random::rand32(rng) % opts.stringLength
+      ? rand<uint32_t>(rng) % opts.stringLength
       : opts.stringLength;
   wbuf.resize(stringLength);
 
@@ -267,20 +292,29 @@ class VectorLoaderWrap : public VectorLoader {
 
 } // namespace
 
-VectorPtr VectorFuzzer::fuzz(const TypePtr& type) {
-  return fuzz(type, opts_.vectorSize, opts_.allowLazyVector);
+VectorPtr VectorFuzzer::fuzzNotNull(const TypePtr& type) {
+  return fuzzNotNull(type, opts_.vectorSize);
 }
 
-VectorPtr
-VectorFuzzer::fuzz(const TypePtr& type, vector_size_t size, bool canBeLazy) {
+VectorPtr VectorFuzzer::fuzzNotNull(const TypePtr& type, vector_size_t size) {
+  ScopedOptions restorer(this);
+  opts_.nullRatio = 0;
+  return fuzz(type, size);
+}
+
+VectorPtr VectorFuzzer::fuzz(const TypePtr& type) {
+  return fuzz(type, opts_.vectorSize);
+}
+
+VectorPtr VectorFuzzer::fuzz(const TypePtr& type, vector_size_t size) {
   VectorPtr vector;
   vector_size_t vectorSize = size;
 
-  bool usingLazyVector = canBeLazy && coinToss(0.1);
+  bool usingLazyVector = opts_.allowLazyVector && coinToss(0.1);
   // Lazy Vectors cannot be sliced, so we skip this if using lazy wrapping.
   if (!usingLazyVector && coinToss(0.1)) {
     // Extend the underlying vector to allow slicing later.
-    vectorSize += folly::Random::rand32(8, rng_);
+    vectorSize += rand<uint32_t>(rng_) % 8;
   }
 
   // 20% chance of adding a constant vector.
@@ -292,7 +326,7 @@ VectorFuzzer::fuzz(const TypePtr& type, vector_size_t size, bool canBeLazy) {
   }
 
   if (vectorSize > size) {
-    auto offset = folly::Random::rand32(vectorSize - size + 1, rng_);
+    auto offset = rand<uint32_t>(rng_) % (vectorSize - size + 1);
     vector = vector->slice(offset, size);
   }
 
@@ -304,11 +338,11 @@ VectorFuzzer::fuzz(const TypePtr& type, vector_size_t size, bool canBeLazy) {
   while (coinToss(0.5)) {
     vectorSize = size;
     if (!usingLazyVector && vectorSize > 0 && coinToss(0.05)) {
-      vectorSize += folly::Random::rand32(8, rng_);
+      vectorSize += rand<uint32_t>(rng_) % 8;
     }
     vector = fuzzDictionary(vector, vectorSize);
     if (vectorSize > size) {
-      auto offset = folly::Random::rand32(vectorSize - size + 1, rng_);
+      auto offset = rand<uint32_t>(rng_) % (vectorSize - size + 1);
       vector = vector->slice(offset, size);
     }
   }
@@ -341,14 +375,29 @@ VectorPtr VectorFuzzer::fuzzConstant(const TypePtr& type, vector_size_t size) {
   // generated inner vector.
 
   // Inner vector size can't be zero.
-  auto innerVectorSize = folly::Random::rand32(1, opts_.vectorSize + 1, rng_);
+  auto innerVectorSize = rand<uint32_t>(rng_) % opts_.vectorSize + 1;
   auto constantIndex = rand<vector_size_t>(rng_) % innerVectorSize;
+
+  ScopedOptions restorer(this);
+  opts_.allowLazyVector = false;
   return BaseVector::wrapInConstant(
-      size, constantIndex, fuzz(type, innerVectorSize, false /*canBeLazy*/));
+      size, constantIndex, fuzz(type, innerVectorSize));
 }
 
 VectorPtr VectorFuzzer::fuzzFlat(const TypePtr& type) {
   return fuzzFlat(type, opts_.vectorSize);
+}
+
+VectorPtr VectorFuzzer::fuzzFlatNotNull(const TypePtr& type) {
+  return fuzzFlatNotNull(type, opts_.vectorSize);
+}
+
+VectorPtr VectorFuzzer::fuzzFlatNotNull(
+    const TypePtr& type,
+    vector_size_t size) {
+  ScopedOptions restorer(this);
+  opts_.nullRatio = 0;
+  return fuzzFlat(type, size);
 }
 
 VectorPtr VectorFuzzer::fuzzFlat(const TypePtr& type, vector_size_t size) {
@@ -365,7 +414,10 @@ VectorPtr VectorFuzzer::fuzzFlat(const TypePtr& type, vector_size_t size) {
   // Maps.
   else if (type->isMap()) {
     return fuzzMap(
-        fuzzFlat(type->asMap().keyType(), size * opts_.containerLength),
+        opts_.normalizeMapKeys
+            ? fuzzFlatNotNull(
+                  type->asMap().keyType(), size * opts_.containerLength)
+            : fuzzFlat(type->asMap().keyType(), size * opts_.containerLength),
         fuzzFlat(type->asMap().valueType(), size * opts_.containerLength),
         size);
   }
@@ -411,32 +463,25 @@ VectorPtr VectorFuzzer::fuzzFlatPrimitive(
 }
 
 VectorPtr VectorFuzzer::fuzzComplex(const TypePtr& type, vector_size_t size) {
+  ScopedOptions restorer(this);
+  opts_.allowLazyVector = false;
+
   switch (type->kind()) {
     case TypeKind::ROW:
-      return fuzzRow(
-          std::dynamic_pointer_cast<const RowType>(type),
-          size,
-          opts_.containerHasNulls,
-          false /*canChildrenBeLazy*/);
+      return fuzzRow(std::dynamic_pointer_cast<const RowType>(type), size);
 
     case TypeKind::ARRAY:
       return fuzzArray(
-          fuzz(
-              type->asArray().elementType(),
-              size * opts_.containerLength,
-              false /*canBeLazy*/),
+          fuzz(type->asArray().elementType(), size * opts_.containerLength),
           size);
 
     case TypeKind::MAP:
       return fuzzMap(
-          fuzz(
-              type->asMap().keyType(),
-              size * opts_.containerLength,
-              false /*canBeLazy*/),
-          fuzz(
-              type->asMap().valueType(),
-              size * opts_.containerLength,
-              false /*canBeLazy*/),
+          opts_.normalizeMapKeys
+              ? fuzzNotNull(
+                    type->asMap().keyType(), size * opts_.containerLength)
+              : fuzz(type->asMap().keyType(), size * opts_.containerLength),
+          fuzz(type->asMap().valueType(), size * opts_.containerLength),
           size);
 
     default:
@@ -488,7 +533,7 @@ void VectorFuzzer::fuzzOffsetsAndSizes(
     // containerAvgLength (so that the average of generated containers size is
     // equal to number of input elements).
     if (opts_.containerVariableLength) {
-      length = folly::Random::rand32(rng_) % (containerAvgLength * 2);
+      length = rand<uint32_t>(rng_) % (containerAvgLength * 2);
     } else {
       length = containerAvgLength;
     }
@@ -517,6 +562,46 @@ ArrayVectorPtr VectorFuzzer::fuzzArray(
       elements);
 }
 
+VectorPtr VectorFuzzer::normalizeMapKeys(
+    const VectorPtr& keys,
+    size_t mapSize,
+    BufferPtr& offsets,
+    BufferPtr& sizes) {
+  // Map keys cannot be null.
+  const auto& nulls = keys->nulls();
+  if (nulls) {
+    VELOX_CHECK_EQ(
+        BaseVector::countNulls(nulls, 0, keys->size()),
+        0,
+        "Map keys cannot be null when opt.normalizeMapKeys is true");
+  }
+
+  auto rawOffsets = offsets->as<vector_size_t>();
+  auto rawSizes = sizes->asMutable<vector_size_t>();
+
+  // Looks for duplicate key values.
+  std::unordered_set<uint64_t> set;
+  for (size_t i = 0; i < mapSize; ++i) {
+    set.clear();
+
+    for (size_t j = 0; j < rawSizes[i]; ++j) {
+      vector_size_t idx = rawOffsets[i] + j;
+      uint64_t hash = keys->hashValueAt(idx);
+
+      // If we find the same hash (either same key value or hash colision), we
+      // cut it short by reducing this element's map size. This should not
+      // happen frequently.
+      auto it = set.find(hash);
+      if (it != set.end()) {
+        rawSizes[i] = j;
+        break;
+      }
+      set.insert(hash);
+    }
+  }
+  return keys;
+}
+
 MapVectorPtr VectorFuzzer::fuzzMap(
     const VectorPtr& keys,
     const VectorPtr& values,
@@ -531,8 +616,15 @@ MapVectorPtr VectorFuzzer::fuzzMap(
       size,
       offsets,
       sizes,
-      keys,
+      opts_.normalizeMapKeys ? normalizeMapKeys(keys, size, offsets, sizes)
+                             : keys,
       values);
+}
+
+RowVectorPtr VectorFuzzer::fuzzInputRow(const RowTypePtr& rowType) {
+  ScopedOptions restorer(this);
+  opts_.containerHasNulls = false;
+  return fuzzRow(rowType, opts_.vectorSize);
 }
 
 RowVectorPtr VectorFuzzer::fuzzRow(
@@ -554,24 +646,20 @@ RowVectorPtr VectorFuzzer::fuzzRow(
 }
 
 RowVectorPtr VectorFuzzer::fuzzRow(const RowTypePtr& rowType) {
-  return fuzzRow(
-      rowType,
-      opts_.vectorSize,
-      opts_.containerHasNulls,
-      false /*canChildrenBeLazy*/);
+  ScopedOptions restorer(this);
+  opts_.allowLazyVector = false;
+  return fuzzRow(rowType, opts_.vectorSize);
 }
 
 RowVectorPtr VectorFuzzer::fuzzRow(
     const RowTypePtr& rowType,
-    vector_size_t size,
-    bool rowHasNulls,
-    bool canChildrenBeLazy) {
+    vector_size_t size) {
   std::vector<VectorPtr> children;
   for (auto i = 0; i < rowType->size(); ++i) {
-    children.push_back(fuzz(rowType->childAt(i), size, canChildrenBeLazy));
+    children.push_back(fuzz(rowType->childAt(i), size));
   }
 
-  auto nulls = rowHasNulls ? fuzzNulls(size) : nullptr;
+  auto nulls = opts_.containerHasNulls ? fuzzNulls(size) : nullptr;
   return std::make_shared<RowVector>(
       pool_, rowType, nulls, size, std::move(children));
 }
@@ -609,10 +697,10 @@ TypePtr VectorFuzzer::randType(int maxDepth) {
   static constexpr int kNumScalarTypes =
       sizeof(kScalarTypes) / sizeof(kScalarTypes[0]);
   // Should we generate a scalar type?
-  if (maxDepth <= 1 || folly::Random::rand32(2, rng_)) {
-    return kScalarTypes[folly::Random::rand32(kNumScalarTypes, rng_)];
+  if (maxDepth <= 1 || rand<bool>(rng_)) {
+    return kScalarTypes[rand<uint32_t>(rng_) % kNumScalarTypes];
   }
-  switch (folly::Random::rand32(3, rng_)) {
+  switch (rand<uint32_t>(rng_) % 3) {
     case 0:
       return MAP(randType(0), randType(maxDepth - 1));
     case 1:
@@ -623,7 +711,7 @@ TypePtr VectorFuzzer::randType(int maxDepth) {
 }
 
 RowTypePtr VectorFuzzer::randRowType(int maxDepth) {
-  int numFields = folly::Random::rand32(rng_) % 7;
+  int numFields = rand<uint32_t>(rng_) % 7;
   std::vector<std::string> names;
   std::vector<TypePtr> fields;
   for (int i = 0; i < numFields; ++i) {

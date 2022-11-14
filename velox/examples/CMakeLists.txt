@@ -37,7 +37,8 @@ target_link_libraries(
   velox_exec
   velox_exec_test_lib
   velox_hive_connector
-  velox_memory)
+  velox_memory
+  velox_vector_test_lib)
 
 add_executable(velox_example_scan_orc ScanOrc.cpp)
 
@@ -49,3 +50,8 @@ target_link_libraries(
   velox_exec_test_lib
   velox_hive_connector
   velox_memory)
+
+add_executable(velox_example_vector_reader_writer VectorReaderWriter.cpp)
+
+target_link_libraries(velox_example_vector_reader_writer velox_expression
+                      velox_type velox_vector)

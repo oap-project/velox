@@ -33,7 +33,6 @@ add_library(
   GreatestLeast.cpp
   InPredicate.cpp
   Map.cpp
-  MapConcat.cpp
   MapEntries.cpp
   MapKeysAndValues.cpp
   MapZipWith.cpp
@@ -63,7 +62,8 @@ target_link_libraries(
   velox_expression
   md5
   velox_type_tz
-  velox_presto_types)
+  velox_presto_types
+  velox_functions_util)
 
 set_property(TARGET velox_functions_prestosql_impl PROPERTY JOB_POOL_COMPILE
                                                             high_memory_pool)

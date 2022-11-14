@@ -50,11 +50,34 @@ void saveStringToFile(
 /// Deserializes a vector serialized by 'save' from the provided input stream.
 VectorPtr restoreVector(
     std::istream& in,
-    memory::MemoryPool* FOLLY_NULLABLE pool);
+    memory::MemoryPool* FOLLY_NONNULL pool);
 
-/// Generates a file path in specified directory. Returns std::nullopt on
-/// failure.
+/// Reads and deserializes a vector from a file stored by saveVectorToFile()
+/// method call
+VectorPtr restoreVectorFromFile(
+    const char* FOLLY_NONNULL filePath,
+    memory::MemoryPool* FOLLY_NONNULL pool);
+
+/// Reads a string from a file stored by saveStringToFile() method
+std::string restoreStringFromFile(const char* FOLLY_NONNULL filePath);
+
+/// Generates a file path in specified directory and creates it. Returns
+/// std::nullopt on failure.
 std::optional<std::string> generateFilePath(
     const char* FOLLY_NONNULL basePath,
     const char* FOLLY_NONNULL prefix);
+
+/// Generates a folder path in specified directory and creates it. Returns
+/// std::nullopt on failure.
+std::optional<std::string> generateFolderPath(
+    const char* FOLLY_NONNULL basePath,
+    const char* FOLLY_NONNULL prefix);
+
+// Write the vector to a file. Contents would include the size of the list
+// followed by all the values.
+template <typename T>
+void saveVectorTofile(
+    const std::vector<T>& list,
+    const char* FOLLY_NONNULL filePath);
+
 } // namespace facebook::velox

@@ -15,6 +15,8 @@
  */
 
 #include <folly/Benchmark.h>
+#include <folly/init/Init.h>
+
 #include <gflags/gflags.h>
 
 #include "velox/functions/Registerer.h"
@@ -99,8 +101,8 @@ class SimpleArithmeticBenchmark
     inputType_ = ROW({
         {"a", DOUBLE()},
         {"b", DOUBLE()},
-        {"c", BIGINT()},
-        {"d", BIGINT()},
+        {"c", INTEGER()},
+        {"d", INTEGER()},
         {"constant", DOUBLE()},
         {"half_null", DOUBLE()},
     });
@@ -120,8 +122,8 @@ class SimpleArithmeticBenchmark
     std::vector<VectorPtr> children;
     children.emplace_back(fuzzer.fuzzFlat(DOUBLE())); // A
     children.emplace_back(fuzzer.fuzzFlat(DOUBLE())); // B
-    children.emplace_back(fuzzer.fuzzFlat(BIGINT())); // C
-    children.emplace_back(fuzzer.fuzzFlat(BIGINT())); // D
+    children.emplace_back(fuzzer.fuzzFlat(INTEGER())); // C
+    children.emplace_back(fuzzer.fuzzFlat(INTEGER())); // D
     children.emplace_back(fuzzer.fuzzConstant(DOUBLE())); // Constant
 
     opts.nullRatio = 0.5; // 50%
@@ -329,6 +331,7 @@ BENCHMARK_MULTI(plusCheckedLarge, n) {
 } // namespace
 
 int main(int argc, char* argv[]) {
+  folly::init(&argc, &argv);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   benchmark = std::make_unique<SimpleArithmeticBenchmark>();

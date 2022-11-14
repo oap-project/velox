@@ -116,12 +116,9 @@ std::string makeOperatorSpillPath(
     int driverId,
     int32_t operatorId);
 
-/// Generates the spiller config for a given operator if the disk spilling is
-/// enabled, otherwise returns null.
-std::optional<Spiller::Config> makeOperatorSpillConfig(
-    const core::QueryCtx& queryCtx,
-    const OperatorCtx& operatorCtx,
-    const char* FOLLY_NONNULL spillConfigPropertyName,
-    int32_t operatorId);
-
+/// Add a named runtime metric to operator 'stats'.
+void addOperatorRuntimeStats(
+    const std::string& name,
+    const RuntimeCounter& value,
+    std::unordered_map<std::string, RuntimeMetric>& stats);
 } // namespace facebook::velox::exec

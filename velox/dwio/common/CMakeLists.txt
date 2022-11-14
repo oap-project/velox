@@ -24,6 +24,7 @@ endif()
 add_library(
   velox_dwio_common
   BitConcatenation.cpp
+  BitPackDecoder.cpp
   BufferedInput.cpp
   CachedBufferedInput.cpp
   CacheInputStream.cpp
@@ -34,6 +35,7 @@ add_library(
   DecoderUtil.cpp
   DirectDecoder.cpp
   DwioMetricsLog.cpp
+  FlatMapHelper.cpp
   InputStream.cpp
   IntDecoder.cpp
   IoStatistics.cpp

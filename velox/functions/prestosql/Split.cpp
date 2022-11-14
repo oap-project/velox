@@ -130,8 +130,7 @@ class SplitFunction : public exec::VectorFunction {
         } else {
           auto pex = std::make_exception_ptr(
               std::invalid_argument("Limit must be positive"));
-          rows.applyToSelected(
-              [&](vector_size_t row) { context.setError(row, pex); });
+          context.setErrors(rows, pex);
         }
       }
 
@@ -220,8 +219,14 @@ class SplitFunction : public exec::VectorFunction {
       // Find the byte of the 1st delimiter.
       auto byteIndex = sinput.find(sdelim, 0);
 
+      // Special case for empty delimiters. Split character by character with an
+      // empty string at the end.
+      if (sdelim.empty()) {
+        byteIndex++;
+      }
+
       // Delimiter is not found, leave the loop.
-      if (byteIndex == std::string_view::npos) {
+      if (byteIndex > sinput.size()) {
         break;
       }
 

@@ -35,8 +35,10 @@ Spiller::Spiller(
     int32_t numSortingKeys,
     const std::vector<CompareFlags>& sortCompareFlags,
     const std::string& path,
-    int64_t targetFileSize,
+    uint64_t targetFileSize,
+    uint64_t minSpillRunSize,
     memory::MemoryPool& pool,
+    std::unordered_map<std::string, RuntimeMetric>& stats,
     folly::Executor* executor)
     : Spiller(
           type,
@@ -48,7 +50,9 @@ Spiller::Spiller(
           sortCompareFlags,
           path,
           targetFileSize,
+          minSpillRunSize,
           pool,
+          stats,
           executor) {
   VELOX_CHECK_EQ(type_, Type::kOrderBy);
 }
@@ -58,8 +62,10 @@ Spiller::Spiller(
     RowTypePtr rowType,
     HashBitRange bits,
     const std::string& path,
-    int64_t targetFileSize,
+    uint64_t targetFileSize,
+    uint64_t minSpillRunSize,
     memory::MemoryPool& pool,
+    std::unordered_map<std::string, RuntimeMetric>& stats,
     folly::Executor* FOLLY_NULLABLE executor)
     : Spiller(
           type,
@@ -71,7 +77,9 @@ Spiller::Spiller(
           {},
           path,
           targetFileSize,
+          minSpillRunSize,
           pool,
+          stats,
           executor) {
   VELOX_CHECK_EQ(type_, Type::kHashJoinProbe);
 }
@@ -85,14 +93,17 @@ Spiller::Spiller(
     int32_t numSortingKeys,
     const std::vector<CompareFlags>& sortCompareFlags,
     const std::string& path,
-    int64_t targetFileSize,
+    uint64_t targetFileSize,
+    uint64_t minSpillRunSize,
     memory::MemoryPool& pool,
+    std::unordered_map<std::string, RuntimeMetric>& stats,
     folly::Executor* executor)
     : type_(type),
       container_(container),
       eraser_(eraser),
       bits_(bits),
       rowType_(std::move(rowType)),
+      minSpillRunSize_(minSpillRunSize),
       state_(
           path,
           bits.numPartitions(),
@@ -100,8 +111,10 @@ Spiller::Spiller(
           sortCompareFlags,
           targetFileSize,
           pool,
-          spillMappedMemory()),
+          spillMappedMemory(),
+          stats),
       pool_(pool),
+      stats_(stats),
       executor_(executor) {
   TestValue::adjust(
       "facebook::velox::exec::Spiller", const_cast<HashBitRange*>(&bits_));
@@ -329,7 +342,9 @@ void Spiller::advanceSpill() {
     if (run.rows.empty()) {
       // Run ends, start with a new file next time.
       run.clear();
-      state_.finishWrite(partition);
+      if (needSort()) {
+        state_.finishWrite(partition);
+      }
       pendingSpillPartitions_.erase(partition);
     }
   }
@@ -461,6 +476,18 @@ int32_t Spiller::pickNextPartitionToSpill() {
       partitionIndices.begin(),
       partitionIndices.end(),
       [&](int32_t lhs, int32_t rhs) {
+        // If one of the partition has been spilled, then select the spilled one
+        // if its number of bytes exceeds 'minSpillRunSize_' limit.
+        if (state_.isPartitionSpilled(lhs) != state_.isPartitionSpilled(rhs)) {
+          if (state_.isPartitionSpilled(lhs) &&
+              spillRuns_[lhs].numBytes > minSpillRunSize_) {
+            return true;
+          }
+          if (state_.isPartitionSpilled(rhs) &&
+              spillRuns_[rhs].numBytes > minSpillRunSize_) {
+            return false;
+          }
+        }
         return spillRuns_[lhs].numBytes > spillRuns_[rhs].numBytes;
       });
   for (auto partition : partitionIndices) {
@@ -567,6 +594,35 @@ std::string Spiller::toString() const {
       rowType_->toString(),
       state_.maxPartitions(),
       spillFinalized_);
+}
+
+int32_t Spiller::Config::spillLevel(uint8_t startBitOffset) const {
+  const auto numPartitionBits = hashBitRange.numBits();
+  VELOX_CHECK_LE(
+      startBitOffset + numPartitionBits,
+      64,
+      "startBitOffset:{} numPartitionsBits:{}",
+      startBitOffset,
+      numPartitionBits);
+  const int32_t deltaBits = startBitOffset - hashBitRange.begin();
+  VELOX_CHECK_GE(deltaBits, 0, "deltaBits:{}", deltaBits);
+  VELOX_CHECK_EQ(
+      deltaBits % numPartitionBits,
+      0,
+      "deltaBits:{} numPartitionsBits{}",
+      deltaBits,
+      numPartitionBits);
+  return deltaBits / numPartitionBits;
+}
+
+bool Spiller::Config::exceedSpillLevelLimit(uint8_t startBitOffset) const {
+  if (startBitOffset + hashBitRange.numBits() > 64) {
+    return true;
+  }
+  if (maxSpillLevel == -1) {
+    return false;
+  }
+  return spillLevel(startBitOffset) > maxSpillLevel;
 }
 
 // static

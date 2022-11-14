@@ -41,11 +41,7 @@ OrderBy::OrderBy(
       spillMemoryThreshold_(operatorCtx_->driverCtx()
                                 ->queryConfig()
                                 .orderBySpillMemoryThreshold()),
-      spillConfig_(makeOperatorSpillConfig(
-          *operatorCtx_->task()->queryCtx(),
-          *operatorCtx_,
-          core::QueryConfig::kOrderBySpillEnabled,
-          operatorId)) {
+      spillConfig_(operatorCtx_->makeSpillConfig(Spiller::Type::kOrderBy)) {
   std::vector<TypePtr> keyTypes;
   std::vector<TypePtr> dependentTypes;
   std::vector<TypePtr> types;
@@ -211,8 +207,6 @@ void OrderBy::spill(int64_t targetRows, int64_t targetBytes) {
   if (spiller_ == nullptr) {
     VELOX_DCHECK(mappedMemory_->tracker() != nullptr);
     const auto& spillConfig = spillConfig_.value();
-    const auto spillFileSize = mappedMemory_->tracker()->getCurrentUserBytes() *
-        spillConfig.fileSizeFactor;
     spiller_ = std::make_unique<Spiller>(
         Spiller::Type::kOrderBy,
         data_.get(),
@@ -221,8 +215,10 @@ void OrderBy::spill(int64_t targetRows, int64_t targetBytes) {
         data_->keyTypes().size(),
         keyCompareFlags_,
         spillConfig.filePath,
-        spillFileSize,
+        spillConfig.maxFileSize,
+        spillConfig.minSpillRunSize,
         Spiller::spillPool(),
+        stats().runtimeStats,
         spillConfig.executor);
     VELOX_CHECK_EQ(spiller_->state().maxPartitions(), 1);
   }

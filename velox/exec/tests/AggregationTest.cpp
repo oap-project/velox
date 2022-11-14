@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <folly/Math.h>
+
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/testutil/TestValue.h"
@@ -109,11 +111,10 @@ class AggregationTest : public OperatorTestBase {
   }
 
   void SetUp() override {
+    OperatorTestBase::SetUp();
     filesystems::registerLocalFileSystem();
     mappedMemory_ = memory::MappedMemory::getInstance();
-    if (!isRegisteredVectorSerde()) {
-      this->registerVectorSerde();
-    }
+    registerSumNonPODAggregate("sumnonpod");
   }
 
   std::vector<RowVectorPtr>
@@ -985,6 +986,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, spillWithEmptyPartition) {
             .config(QueryConfig::kSpillEnabled, "true")
             .config(QueryConfig::kAggregationSpillEnabled, "true")
             .config(QueryConfig::kSpillPath, tempDirectory->path)
+            .config(QueryConfig::kMinSpillRunSize, std::to_string(1000'000'000))
             .config(
                 QueryConfig::kSpillPartitionBits,
                 std::to_string(kPartitionsBits))
@@ -1241,6 +1243,112 @@ TEST_F(AggregationTest, groupingSets) {
   assertQuery(
       plan,
       "SELECT k1, k2, count(1), sum(a), max(b) FROM tmp GROUP BY ROLLUP (k1, k2)");
+}
+
+TEST_F(AggregationTest, outputBatchSizeCheckWithSpill) {
+  rowType_ = ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), INTEGER()});
+  VectorFuzzer::Options options;
+  options.vectorSize = 10;
+  VectorFuzzer fuzzer(options, pool());
+  const int32_t numBatches = 10;
+  std::vector<RowVectorPtr> batches;
+  for (int32_t i = 0; i < numBatches; ++i) {
+    batches.push_back(fuzzer.fuzzRow(rowType_));
+  }
+  std::vector<uint32_t> outputBufferSizes({1, 10, 1'000'000});
+  for (const auto& outputBufferSize : outputBufferSizes) {
+    SCOPED_TRACE(fmt::format("outputBufferSize: {}", outputBufferSize));
+
+    auto results =
+        AssertQueryBuilder(PlanBuilder()
+                               .values(batches)
+                               .singleAggregation({"c0", "c1"}, {"sum(c2)"})
+                               .planNode())
+            .copyResults(pool_.get());
+
+    auto tempDirectory = exec::test::TempDirectoryPath::create();
+    auto task =
+        AssertQueryBuilder(PlanBuilder()
+                               .values(batches)
+                               .singleAggregation({"c0", "c1"}, {"sum(c2)"})
+                               .planNode())
+            .config(QueryConfig::kSpillEnabled, "true")
+            .config(QueryConfig::kAggregationSpillEnabled, "true")
+            // Set one spill partition to avoid the test flakiness.
+            .config(QueryConfig::kSpillPartitionBits, "0")
+            .config(QueryConfig::kSpillPath, tempDirectory->path)
+            .config(
+                QueryConfig::kPreferredOutputBatchSize,
+                std::to_string(outputBufferSize))
+            // Set the memory trigger limit to be a very small value.
+            .config(QueryConfig::kAggregationSpillMemoryThreshold, "1")
+            .assertResults(results);
+
+    const auto opStats = task->taskStats().pipelineStats[0].operatorStats[1];
+    ASSERT_EQ(
+        folly::divCeil(opStats.outputPositions, outputBufferSize),
+        opStats.outputVectors);
+  }
+}
+
+TEST_F(AggregationTest, groupingSetsOutput) {
+  vector_size_t size = 1'000;
+  auto data = makeRowVector(
+      {"k1", "k2", "a", "b"},
+      {
+          makeFlatVector<int64_t>(size, [](auto row) { return row % 11; }),
+          makeFlatVector<int64_t>(size, [](auto row) { return row % 17; }),
+          makeFlatVector<int64_t>(size, [](auto row) { return row; }),
+          makeFlatVector<StringView>(
+              size,
+              [](auto row) { return StringView(std::string(row % 12, 'x')); }),
+      });
+
+  createDuckDbTable({data});
+
+  core::PlanNodePtr reversedOrderGroupIdNode;
+  core::PlanNodePtr orderGroupIdNode;
+  auto reversedOrderPlan =
+      PlanBuilder()
+          .values({data})
+          .groupId({{"k2", "k1"}, {}}, {"a", "b"})
+          .capturePlanNode(reversedOrderGroupIdNode)
+          .singleAggregation(
+              {"k2", "k1", "group_id"},
+              {"count(1) as count_1", "sum(a) as sum_a", "max(b) as max_b"})
+          .project({"k1", "k2", "count_1", "sum_a", "max_b"})
+          .planNode();
+
+  auto orderPlan =
+      PlanBuilder()
+          .values({data})
+          .groupId({{"k1", "k2"}, {}}, {"a", "b"})
+          .capturePlanNode(orderGroupIdNode)
+          .singleAggregation(
+              {"k1", "k2", "group_id"},
+              {"count(1) as count_1", "sum(a) as sum_a", "max(b) as max_b"})
+          .project({"k1", "k2", "count_1", "sum_a", "max_b"})
+          .planNode();
+
+  auto reversedOrderExpectedRowType =
+      ROW({"k2", "k1", "a", "b", "group_id"},
+          {BIGINT(), BIGINT(), BIGINT(), VARCHAR(), BIGINT()});
+  auto orderExpectedRowType =
+      ROW({"k1", "k2", "a", "b", "group_id"},
+          {BIGINT(), BIGINT(), BIGINT(), VARCHAR(), BIGINT()});
+  ASSERT_EQ(
+      *reversedOrderGroupIdNode->outputType(), *reversedOrderExpectedRowType);
+  ASSERT_EQ(*orderGroupIdNode->outputType(), *orderExpectedRowType);
+
+  CursorParameters orderParams;
+  orderParams.planNode = orderPlan;
+  auto orderResult = readCursor(orderParams, [](Task*) {});
+
+  CursorParameters reversedOrderParams;
+  reversedOrderParams.planNode = reversedOrderPlan;
+  auto reversedOrderResult = readCursor(reversedOrderParams, [](Task*) {});
+
+  assertEqualResults(orderResult.second, reversedOrderResult.second);
 }
 
 } // namespace

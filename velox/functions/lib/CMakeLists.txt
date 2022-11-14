@@ -17,6 +17,10 @@ add_library(velox_is_null_functions IsNull.cpp)
 
 target_link_libraries(velox_is_null_functions velox_expression)
 
+add_library(velox_functions_util LambdaFunctionUtil.cpp RowsTranslationUtil.cpp)
+
+target_link_libraries(velox_functions_util velox_vector velox_common_base)
+
 add_library(
   velox_functions_lib
   DateTimeFormatter.cpp
@@ -24,6 +28,7 @@ add_library(
   JodaDateTime.cpp
   KllSketch.cpp
   LambdaFunctionUtil.cpp
+  MapConcat.cpp
   Re2Functions.cpp
   StringEncodingUtils.cpp)
 

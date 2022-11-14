@@ -34,6 +34,20 @@ using namespace facebook::velox::common;
 using SubfieldFilters = std::unordered_map<Subfield, std::unique_ptr<Filter>>;
 
 struct FilterSpec {
+  FilterSpec() {}
+
+  explicit FilterSpec(
+      std::string field,
+      float startPct = 50,
+      float selectPct = 20,
+      FilterKind filterKind = FilterKind::kBigintRange,
+      bool isForRowGroupSkip = true)
+      : field(field),
+        startPct(startPct),
+        selectPct(selectPct),
+        filterKind(filterKind),
+        isForRowGroupSkip(isForRowGroupSkip) {}
+
   std::string field;
   float startPct = 50;
   float selectPct = 20;
@@ -44,9 +58,9 @@ struct FilterSpec {
 };
 
 // Encodes a batch number and an index into the batch into an int32_t
-uint32_t batchPosition(uint32_t batchNumber, vector_size_t batchRow);
-uint32_t batchNumber(uint32_t position);
-vector_size_t batchRow(uint32_t position);
+uint64_t batchPosition(uint32_t batchNumber, vector_size_t batchRow);
+uint32_t batchNumber(uint64_t position);
+vector_size_t batchRow(uint64_t position);
 VectorPtr getChildBySubfield(
     RowVector* rowVector,
     const Subfield& subfield,
@@ -65,7 +79,7 @@ class AbstractColumnStats {
   virtual void sample(
       const std::vector<RowVectorPtr>& batches,
       const Subfield& subfield,
-      std::vector<uint32_t>& rows) = 0;
+      std::vector<uint64_t>& rows) = 0;
 
   virtual std::unique_ptr<Filter> filter(
       float startPct,
@@ -73,12 +87,12 @@ class AbstractColumnStats {
       FilterKind filterKind,
       const std::vector<RowVectorPtr>& batches,
       const Subfield& subfield,
-      std::vector<uint32_t>& hits) = 0;
+      std::vector<uint64_t>& hits) = 0;
 
   virtual std::unique_ptr<Filter> rowGroupSkipFilter(
       const std::vector<RowVectorPtr>& /*batches*/,
       const Subfield& /*subfield*/,
-      std::vector<uint32_t>& /*hits*/) {
+      std::vector<uint64_t>& /*hits*/) {
     VELOX_NYI();
   }
 
@@ -101,7 +115,7 @@ class ColumnStats : public AbstractColumnStats {
   void sample(
       const std::vector<RowVectorPtr>& batches,
       const Subfield& subfield,
-      std::vector<uint32_t>& rows) override {
+      std::vector<uint64_t>& rows) override {
     int32_t previousBatch = -1;
     SimpleVector<T>* values = nullptr;
     for (auto row : rows) {
@@ -127,7 +141,7 @@ class ColumnStats : public AbstractColumnStats {
       FilterKind filterKind,
       const std::vector<RowVectorPtr>& batches,
       const Subfield& subfield,
-      std::vector<uint32_t>& hits) override {
+      std::vector<uint64_t>& hits) override {
     std::unique_ptr<Filter> filter;
     switch (filterKind) {
       case FilterKind::kIsNull:
@@ -170,7 +184,7 @@ class ColumnStats : public AbstractColumnStats {
   std::unique_ptr<Filter> rowGroupSkipFilter(
       const std::vector<RowVectorPtr>& batches,
       const Subfield& subfield,
-      std::vector<uint32_t>& hits) override {
+      std::vector<uint64_t>& hits) override {
     std::unique_ptr<Filter> filter;
     filter = makeRowGroupSkipRangeFilter(batches, subfield);
     size_t numHits = 0;
@@ -300,7 +314,7 @@ class ComplexColumnStats : public AbstractColumnStats {
   void sample(
       const std::vector<RowVectorPtr>& batches,
       const Subfield& subfield,
-      std::vector<uint32_t>& rows) override {
+      std::vector<uint64_t>& rows) override {
     int32_t previousBatch = -1;
     VectorPtr values = nullptr;
     for (auto row : rows) {
@@ -324,7 +338,7 @@ class ComplexColumnStats : public AbstractColumnStats {
       FilterKind filterKind,
       const std::vector<RowVectorPtr>& batches,
       const Subfield& subfield,
-      std::vector<uint32_t>& hits) override {
+      std::vector<uint64_t>& hits) override {
     std::unique_ptr<Filter> filter;
     // A complex type can only have is null and is not null filters. make an is
     // null if selective.
@@ -361,7 +375,7 @@ class ComplexColumnStats : public AbstractColumnStats {
   std::unique_ptr<Filter> rowGroupSkipFilter(
       const std::vector<RowVectorPtr>& batches,
       const Subfield& subfield,
-      std::vector<uint32_t>& hits) override {
+      std::vector<uint64_t>& hits) override {
     VELOX_FAIL("N/A in ComplexType");
   }
 
@@ -431,7 +445,7 @@ class FilterGenerator {
   SubfieldFilters makeSubfieldFilters(
       const std::vector<FilterSpec>& filterSpecs,
       const std::vector<RowVectorPtr>& batches,
-      std::vector<uint32_t>& hitRows);
+      std::vector<uint64_t>& hitRows);
   std::vector<std::string> makeFilterables(uint32_t count, float pct);
   std::vector<FilterSpec> makeRandomSpecs(
       const std::vector<std::string>& filterable,

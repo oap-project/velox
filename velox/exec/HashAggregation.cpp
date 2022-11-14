@@ -42,11 +42,7 @@ HashAggregation::HashAggregation(
           driverCtx->queryConfig().partialAggregationGoodPct()),
       maxExtendedPartialAggregationMemoryUsage_(
           driverCtx->queryConfig().maxExtendedPartialAggregationMemoryUsage()),
-      spillConfig_(makeOperatorSpillConfig(
-          *operatorCtx_->task()->queryCtx(),
-          *operatorCtx_,
-          core::QueryConfig::kAggregationSpillEnabled,
-          operatorId)),
+      spillConfig_(operatorCtx_->makeSpillConfig(Spiller::Type::kAggregate)),
       maxPartialAggregationMemoryUsage_(
           driverCtx->queryConfig().maxPartialAggregationMemoryUsage()) {
   VELOX_CHECK_NOT_NULL(memoryTracker_, "Memory usage tracker is not set");
@@ -164,7 +160,8 @@ HashAggregation::HashAggregation(
       isPartialOutput_,
       isRawInput(aggregationNode->step()),
       spillConfig_.has_value() ? &spillConfig_.value() : nullptr,
-      operatorCtx_.get());
+      operatorCtx_.get(),
+      stats_);
 }
 
 void HashAggregation::addInput(RowVectorPtr input) {
@@ -300,7 +297,7 @@ RowVectorPtr HashAggregation::getOutput() {
     return output;
   }
 
-  auto batchSize = isGlobal_ ? 1 : outputBatchSize_;
+  const auto batchSize = isGlobal_ ? 1 : outputBatchSize_;
 
   // Reuse output vectors if possible.
   prepareOutput(batchSize);

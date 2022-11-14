@@ -22,3 +22,14 @@ namespace fs = std::filesystem;
 #include <experimental/filesystem>
 namespace fs = std::experimental::filesystem;
 #endif
+
+namespace facebook::velox::common {
+
+/// Generates a file directory specified by 'dirPath'. The generation will be
+/// recursive. Non-exist parent directories will also be created. Returns true
+/// if creation is successful, false otherwise. Error message will be printed if
+/// creation is unsuccessful, but already created directories will not be
+/// removed.
+bool generateFileDirectory(const char* dirPath);
+
+} // namespace facebook::velox::common

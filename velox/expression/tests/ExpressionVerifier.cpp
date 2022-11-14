@@ -15,19 +15,44 @@
  */
 
 #include "velox/expression/tests/ExpressionVerifier.h"
+#include "velox/common/base/Fs.h"
 #include "velox/expression/Expr.h"
 #include "velox/vector/VectorSaver.h"
+#include "velox/vector/fuzzer/VectorFuzzer.h"
 
 namespace facebook::velox::test {
 
 namespace {
 
-void printRowVector(const RowVectorPtr& rowVector) {
-  LOG(INFO) << "RowVector contents (" << rowVector->type()->toString() << "):";
+// File names used to persist data required for reproducing a failed test case.
+static constexpr std::string_view kInputVectorFileName = "input_vector";
+static constexpr std::string_view kIndicesOfLazyColumnsFileName =
+    "indices_of_lazy_columns";
+static constexpr std::string_view kResultVectorFileName = "result_vector";
+static constexpr std::string_view kExpressionInSqlFileName = "sql";
 
-  for (vector_size_t i = 0; i < rowVector->size(); ++i) {
-    LOG(INFO) << "\tAt " << i << ": " << rowVector->toString(i);
+void logRowVector(const RowVectorPtr& rowVector) {
+  if (rowVector == nullptr) {
+    return;
   }
+  LOG(INFO) << rowVector->childrenSize() << " vectors as input:";
+  for (const auto& child : rowVector->children()) {
+    LOG(INFO) << "\t" << child->toString(/*recursive=*/true);
+  }
+
+  if (VLOG_IS_ON(1)) {
+    LOG(INFO) << "RowVector contents (" << rowVector->type()->toString()
+              << "):";
+
+    for (vector_size_t i = 0; i < rowVector->size(); ++i) {
+      LOG(INFO) << "\tAt " << i << ": " << rowVector->toString(i);
+    }
+  }
+}
+
+bool isInvalidArgumentOrUnsupported(const VeloxException& ex) {
+  return ex.errorCode() == "INVALID_ARGUMENT" ||
+      ex.errorCode() == "UNSUPPORTED";
 }
 
 void compareExceptions(
@@ -41,17 +66,22 @@ void compareExceptions(
   // first. We have seen this happen for the format_datetime Presto function
   // that leads to unmatched error codes UNSUPPORTED vs. INVALID_ARGUMENT.
   // Therefore, we intentionally relax the comparision here.
-  VELOX_CHECK(
-      left.errorCode() == right.errorCode() ||
-      (left.errorCode() == "INVALID_ARGUMENT" &&
-       right.errorCode() == "UNSUPPORTED") ||
-      (right.errorCode() == "INVALID_ARGUMENT" &&
-       left.errorCode() == "UNSUPPORTED"));
-  VELOX_CHECK_EQ(left.errorSource(), right.errorSource());
-  VELOX_CHECK_EQ(left.exceptionName(), right.exceptionName());
-  if (left.message() != right.message()) {
-    LOG(WARNING) << "Two different VeloxExceptions were thrown:\n\t"
-                 << left.message() << "\nand\n\t" << right.message();
+  if (left.errorCode() == right.errorCode() ||
+      (isInvalidArgumentOrUnsupported(left) &&
+       isInvalidArgumentOrUnsupported(right))) {
+    VELOX_CHECK_EQ(left.errorSource(), right.errorSource());
+    VELOX_CHECK_EQ(left.exceptionName(), right.exceptionName());
+    if (left.message() != right.message()) {
+      LOG(WARNING) << "Two different VeloxExceptions were thrown:\n\t"
+                   << left.message() << "\nand\n\t" << right.message();
+    }
+  } else {
+    LOG(ERROR) << left.what();
+    LOG(ERROR) << right.what();
+    VELOX_FAIL(
+        "Common path and simplified path threw different exceptions: {} vs. {}",
+        left.message(),
+        right.message());
   }
 }
 
@@ -120,25 +150,56 @@ void compareVectors(const VectorPtr& left, const VectorPtr& right) {
   LOG(INFO) << "All results match.";
 }
 
+// Returns a copy of 'rowVector' but with the columns having indices listed in
+// 'columnsToWrapInLazy' wrapped in lazy encoding. 'columnsToWrapInLazy' should
+// be a sorted list of column indices.
+RowVectorPtr wrapColumnsInLazy(
+    RowVectorPtr rowVector,
+    const std::vector<column_index_t>& columnsToWrapInLazy) {
+  if (columnsToWrapInLazy.empty()) {
+    return rowVector;
+  }
+  std::vector<VectorPtr> children;
+  int listIndex = 0;
+  for (column_index_t i = 0; i < rowVector->childrenSize(); i++) {
+    auto child = rowVector->childAt(i);
+    VELOX_USER_CHECK_NOT_NULL(child);
+    VELOX_USER_CHECK(!child->isLazy());
+    if (listIndex < columnsToWrapInLazy.size() &&
+        i == columnsToWrapInLazy[listIndex]) {
+      listIndex++;
+      child = VectorFuzzer::wrapInLazyVector(child);
+    }
+    children.push_back(child);
+  }
+
+  BufferPtr newNulls = nullptr;
+  if (rowVector->nulls()) {
+    newNulls = AlignedBuffer::copy(rowVector->pool(), rowVector->nulls());
+  }
+
+  auto lazyRowVector = std::make_shared<RowVector>(
+      rowVector->pool(),
+      rowVector->type(),
+      newNulls,
+      rowVector->size(),
+      std::move(children));
+  LOG(INFO) << "Modified inputs for common eval path: ";
+  logRowVector(lazyRowVector);
+  return lazyRowVector;
+}
+
 } // namespace
 
 bool ExpressionVerifier::verify(
     const core::TypedExprPtr& plan,
     const RowVectorPtr& rowVector,
     VectorPtr&& resultVector,
-    bool canThrow) {
+    bool canThrow,
+    std::vector<column_index_t> columnsToWrapInLazy) {
   LOG(INFO) << "Executing expression: " << plan->toString();
 
-  if (rowVector) {
-    LOG(INFO) << rowVector->childrenSize() << " vectors as input:";
-    for (const auto& child : rowVector->children()) {
-      LOG(INFO) << "\t" << child->toString(/*recursive=*/true);
-    }
-
-    if (VLOG_IS_ON(1)) {
-      printRowVector(rowVector);
-    }
-  }
+  logRowVector(rowVector);
 
   // Store data and expression in case of reproduction.
   VectorPtr copiedResult;
@@ -151,8 +212,17 @@ bool ExpressionVerifier::verify(
     std::vector<core::TypedExprPtr> typedExprs = {plan};
     // Disabling constant folding in order to preserver the original
     // expression
-    sql =
-        exec::ExprSet(std::move(typedExprs), execCtx_, false).expr(0)->toSql();
+    try {
+      sql = exec::ExprSet(std::move(typedExprs), execCtx_, false)
+                .expr(0)
+                ->toSql();
+    } catch (const std::exception& e) {
+      LOG(WARNING) << "Failed to generate SQL: " << e.what();
+      sql = "<failed to generate>";
+    }
+    if (options_.persistAndRunOnce) {
+      persistReproInfo(rowVector, columnsToWrapInLazy, copiedResult, sql);
+    }
   }
 
   // Execute expression plan using both common and simplified evals.
@@ -167,11 +237,13 @@ bool ExpressionVerifier::verify(
   VLOG(1) << "Starting common eval execution.";
   SelectivityVector rows{rowVector ? rowVector->size() : 1};
 
-  // Execute with common expression eval path.
+  // Execute with common expression eval path. Some columns of the input row
+  // vector will be wrapped in lazy as specified in 'columnsToWrapInLazy'.
   try {
     exec::ExprSet exprSetCommon(
         {plan}, execCtx_, !options_.disableConstantFolding);
-    exec::EvalCtx evalCtxCommon(execCtx_, &exprSetCommon, rowVector.get());
+    auto inputRowVector = wrapColumnsInLazy(rowVector, columnsToWrapInLazy);
+    exec::EvalCtx evalCtxCommon(execCtx_, &exprSetCommon, inputRowVector.get());
 
     try {
       exprSetCommon.eval(rows, evalCtxCommon, commonEvalResult);
@@ -221,70 +293,95 @@ bool ExpressionVerifier::verify(
       compareVectors(commonEvalResult.front(), simplifiedEvalResult.front());
     }
   } catch (...) {
-    if (!options_.reproPersistPath.empty()) {
-      persistReproInfo(rowVector, copiedResult, sql);
+    if (!options_.reproPersistPath.empty() && !options_.persistAndRunOnce) {
+      persistReproInfo(rowVector, columnsToWrapInLazy, copiedResult, sql);
     }
     throw;
   }
+
+  if (!options_.reproPersistPath.empty() && options_.persistAndRunOnce) {
+    // A guard to make sure it runs only once with persistAndRunOnce flag turned
+    // on. It shouldn't reach here normally since the flag is used to persist
+    // repro info for crash failures. But if it hasn't crashed by now, we still
+    // don't want another iteration.
+    LOG(WARNING)
+        << "Iteration succeeded with --persist_and_run_once flag enabled "
+           "(expecting crash failure)";
+    exit(0);
+  }
+
   return true;
 }
 
 void ExpressionVerifier::persistReproInfo(
     const VectorPtr& inputVector,
+    std::vector<column_index_t> columnsToWrapInLazy,
     const VectorPtr& resultVector,
     const std::string& sql) {
   std::string inputPath;
+  std::string lazyListPath;
   std::string resultPath;
   std::string sqlPath;
 
   const auto basePath = options_.reproPersistPath.c_str();
+  if (!common::generateFileDirectory(basePath)) {
+    return;
+  }
+
+  // Create a new directory
+  auto dirPath = generateFolderPath(basePath, "expressionVerifier");
+  if (!dirPath.has_value()) {
+    LOG(INFO) << "Failed to create directory for persisting repro info.";
+    return;
+  }
   // Saving input vector
-  auto inputPathOpt = generateFilePath(basePath, "vector");
-  if (!inputPathOpt.has_value()) {
-    inputPath = "Failed to create file for saving input vector.";
-  } else {
-    inputPath = inputPathOpt.value();
+  inputPath = fmt::format("{}/{}", dirPath->c_str(), kInputVectorFileName);
+  try {
+    saveVectorToFile(inputVector.get(), inputPath.c_str());
+  } catch (std::exception& e) {
+    inputPath = e.what();
+  }
+
+  // Saving the list of column indices that are to be wrapped in lazy.
+  if (!columnsToWrapInLazy.empty()) {
+    lazyListPath =
+        fmt::format("{}/{}", dirPath->c_str(), kIndicesOfLazyColumnsFileName);
     try {
-      saveVectorToFile(inputVector.get(), inputPath.c_str());
+      saveVectorTofile<column_index_t>(
+          columnsToWrapInLazy, lazyListPath.c_str());
     } catch (std::exception& e) {
-      inputPath = e.what();
+      lazyListPath = e.what();
     }
   }
 
   // Saving result vector
   if (resultVector) {
-    auto resultPathOpt = generateFilePath(basePath, "vector");
-    if (!resultPathOpt.has_value()) {
-      resultPath = "Failed to create file for saving result vector.";
-    } else {
-      resultPath = resultPathOpt.value();
-      try {
-        saveVectorToFile(resultVector.get(), resultPath.c_str());
-      } catch (std::exception& e) {
-        resultPath = e.what();
-      }
-    }
-  }
-
-  // Saving sql
-  auto sqlPathOpt = generateFilePath(basePath, "sql");
-  if (!sqlPathOpt.has_value()) {
-    sqlPath = "Failed to create file for saving SQL.";
-  } else {
-    sqlPath = sqlPathOpt.value();
+    resultPath = fmt::format("{}/{}", dirPath->c_str(), kResultVectorFileName);
     try {
-      saveStringToFile(sql, sqlPath.c_str());
+      saveVectorToFile(resultVector.get(), resultPath.c_str());
     } catch (std::exception& e) {
       resultPath = e.what();
     }
   }
 
-  std::stringstream ss;
-  ss << "Persisted input at '" << inputPath;
-  if (resultVector) {
-    ss << "' and result at '" << resultPath;
+  // Saving sql
+  sqlPath = fmt::format("{}/{}", dirPath->c_str(), kExpressionInSqlFileName);
+  try {
+    saveStringToFile(sql, sqlPath.c_str());
+  } catch (std::exception& e) {
+    sqlPath = e.what();
   }
-  ss << "' and sql at '" << sqlPath << "'";
+
+  std::stringstream ss;
+  ss << "Persisted input: --input_path " << inputPath;
+  if (resultVector) {
+    ss << " --result_path " << resultPath;
+  }
+  ss << " --sql_path " << sqlPath;
+  if (!columnsToWrapInLazy.empty()) {
+    // TODO: add support for consuming this in ExpressionRunner
+    ss << " --lazy_column_list_path " << lazyListPath;
+  }
   LOG(INFO) << ss.str();
 }
 

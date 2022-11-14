@@ -19,7 +19,7 @@
 #include "velox/expression/EvalCtx.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
-#include "velox/functions/lib/LambdaFunctionUtil.h"
+#include "velox/functions/lib/RowsTranslationUtil.h"
 
 namespace facebook::velox::functions {
 namespace {
@@ -179,11 +179,14 @@ std::shared_ptr<exec::VectorFunction> create(
 // Define function signature.
 std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
   // array(T) -> array(T)
-  return {exec::FunctionSignatureBuilder()
-              .typeVariable("T")
-              .returnType("array(T)")
-              .argumentType("array(T)")
-              .build()};
+  std::vector<std::shared_ptr<exec::FunctionSignature>> signatures;
+  for (const auto& type : exec::primitiveTypeNames()) {
+    signatures.push_back(exec::FunctionSignatureBuilder()
+                             .returnType(fmt::format("array({})", type))
+                             .argumentType(fmt::format("array({})", type))
+                             .build());
+  }
+  return signatures;
 }
 
 } // namespace

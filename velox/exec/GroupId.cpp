@@ -31,9 +31,9 @@ GroupId::GroupId(
 
   std::unordered_map<std::string, column_index_t>
       inputToOutputGroupingKeyMapping;
-  for (const auto& [output, input] : groupIdNode->outputGroupingKeyNames()) {
-    inputToOutputGroupingKeyMapping[input->name()] =
-        outputType_->getChildIdx(output);
+  for (const auto& groupingKeyInfo : groupIdNode->groupingKeyInfos()) {
+    inputToOutputGroupingKeyMapping[groupingKeyInfo.input->name()] =
+        outputType_->getChildIdx(groupingKeyInfo.output);
   }
 
   auto numGroupingSets = groupIdNode->groupingSets().size();
@@ -88,11 +88,13 @@ RowVectorPtr GroupId::getOutput() {
   auto numGroupingKeys = mapping.size();
 
   // Fill in grouping keys.
+  auto gid = 0;
   for (auto i = 0; i < numGroupingKeys; ++i) {
     if (mapping[i] == kMissingGroupingKey) {
       // Add null column.
       outputColumns[i] = BaseVector::createNullConstant(
           outputType_->childAt(i), numInput, pool());
+      gid = 1 << (numGroupingKeys - i - 1) | gid;
     } else {
       outputColumns[i] = input_->childAt(mapping[i]);
     }
@@ -105,7 +107,7 @@ RowVectorPtr GroupId::getOutput() {
 
   // Add groupId column.
   outputColumns[outputType_->size() - 1] =
-      BaseVector::createConstant((int64_t)groupingSetIndex_, numInput, pool());
+      BaseVector::createConstant((int64_t)gid, numInput, pool());
 
   ++groupingSetIndex_;
   if (groupingSetIndex_ == groupingKeyMappings_.size()) {

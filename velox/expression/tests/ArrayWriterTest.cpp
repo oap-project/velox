@@ -17,6 +17,7 @@
 #include <fmt/core.h>
 #include <glog/logging.h>
 #include <gtest/gtest.h>
+#include <cstdint>
 
 #include "velox/expression/VectorWriters.h"
 #include "velox/functions/Udf.h"
@@ -403,7 +404,8 @@ TEST_F(ArrayWriterTest, nestedArray) {
   array_type array3 = {{1, std::nullopt, 2}};
 
   assertEqualVectors(
-      result, makeNestedArrayVector<int32_t>({{array1, array2, array3}}));
+      result,
+      makeNullableNestedArrayVector<int32_t>({{{array1, array2, array3}}}));
 }
 
 // Creates a matrix of size n*n with numbers 1 to n^2-1 for every input n,
@@ -441,9 +443,9 @@ TEST_F(ArrayWriterTest, nestedArrayE2E) {
   // Build the expected output.
   using matrix_row = std::vector<std::optional<int64_t>>;
   using matrix_type = std::vector<std::optional<matrix_row>>;
-  std::vector<matrix_type> expected;
+  std::vector<std::optional<matrix_type>> expected;
   for (auto k = 1; k <= 10; k++) {
-    auto& expectedMatrix = *expected.insert(expected.end(), matrix_type());
+    auto& expectedMatrix = **expected.insert(expected.end(), matrix_type());
     auto n = k;
     int count = 0;
 
@@ -465,7 +467,7 @@ TEST_F(ArrayWriterTest, nestedArrayE2E) {
     }
   }
 
-  assertEqualVectors(result, makeNestedArrayVector<int64_t>(expected));
+  assertEqualVectors(result, makeNullableNestedArrayVector<int64_t>(expected));
 }
 
 TEST_F(ArrayWriterTest, copyFromEmptyArray) {
@@ -535,7 +537,8 @@ TEST_F(ArrayWriterTest, copyFromNestedArray) {
   array_type array3 = {{1}};
 
   assertEqualVectors(
-      result, makeNestedArrayVector<int64_t>({{array1, array2, array3}}));
+      result,
+      makeNullableNestedArrayVector<int64_t>({{{array1, array2, array3}}}));
 }
 
 auto makeCopyFromTestData() {
@@ -789,5 +792,38 @@ TEST_F(ArrayWriterTest, finishPostSize) {
   ASSERT_EQ(arrayElements->as<ArrayVector>()->elements()->size(), 10);
 }
 
+// ArrayWriter should append and not overwrite elements vectors.
+TEST_F(ArrayWriterTest, appendToElements) {
+  using out_t = Array<int32_t>;
+
+  auto result = prepareResult(CppToType<out_t>::create(), 2);
+
+  {
+    // Write array at offset 0.
+    exec::VectorWriter<out_t> vectorWriter;
+    vectorWriter.init(*result->as<ArrayVector>());
+    vectorWriter.setOffset(0);
+
+    auto& arrayWriter = vectorWriter.current();
+    arrayWriter.copy_from(std::vector<int32_t>({1, 2, 3}));
+    vectorWriter.commit();
+    vectorWriter.finish();
+  }
+  {
+    // Write array at offset 1 using another writer.
+    exec::VectorWriter<out_t> vectorWriter;
+    vectorWriter.init(*result->as<ArrayVector>());
+    vectorWriter.setOffset(1);
+
+    auto& arrayWriter = vectorWriter.current();
+    arrayWriter.copy_from(std::vector<int32_t>({4, 5, 6}));
+    vectorWriter.commit();
+    vectorWriter.finish();
+  }
+
+  auto* arrayElements = result->as<ArrayVector>()->elements().get();
+  ASSERT_EQ(arrayElements->size(), 6);
+  ASSERT_EQ(arrayElements->asFlatVector<int32_t>()->valueAt(3), 4);
+}
 } // namespace
 } // namespace facebook::velox

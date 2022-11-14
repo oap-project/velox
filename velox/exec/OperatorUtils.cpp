@@ -344,34 +344,16 @@ std::string makeOperatorSpillPath(
   return fmt::format("{}/{}_{}_{}", spillPath, taskId, driverId, operatorId);
 }
 
-std::optional<Spiller::Config> makeOperatorSpillConfig(
-    const core::QueryCtx& queryCtx,
-    const OperatorCtx& operatorCtx,
-    const char* spillConfigPropertyName,
-    int32_t operatorId) {
-  const auto& queryConfig = queryCtx.config();
-  if (not queryConfig.spillEnabled() or
-      not queryConfig.get<bool>(spillConfigPropertyName, false)) {
-    return std::nullopt;
+void addOperatorRuntimeStats(
+    const std::string& name,
+    const RuntimeCounter& value,
+    std::unordered_map<std::string, RuntimeMetric>& stats) {
+  if (UNLIKELY(stats.count(name) == 0)) {
+    stats.insert(std::pair(name, RuntimeMetric(value.unit)));
+  } else {
+    VELOX_CHECK_EQ(stats.at(name).unit, value.unit);
   }
-  if (!queryConfig.spillPath().has_value()) {
-    return std::nullopt;
-  }
-
-  return Spiller::Config(
-      makeOperatorSpillPath(
-          queryConfig.spillPath().value(),
-          operatorCtx.taskId(),
-          operatorCtx.driverCtx()->driverId,
-          operatorId),
-      queryConfig.spillFileSizeFactor(),
-      queryCtx.spillExecutor(),
-      queryConfig.spillableReservationGrowthPct(),
-      HashBitRange(
-          queryConfig.spillStartPartitionBit(),
-          queryConfig.spillStartPartitionBit() +
-              queryConfig.spillPartitionBits()),
-      queryConfig.testingSpillPct());
+  stats.at(name).addValue(value.value);
 }
 
 } // namespace facebook::velox::exec

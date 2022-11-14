@@ -89,6 +89,10 @@ class BaseHashTable {
   struct RowsIterator {
     int32_t hashTableIndex_{-1};
     RowContainerIterator rowContainerIterator_;
+
+    void reset() {
+      *this = {};
+    }
   };
 
   /// Takes ownership of 'hashers'. These are used to keep key-level
@@ -135,6 +139,13 @@ class BaseHashTable {
 
   /// Returns rows with 'probed' flag set. Used by the right semi join.
   virtual int32_t listProbedRows(
+      RowsIterator* FOLLY_NULLABLE iter,
+      int32_t maxRows,
+      uint64_t maxBytes,
+      char* FOLLY_NULLABLE* FOLLY_NULLABLE rows) = 0;
+
+  /// Returns all rows. Used by the right semi join project.
+  virtual int32_t listAllRows(
       RowsIterator* FOLLY_NULLABLE iter,
       int32_t maxRows,
       uint64_t maxBytes,
@@ -329,6 +340,12 @@ class HashTable : public BaseHashTable {
       uint64_t maxBytes,
       char* FOLLY_NULLABLE* FOLLY_NULLABLE rows) override;
 
+  int32_t listAllRows(
+      RowsIterator* FOLLY_NULLABLE iter,
+      int32_t maxRows,
+      uint64_t maxBytes,
+      char* FOLLY_NULLABLE* FOLLY_NULLABLE rows) override;
+
   void clear() override;
 
   int64_t allocatedBytes() const override {
@@ -472,6 +489,16 @@ class HashTable : public BaseHashTable {
       char* FOLLY_NULLABLE* FOLLY_NULLABLE groups,
       uint64_t* FOLLY_NULLABLE hashes,
       int32_t numGroups);
+
+  /// Checks if we can apply parallel table build optimization for hash join.
+  /// The function returns true if all of the following conditions:
+  /// 1. the hash table is built for parallel join;
+  /// 2. there is more than one sub-tables;
+  /// 3. the build executor has been set;
+  /// 4. the table is not in kArray mode;
+  /// 5. the number of table entries per each parallel build shard is no less
+  ///    than a pre-defined threshold: 1000 for now.
+  bool canApplyParallelJoinBuild() const;
 
   // Builds a join table with '1 + otherTables_.size()' independent
   // threads using 'executor_'. First all RowContainers get partition

@@ -14,9 +14,13 @@
  * limitations under the License.
  */
 
+#include <exception>
 #include <fstream>
+#include <stdexcept>
 #include "glog/logging.h"
 #include "gtest/gtest.h"
+
+#include "velox/expression/Expr.h"
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/tests/GTestUtils.h"
@@ -28,6 +32,7 @@
 #include "velox/parse/Expressions.h"
 #include "velox/parse/ExpressionsParser.h"
 #include "velox/parse/TypeResolver.h"
+#include "velox/type/IntervalDayTime.h"
 #include "velox/vector/VectorSaver.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
@@ -228,6 +233,25 @@ class ExprTest : public testing::Test, public VectorTestBase {
       ASSERT_EQ(topLevelContext, trimInputPath(e.topLevelContext()));
       ASSERT_EQ(message, e.message());
     }
+  }
+
+  std::exception_ptr assertWrappedException(
+      const std::string& expression,
+      const VectorPtr& input,
+      const std::string& context,
+      const std::string& topLevelContext,
+      const std::string& message) {
+    try {
+      evaluate(expression, makeRowVector({input}));
+      EXPECT_TRUE(false) << "Expected an error";
+    } catch (VeloxException& e) {
+      EXPECT_EQ(context, trimInputPath(e.context()));
+      EXPECT_EQ(topLevelContext, trimInputPath(e.topLevelContext()));
+      EXPECT_EQ(message, e.message());
+      return e.wrappedException();
+    }
+
+    return nullptr;
   }
 
   void testToSql(const std::string& expression, const RowTypePtr& rowType) {
@@ -2224,6 +2248,41 @@ TEST_F(ExprTest, exceptionContext) {
   }
 }
 
+namespace {
+
+template <typename T>
+struct AlwaysThrowsStdExceptionFunction {
+  template <typename TResult, typename TInput>
+  FOLLY_ALWAYS_INLINE void call(TResult&, const TInput&) {
+    throw std::invalid_argument("This is a test");
+  }
+};
+} // namespace
+
+/// Verify exception context for the case when function throws std::exception.
+TEST_F(ExprTest, stdExceptionContext) {
+  auto data = makeFlatVector<int64_t>({1, 2, 3});
+
+  registerFunction<AlwaysThrowsStdExceptionFunction, int64_t, int64_t>(
+      {"throw_invalid_argument"});
+
+  auto wrappedEx = assertWrappedException(
+      "throw_invalid_argument(c0) + 5",
+      data,
+      "throw_invalid_argument(c0)",
+      "plus(throw_invalid_argument(c0), 5:BIGINT)",
+      "This is a test");
+  ASSERT_THROW(std::rethrow_exception(wrappedEx), std::invalid_argument);
+
+  wrappedEx = assertWrappedException(
+      "throw_invalid_argument(c0 + 5)",
+      data,
+      "throw_invalid_argument(plus(c0, 5:BIGINT))",
+      "Same as context.",
+      "This is a test");
+  ASSERT_THROW(std::rethrow_exception(wrappedEx), std::invalid_argument);
+}
+
 /// Verify the output of ConstantExpr::toString().
 TEST_F(ExprTest, constantToString) {
   auto arrayVector =
@@ -2246,55 +2305,94 @@ TEST_F(ExprTest, constantToString) {
 TEST_F(ExprTest, constantToSql) {
   auto toSql = [&](const variant& value) {
     exec::ExprSet exprSet({makeConstantExpr(value)}, execCtx_.get());
-    return exprSet.expr(0)->toSql();
+    auto sql = exprSet.expr(0)->toSql();
+
+    auto input = makeRowVector(ROW({}), 1);
+    auto a = evaluate(&exprSet, input);
+    auto b = evaluate(sql, input);
+
+    if (a->type()->containsUnknown()) {
+      EXPECT_TRUE(a->isNullAt(0));
+      EXPECT_TRUE(b->isNullAt(0));
+    } else {
+      assertEqualVectors(a, b);
+    }
+
+    return sql;
   };
 
   ASSERT_EQ(toSql(true), "TRUE");
   ASSERT_EQ(toSql(false), "FALSE");
-  ASSERT_EQ(toSql(variant::null(TypeKind::BOOLEAN)), "NULL");
+  ASSERT_EQ(toSql(variant::null(TypeKind::BOOLEAN)), "NULL::BOOLEAN");
 
-  ASSERT_EQ(toSql((int8_t)23), "23::TINYINT");
-  ASSERT_EQ(toSql(variant::null(TypeKind::TINYINT)), "NULL");
+  ASSERT_EQ(toSql((int8_t)23), "'23'::TINYINT");
+  ASSERT_EQ(toSql(variant::null(TypeKind::TINYINT)), "NULL::TINYINT");
 
-  ASSERT_EQ(toSql((int16_t)23), "23::SMALLINT");
-  ASSERT_EQ(toSql(variant::null(TypeKind::SMALLINT)), "NULL");
+  ASSERT_EQ(toSql((int16_t)23), "'23'::SMALLINT");
+  ASSERT_EQ(toSql(variant::null(TypeKind::SMALLINT)), "NULL::SMALLINT");
 
-  ASSERT_EQ(toSql(23), "23::INTEGER");
-  ASSERT_EQ(toSql(variant::null(TypeKind::INTEGER)), "NULL");
+  ASSERT_EQ(toSql(23), "'23'::INTEGER");
+  ASSERT_EQ(toSql(variant::null(TypeKind::INTEGER)), "NULL::INTEGER");
 
-  ASSERT_EQ(toSql(2134456LL), "2134456::BIGINT");
-  ASSERT_EQ(toSql(variant::null(TypeKind::BIGINT)), "NULL");
+  ASSERT_EQ(toSql(2134456LL), "'2134456'::BIGINT");
+  ASSERT_EQ(toSql(variant::null(TypeKind::BIGINT)), "NULL::BIGINT");
 
-  ASSERT_EQ(toSql(1.5f), "1.5::REAL");
-  ASSERT_EQ(toSql(variant::null(TypeKind::REAL)), "NULL");
+  ASSERT_EQ(toSql(Date(18'506)), "'2020-09-01'::DATE");
+  ASSERT_EQ(toSql(variant::null(TypeKind::DATE)), "NULL::DATE");
 
-  ASSERT_EQ(toSql(-78.456), "-78.456::DOUBLE");
-  ASSERT_EQ(toSql(variant::null(TypeKind::DOUBLE)), "NULL");
+  ASSERT_EQ(
+      toSql(Timestamp(123'456, 123'000)),
+      "'1970-01-02T10:17:36.000123000'::TIMESTAMP");
+  ASSERT_EQ(toSql(variant::null(TypeKind::TIMESTAMP)), "NULL::TIMESTAMP");
+
+  ASSERT_EQ(toSql(IntervalDayTime(123'456)), "INTERVAL 123456 MILLISECONDS");
+  ASSERT_EQ(
+      toSql(variant::null(TypeKind::INTERVAL_DAY_TIME)),
+      "NULL::INTERVAL DAY TO SECOND");
+
+  ASSERT_EQ(toSql(1.5f), "'1.5'::REAL");
+  ASSERT_EQ(toSql(variant::null(TypeKind::REAL)), "NULL::REAL");
+
+  ASSERT_EQ(toSql(-78.456), "'-78.456'::DOUBLE");
+  ASSERT_EQ(toSql(variant::null(TypeKind::DOUBLE)), "NULL::DOUBLE");
 
   ASSERT_EQ(toSql("This is a test."), "'This is a test.'");
   ASSERT_EQ(
       toSql("This is a \'test\' with single quotes."),
       "'This is a \'\'test\'\' with single quotes.'");
-  ASSERT_EQ(toSql(variant::null(TypeKind::VARCHAR)), "NULL");
+  ASSERT_EQ(toSql(variant::null(TypeKind::VARCHAR)), "NULL::VARCHAR");
 
   auto toSqlComplex = [&](const VectorPtr& vector, vector_size_t index = 0) {
     exec::ExprSet exprSet({makeConstantExpr(vector, index)}, execCtx_.get());
-    return exprSet.expr(0)->toSql();
+    auto sql = exprSet.expr(0)->toSql();
+
+    auto input = makeRowVector(ROW({}), 1);
+    auto a = evaluate(&exprSet, input);
+    auto b = evaluate(sql, input);
+
+    if (a->type()->containsUnknown()) {
+      EXPECT_TRUE(a->isNullAt(0));
+      EXPECT_TRUE(b->isNullAt(0));
+    } else {
+      assertEqualVectors(a, b);
+    }
+
+    return sql;
   };
 
   ASSERT_EQ(
       toSqlComplex(makeArrayVector<int32_t>({{1, 2, 3}})),
-      "ARRAY[1::INTEGER, 2::INTEGER, 3::INTEGER]");
+      "ARRAY['1'::INTEGER, '2'::INTEGER, '3'::INTEGER]");
   ASSERT_EQ(
       toSqlComplex(makeArrayVector<int32_t>({{1, 2, 3}, {4, 5, 6}}), 1),
-      "ARRAY[4::INTEGER, 5::INTEGER, 6::INTEGER]");
+      "ARRAY['4'::INTEGER, '5'::INTEGER, '6'::INTEGER]");
   ASSERT_EQ(toSql(variant::null(TypeKind::ARRAY)), "NULL");
 
   ASSERT_EQ(
       toSqlComplex(makeMapVector<int32_t, int32_t>({
           {{1, 10}, {2, 20}, {3, 30}},
       })),
-      "map(ARRAY[1::INTEGER, 2::INTEGER, 3::INTEGER], ARRAY[10::INTEGER, 20::INTEGER, 30::INTEGER])");
+      "map(ARRAY['1'::INTEGER, '2'::INTEGER, '3'::INTEGER], ARRAY['10'::INTEGER, '20'::INTEGER, '30'::INTEGER])");
   ASSERT_EQ(
       toSqlComplex(
           makeMapVector<int32_t, int32_t>({
@@ -2302,22 +2400,22 @@ TEST_F(ExprTest, constantToSql) {
               {{1, 10}, {2, 20}, {3, 30}},
           }),
           1),
-      "map(ARRAY[1::INTEGER, 2::INTEGER, 3::INTEGER], ARRAY[10::INTEGER, 20::INTEGER, 30::INTEGER])");
+      "map(ARRAY['1'::INTEGER, '2'::INTEGER, '3'::INTEGER], ARRAY['10'::INTEGER, '20'::INTEGER, '30'::INTEGER])");
   ASSERT_EQ(
       toSqlComplex(BaseVector::createNullConstant(
           MAP(INTEGER(), VARCHAR()), 10, pool())),
-      "NULL");
+      "NULL::MAP(INTEGER, VARCHAR)");
 
   ASSERT_EQ(
       toSqlComplex(makeRowVector({
           makeFlatVector<int32_t>({1, 2, 3}),
           makeFlatVector<bool>({true, false, true}),
       })),
-      "row_constructor(1::INTEGER, TRUE)");
+      "row_constructor('1'::INTEGER, TRUE)");
   ASSERT_EQ(
       toSqlComplex(BaseVector::createNullConstant(
           ROW({"a", "b"}, {BOOLEAN(), DOUBLE()}), 10, pool())),
-      "NULL");
+      "NULL::STRUCT(a BOOLEAN, b DOUBLE)");
 }
 
 TEST_F(ExprTest, toSql) {
@@ -2781,4 +2879,104 @@ TEST_F(ExprTest, peelWithDefaultNull) {
   auto expected =
       makeNullableFlatVector<bool>({true, true, true, true, true, true});
   assertEqualVectors(expected, result);
+}
+
+TEST_F(ExprTest, addNulls) {
+  const vector_size_t kSize = 6;
+  SelectivityVector rows{kSize + 1};
+  rows.setValid(kSize, false);
+  rows.updateBounds();
+
+  auto nulls = allocateNulls(kSize, pool());
+  auto* rawNulls = nulls->asMutable<uint64_t>();
+  bits::setNull(rawNulls, kSize - 1);
+
+  exec::EvalCtx context(execCtx_.get());
+
+  auto checkConstantResult = [&](const VectorPtr& vector) {
+    ASSERT_TRUE(vector->isConstantEncoding());
+    ASSERT_EQ(vector->size(), kSize);
+    ASSERT_TRUE(vector->isNullAt(0));
+  };
+
+  // Test vector that is nullptr.
+  {
+    VectorPtr vector;
+    exec::Expr::addNulls(rows, rawNulls, context, BIGINT(), vector);
+    ASSERT_NE(vector, nullptr);
+    checkConstantResult(vector);
+  }
+
+  // Test vector that is already a constant null vector and is uniquely
+  // referenced.
+  {
+    auto vector = makeNullConstant(TypeKind::BIGINT, kSize - 1);
+    exec::Expr::addNulls(rows, rawNulls, context, BIGINT(), vector);
+    checkConstantResult(vector);
+  }
+
+  // Test vector that is already a constant null vector and is not uniquely
+  // referenced.
+  {
+    auto vector = makeNullConstant(TypeKind::BIGINT, kSize - 1);
+    auto another = vector;
+    exec::Expr::addNulls(rows, rawNulls, context, BIGINT(), vector);
+    ASSERT_EQ(another->size(), kSize - 1);
+    checkConstantResult(vector);
+  }
+
+  // Test vector that is a non-null constant vector.
+  {
+    auto vector = makeConstant<int64_t>(100, kSize - 1);
+    exec::Expr::addNulls(rows, rawNulls, context, BIGINT(), vector);
+    ASSERT_TRUE(vector->isFlatEncoding());
+    ASSERT_EQ(vector->size(), kSize);
+    for (auto i = 0; i < kSize - 1; ++i) {
+      ASSERT_FALSE(vector->isNullAt(i));
+      ASSERT_EQ(vector->asFlatVector<int64_t>()->valueAt(i), 100);
+    }
+    ASSERT_TRUE(vector->isNullAt(kSize - 1));
+  }
+
+  auto checkResult = [&](const VectorPtr& vector) {
+    ASSERT_EQ(vector->size(), kSize);
+    for (auto i = 0; i < kSize - 1; ++i) {
+      ASSERT_FALSE(vector->isNullAt(i));
+      ASSERT_EQ(vector->asFlatVector<int64_t>()->valueAt(i), i);
+    }
+    ASSERT_TRUE(vector->isNullAt(kSize - 1));
+  };
+
+  // Test vector that is not uniquely referenced.
+  {
+    VectorPtr vector =
+        makeFlatVector<int64_t>(kSize - 1, [](auto row) { return row; });
+    auto another = vector;
+    exec::Expr::addNulls(rows, rawNulls, context, BIGINT(), vector);
+
+    ASSERT_EQ(another->size(), kSize - 1);
+    checkResult(vector);
+  }
+
+  // Test vector that is uniquely referenced.
+  {
+    VectorPtr vector =
+        makeFlatVector<int64_t>(kSize - 1, [](auto row) { return row; });
+    exec::Expr::addNulls(rows, rawNulls, context, BIGINT(), vector);
+
+    checkResult(vector);
+  }
+
+  // Test flat vector which has a shared values buffer. This is done by first
+  // slicing the vector which creates buffer views of its nulls and values
+  // buffer which are immutable.
+  {
+    VectorPtr vector =
+        makeFlatVector<int64_t>(kSize, [](auto row) { return row; });
+    auto slicedVector = vector->slice(0, kSize - 1);
+    ASSERT_FALSE(slicedVector->values()->isMutable());
+    exec::Expr::addNulls(rows, rawNulls, context, BIGINT(), slicedVector);
+
+    checkResult(slicedVector);
+  }
 }

@@ -128,6 +128,11 @@ class QueryConfig {
   static constexpr const char* kAggregationSpillMemoryThreshold =
       "aggregation_spill_memory_threshold";
 
+  /// The max memory that a hash join can use before spilling. If it 0, then
+  /// there is no limit.
+  static constexpr const char* kJoinSpillMemoryThreshold =
+      "join_spill_memory_threshold";
+
   /// The max memory that an order by can use before spilling. If it 0, then
   /// there is no limit.
   static constexpr const char* kOrderBySpillMemoryThreshold =
@@ -135,13 +140,31 @@ class QueryConfig {
 
   static constexpr const char* kTestingSpillPct = "testing.spill-pct";
 
+  /// The max allowed spilling level with zero being the initial spilling level.
+  /// This only applies for hash build spilling which might trigger recursive
+  /// spilling when the build table is too big. If it is set to -1, then there
+  /// is no limit and then some extreme large query might run out of spilling
+  /// partition bits (see kSpillPartitionBits) at the end. The max spill level
+  /// is used in production to prevent some bad user queries from using too much
+  /// io and cpu resources.
+  static constexpr const char* kMaxSpillLevel = "max-spill-level";
+
+  /// The max allowed spill file size. If it is zero, then there is no limit.
+  static constexpr const char* kMaxSpillFileSize = "max-spill-file-size";
+
+  /// The min spill run size limit used to select partitions for spilling. The
+  /// spiller tries to spill a previously spilled partitions if its data size
+  /// exceeds this limit, otherwise it spills the partition with most data.
+  /// If the limit is zero, then the spiller always spill a previously spilled
+  /// partition if it has any data. This is to avoid spill from a partition with
+  /// a small amount of data which might result in generating too many small
+  /// spilled files.
+  static constexpr const char* kMinSpillRunSize = "min-spill-run-size";
+
   static constexpr const char* kSpillStartPartitionBit =
       "spiller-start-partition-bit";
 
   static constexpr const char* kSpillPartitionBits = "spiller-partition-bits";
-
-  static constexpr const char* kSpillFileSizeFactor =
-      "spiller-file-size-factor";
 
   static constexpr const char* kSpillableReservationGrowthPct =
       "spillable-reservation-growth-pct";
@@ -164,6 +187,11 @@ class QueryConfig {
   double partialAggregationGoodPct() const {
     static constexpr double kDefault = 0.5;
     return get<double>(kPartialAggregationGoodPct, kDefault);
+  }
+
+  uint64_t joinSpillMemoryThreshold() const {
+    static constexpr uint64_t kDefault = 0;
+    return get<uint64_t>(kJoinSpillMemoryThreshold, kDefault);
   }
 
   uint64_t orderBySpillMemoryThreshold() const {
@@ -261,25 +289,29 @@ class QueryConfig {
   /// Returns 'is aggregation spilling enabled' flag. Must also check the
   /// spillEnabled()!
   bool aggregationSpillEnabled() const {
-    return get<bool>(kAggregationSpillEnabled, false);
+    return get<bool>(kAggregationSpillEnabled, true);
   }
 
   /// Returns 'is join spilling enabled' flag. Must also check the
   /// spillEnabled()!
   bool joinSpillEnabled() const {
-    return get<bool>(kJoinSpillEnabled, false);
+    return get<bool>(kJoinSpillEnabled, true);
   }
 
   /// Returns 'is orderby spilling enabled' flag. Must also check the
   /// spillEnabled()!
   bool orderBySpillEnabled() const {
-    return get<bool>(kOrderBySpillEnabled, false);
+    return get<bool>(kOrderBySpillEnabled, true);
   }
 
   // Returns a percentage of aggregation or join input batches that
   // will be forced to spill for testing. 0 means no extra spilling.
   int32_t testingSpillPct() const {
     return get<int32_t>(kTestingSpillPct, 0);
+  }
+
+  int32_t maxSpillLevel() const {
+    return get<int32_t>(kMaxSpillLevel, 4);
   }
 
   /// Returns the start partition bit which is used with 'kSpillPartitionBits'
@@ -299,13 +331,14 @@ class QueryConfig {
     return std::min(kMaxBits, get<int32_t>(kSpillPartitionBits, kDefaultBits));
   }
 
-  /// Returns the factor used to determine the target spill file size based on
-  /// the spilling operator's memory usage. For instance, if the spilling
-  /// operator has used 1GB memory and this factor is 0.5, then the target spill
-  /// file size will be set to 512MB.
-  double spillFileSizeFactor() const {
-    constexpr double kDefaultFactor = 0.25;
-    return get<double>(kSpillFileSizeFactor, kDefaultFactor);
+  uint64_t maxSpillFileSize() const {
+    constexpr uint64_t kDefaultMaxFileSize = 0;
+    return get<uint64_t>(kMaxSpillFileSize, kDefaultMaxFileSize);
+  }
+
+  uint64_t minSpillRunSize() const {
+    constexpr uint64_t kDefaultMinSpillRunSize = 256 << 20; // 256MB.
+    return get<uint64_t>(kMinSpillRunSize, kDefaultMinSpillRunSize);
   }
 
   /// Returns the spillable memory reservation growth percentage of the previous
