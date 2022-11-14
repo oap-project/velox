@@ -67,6 +67,9 @@ class SubstraitVeloxPlanConverter {
   /// Convert Substrait FilterRel into Velox PlanNode.
   core::PlanNodePtr toVeloxPlan(const ::substrait::FilterRel& filterRel);
 
+  /// Convert Substrait FetchRel into Velox LimitNode.
+  core::PlanNodePtr toVeloxPlan(const ::substrait::FetchRel& fetchRel);
+
   /// Convert Substrait ReadRel into Velox Values Node.
   core::PlanNodePtr toVeloxPlan(
       const ::substrait::ReadRel& readRel,

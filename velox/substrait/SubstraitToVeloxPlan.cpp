@@ -398,7 +398,7 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
     projectNames.emplace_back(subParser_->makeNodeName(planNodeId_, colIdx));
     colIdx += 1;
   }
-  
+
   return std::make_shared<core::ProjectNode>(
       nextPlanNodeId(),
       std::move(projectNames),
@@ -464,9 +464,9 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
     VELOX_CHECK(
         expr_field != nullptr,
         " the agg key in Expand Operator only support field");
-    auto filed = std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
-            expression);
-    aggExprs.emplace_back( filed);
+    auto filed =
+        std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(expression);
+    aggExprs.emplace_back(filed);
   }
 
   return std::make_shared<core::GroupIdNode>(
@@ -547,6 +547,23 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
   return std::make_shared<core::FilterNode>(
       nextPlanNodeId(),
       exprConverter_->toVeloxExpr(sExpr, inputType),
+      childNode);
+}
+
+core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
+    const ::substrait::FetchRel& fetchRel) {
+  core::PlanNodePtr childNode;
+  if (fetchRel.has_input()) {
+    childNode = toVeloxPlan(fetchRel.input());
+  } else {
+    VELOX_FAIL("Child Rel is expected in FetchRel.");
+  }
+
+  return std::make_shared<core::LimitNode>(
+      nextPlanNodeId(),
+      (int32_t)fetchRel.offset(),
+      (int32_t)fetchRel.count(),
+      false /*isPartial*/,
       childNode);
 }
 
@@ -800,6 +817,9 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
   }
   if (sRel.has_expand()) {
     return toVeloxPlan(sRel.expand());
+  }
+  if (sRel.has_fetch()) {
+    return toVeloxPlan(sRel.fetch());
   }
   VELOX_NYI("Substrait conversion not supported for Rel.");
 }
