@@ -15,6 +15,9 @@
  */
 
 #include "velox/substrait/SubstraitToVeloxPlan.h"
+
+#include <google/protobuf/wrappers.pb.h>
+
 #include "velox/substrait/TypeUtils.h"
 #include "velox/substrait/VariantToVectorConverter.h"
 #include "velox/type/Type.h"
@@ -92,10 +95,11 @@ bool configSetInOptimization(
     const ::substrait::extensions::AdvancedExtension& extension,
     const std::string& config) {
   if (extension.has_optimization()) {
-    std::string msg = extension.optimization().value();
-    std::size_t pos = msg.find(config);
+    google::protobuf::StringValue msg;
+    extension.optimization().UnpackTo(&msg);
+    std::size_t pos = msg.value().find(config);
     if ((pos != std::string::npos) &&
-        (msg.substr(pos + config.size(), 1) == "1")) {
+        (msg.value().substr(pos + config.size(), 1) == "1")) {
       return true;
     }
   }
@@ -398,7 +402,7 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
     projectNames.emplace_back(subParser_->makeNodeName(planNodeId_, colIdx));
     colIdx += 1;
   }
-  
+
   return std::make_shared<core::ProjectNode>(
       nextPlanNodeId(),
       std::move(projectNames),
@@ -464,9 +468,9 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
     VELOX_CHECK(
         expr_field != nullptr,
         " the agg key in Expand Operator only support field");
-    auto filed = std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
-            expression);
-    aggExprs.emplace_back( filed);
+    auto filed =
+        std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(expression);
+    aggExprs.emplace_back(filed);
   }
 
   return std::make_shared<core::GroupIdNode>(
