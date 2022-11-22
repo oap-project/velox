@@ -237,8 +237,23 @@ SubstraitVeloxExprConverter::toVeloxExpr(
     const RowTypePtr& inputType) {
   auto substraitType = subParser_->parseType(castExpr.type());
   auto type = toVeloxType(substraitType->type);
-  // TODO add flag in substrait after. now is set false.
-  bool nullOnFailure = false;
+  auto failureBehavior =  castExpr.failure_behavior();
+  bool nullOnFailure;
+  switch(failureBehavior) {
+    case ::substrait::FAILURE_BEHAVIOR_UNSPECIFIED:
+      nullOnFailure = false;
+      break;
+    case ::substrait::FAILURE_BEHAVIOR_RETURN_NULL:
+      nullOnFailure = true;
+      break;
+    case ::substrait::FAILURE_BEHAVIOR_THROW_EXCEPTION
+      nullOnFailure = false;
+      break;
+    default:
+      VELOX_FAIL("The given failure behavior is NOT supported!");
+  }
+//  // TODO add flag in substrait after. now is set false.
+//  bool nullOnFailure = false;
 
   std::vector<core::TypedExprPtr> inputs{
       toVeloxExpr(castExpr.input(), inputType)};
