@@ -252,8 +252,6 @@ SubstraitVeloxExprConverter::toVeloxExpr(
     default:
       VELOX_FAIL("The given failure behavior is NOT supported!");
   }
-//  // TODO add flag in substrait after. now is set false.
-//  bool nullOnFailure = false;
 
   std::vector<core::TypedExprPtr> inputs{
       toVeloxExpr(castExpr.input(), inputType)};
