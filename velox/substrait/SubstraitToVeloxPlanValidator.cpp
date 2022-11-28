@@ -425,6 +425,27 @@ bool SubstraitToVeloxPlanValidator::validate(
       return false;
     }
   }
+
+  // corner case, groupby and aggregates input is empty
+  if (sAgg.groupings_size() == 0) {
+    if (sAgg.measures_size() == 0) {
+      return false;
+    }
+  } else {
+    bool hasExpr = false;
+    for (const auto& grouping : sAgg.groupings()) {
+      for (const auto& groupingExpr : grouping.grouping_expressions()) {
+        hasExpr = true;
+        break;
+      }
+      if (hasExpr) {
+        break;
+      }
+    }
+    if (!hasExpr) {
+      return false;
+    }
+  }
   return true;
 }
 
