@@ -1291,10 +1291,12 @@ void HashTable<ignoreNullKeys>::decideHashMode(int32_t numNew) {
   if (bestWithReserve != VectorHasher::kRangeTooLarge) {
     enableRangeWhereCan(rangeSizes, distinctSizes, useRange);
     setHasherMode(hashers_, useRange, rangeSizes, distinctSizes);
+    setHashMode(HashMode::kNormalizedKey, numNew);
   } else {
     clearUseRange(useRange);
+    setHasherMode(hashers_, useRange, rangeSizes, distinctSizes);
+    setHashMode(HashMode::kNormalizedKey, numNew);
   }
-  setHashMode(HashMode::kNormalizedKey, numNew);
 }
 
 template <bool ignoreNullKeys>
