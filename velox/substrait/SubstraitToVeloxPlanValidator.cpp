@@ -427,11 +427,8 @@ bool SubstraitToVeloxPlanValidator::validate(
   }
 
   // corner case, groupby and aggregates input is empty
-  if (sAgg.groupings_size() == 0) {
-    if (sAgg.measures_size() == 0) {
-      return false;
-    }
-  } else {
+
+  if (sAgg.measures_size() == 0) {
     bool hasExpr = false;
     for (const auto& grouping : sAgg.groupings()) {
       for (const auto& groupingExpr : grouping.grouping_expressions()) {
@@ -443,6 +440,9 @@ bool SubstraitToVeloxPlanValidator::validate(
       }
     }
     if (!hasExpr) {
+      std::cout
+          << "Validation failed due to aggregation must specify either grouping keys or aggregates."
+          << std::endl;
       return false;
     }
   }
