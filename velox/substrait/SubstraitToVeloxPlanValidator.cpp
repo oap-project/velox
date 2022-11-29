@@ -16,6 +16,8 @@
 
 #include "velox/substrait/SubstraitToVeloxPlanValidator.h"
 #include "TypeUtils.h"
+#include "velox/expression/SignatureBinder.h"
+#include "velox/substrait/SubstraitToVeloxPlan.h"
 
 namespace facebook::velox::substrait {
 
@@ -41,8 +43,8 @@ bool SubstraitToVeloxPlanValidator::validateInputTypes(
     try {
       types.emplace_back(toVeloxType(subParser_->parseType(sType)->type));
     } catch (const VeloxException& err) {
-      std::cout << "Type is not supported in ProjectRel due to:"
-                << err.message() << std::endl;
+      std::cout << "Type is not supported due to:" << err.message()
+                << std::endl;
       return false;
     }
   }
@@ -356,6 +358,37 @@ bool SubstraitToVeloxPlanValidator::validate(
   return true;
 }
 
+bool SubstraitToVeloxPlanValidator::validateAggRelFunctionType(
+    const ::substrait::AggregateRel& sAgg) {
+  const auto& extension = sAgg.advanced_extension();
+  std::vector<TypePtr> types;
+  if (!validateInputTypes(extension, types)) {
+    std::cout << "Validation failed for input types in AggregateRel."
+              << std::endl;
+    return false;
+  }
+
+  SubstraitVeloxPlanConverter converter(pool_);
+  core::AggregationNode::Step step = converter.toAggregationStep(sAgg);
+  for (const auto& smea : sAgg.measures()) {
+    const auto& aggFunction = smea.measure();
+    auto funcName =
+        planConverter_->findFuncSpec(aggFunction.function_reference());
+    if (auto signatures = exec::getAggregateFunctionSignatures(funcName)) {
+      for (const auto& signature : signatures.value()) {
+        exec::SignatureBinder binder(*signature, types);
+        if (binder.tryBind()) {
+          binder.tryResolveType(
+              exec::isPartialOutput(step) ? signature->intermediateType()
+                                          : signature->returnType());
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
 bool SubstraitToVeloxPlanValidator::validate(
     const ::substrait::AggregateRel& sAgg) {
   if (sAgg.has_input() && !validate(sAgg.input())) {
@@ -426,8 +459,11 @@ bool SubstraitToVeloxPlanValidator::validate(
     }
   }
 
-  // corner case, groupby and aggregates input is empty
+  if (!validateAggRelFunctionType(sAgg)) {
+    return false;
+  }
 
+  // corner case, groupby and aggregates input is empty
   if (sAgg.measures_size() == 0) {
     bool hasExpr = false;
     for (const auto& grouping : sAgg.groupings()) {

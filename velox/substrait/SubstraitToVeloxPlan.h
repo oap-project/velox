@@ -147,6 +147,10 @@ class SubstraitVeloxPlanConverter {
       std::vector<const ::substrait::Expression::FieldReference*>& leftExprs,
       std::vector<const ::substrait::Expression::FieldReference*>& rightExprs);
 
+  /// get aggregation step from AggregateRel
+  core::AggregationNode::Step toAggregationStep(
+      const ::substrait::AggregateRel& sAgg);
+
  private:
   /// Range filter recorder for a field is used to make sure only the conditions
   /// that can coexist for this field being pushed down with a range filter.
@@ -453,8 +457,7 @@ class SubstraitVeloxPlanConverter {
           remainingFunctions,
       const std::vector<::substrait::Expression_SingularOrList>&
           singularOrLists,
-      const std::vector<::substrait::Expression_IfThen>&
-          ifThens);
+      const std::vector<::substrait::Expression_IfThen>& ifThens);
 
   /// Connect the left and right expressions with 'and' relation.
   core::TypedExprPtr connectWithAnd(
