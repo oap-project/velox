@@ -17,7 +17,6 @@
 #include "velox/substrait/SubstraitToVeloxPlanValidator.h"
 #include "TypeUtils.h"
 #include "velox/expression/SignatureBinder.h"
-#include "velox/substrait/SubstraitToVeloxPlan.h"
 
 namespace facebook::velox::substrait {
 
@@ -372,9 +371,10 @@ bool SubstraitToVeloxPlanValidator::validateAggRelFunctionType(
     std::cout << "Validation does not have advanced extension." << std::endl;
     return true;
   }
-
-  SubstraitVeloxPlanConverter converter(pool_);
-  core::AggregationNode::Step step = converter.toAggregationStep(sAgg);
+  if (sAgg.measures_size() == 0) {
+    return true;
+  }
+  core::AggregationNode::Step step = planConverter_->toAggregationStep(sAgg);
   for (const auto& smea : sAgg.measures()) {
     const auto& aggFunction = smea.measure();
     auto funcName =
