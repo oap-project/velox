@@ -360,12 +360,17 @@ bool SubstraitToVeloxPlanValidator::validate(
 
 bool SubstraitToVeloxPlanValidator::validateAggRelFunctionType(
     const ::substrait::AggregateRel& sAgg) {
-  const auto& extension = sAgg.advanced_extension();
   std::vector<TypePtr> types;
-  if (!validateInputTypes(extension, types)) {
-    std::cout << "Validation failed for input types in AggregateRel."
-              << std::endl;
-    return false;
+  if (sAgg.has_advanced_extension()) {
+    const auto& extension = sAgg.advanced_extension();
+    if (!validateInputTypes(extension, types)) {
+      std::cout << "Validation failed for input types in AggregateRel."
+                << std::endl;
+      return false;
+    }
+  } else {
+    std::cout << "Validation does not have advanced extension." << std::endl;
+    return true;
   }
 
   SubstraitVeloxPlanConverter converter(pool_);
@@ -386,6 +391,8 @@ bool SubstraitToVeloxPlanValidator::validateAggRelFunctionType(
       }
     }
   }
+  std::cout << "Validation failed for function resolve in AggregateRel."
+            << std::endl;
   return false;
 }
 
@@ -393,17 +400,6 @@ bool SubstraitToVeloxPlanValidator::validate(
     const ::substrait::AggregateRel& sAgg) {
   if (sAgg.has_input() && !validate(sAgg.input())) {
     return false;
-  }
-
-  // Validate input types.
-  if (sAgg.has_advanced_extension()) {
-    const auto& extension = sAgg.advanced_extension();
-    std::vector<TypePtr> types;
-    if (!validateInputTypes(extension, types)) {
-      std::cout << "Validation failed for input types in AggregateRel"
-                << std::endl;
-      return false;
-    }
   }
 
   // Validate groupings.
