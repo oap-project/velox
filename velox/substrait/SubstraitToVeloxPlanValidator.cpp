@@ -359,36 +359,49 @@ bool SubstraitToVeloxPlanValidator::validate(
 
 bool SubstraitToVeloxPlanValidator::validateAggRelFunctionType(
     const ::substrait::AggregateRel& sAgg) {
-  std::vector<TypePtr> types;
-  if (sAgg.has_advanced_extension()) {
-    const auto& extension = sAgg.advanced_extension();
-    if (!validateInputTypes(extension, types)) {
-      std::cout << "Validation failed for input types in AggregateRel."
-                << std::endl;
-      return false;
-    }
-  } else {
-    std::cout << "Validation does not have advanced extension." << std::endl;
-    return true;
-  }
   if (sAgg.measures_size() == 0) {
     return true;
   }
   core::AggregationNode::Step step = planConverter_->toAggregationStep(sAgg);
+  std::cout << "Step is " << core::AggregationNode::stepName(step) << std::endl;
   for (const auto& smea : sAgg.measures()) {
     const auto& aggFunction = smea.measure();
-    auto funcName =
+    auto funcSpec =
         planConverter_->findFuncSpec(aggFunction.function_reference());
+    std::cout << "FuncSpec is " << funcSpec << std::endl;
+    auto funcName = subParser_->getSubFunctionName(funcSpec);
+    std::vector<std::string> funcTypes;
+    subParser_->getSubFunctionTypes(funcSpec, funcTypes);
+    std::vector<TypePtr> types;
+    types.reserve(funcTypes.size());
+    for (auto& type : funcTypes) {
+      types.emplace_back(toVeloxType(subParser_->parseType(type)));
+    }
+    std::cout << "Funcname is " << funcName << std::endl;
     if (auto signatures = exec::getAggregateFunctionSignatures(funcName)) {
+      std::cout << "Get the signature " << std::endl;
       for (const auto& signature : signatures.value()) {
         exec::SignatureBinder binder(*signature, types);
         if (binder.tryBind()) {
-          binder.tryResolveType(
+          auto resolveType = binder.tryResolveType(
               exec::isPartialOutput(step) ? signature->intermediateType()
                                           : signature->returnType());
+          if (resolveType == nullptr) {
+            std::cout
+                << fmt::format(
+                       "Validation failed for function {} resolve type in AggregateRel.",
+                       funcName)
+                << std::endl;
+          }
           return true;
         }
       }
+      std::cout
+          << fmt::format(
+                 "Validation failed for function {} bind in AggregateRel.",
+                 funcName)
+          << std::endl;
+      return false;
     }
   }
   std::cout << "Validation failed for function resolve in AggregateRel."
@@ -400,6 +413,17 @@ bool SubstraitToVeloxPlanValidator::validate(
     const ::substrait::AggregateRel& sAgg) {
   if (sAgg.has_input() && !validate(sAgg.input())) {
     return false;
+  }
+
+  // Validate input types
+  std::vector<TypePtr> types;
+  if (sAgg.has_advanced_extension()) {
+    const auto& extension = sAgg.advanced_extension();
+    if (!validateInputTypes(extension, types)) {
+      std::cout << "Validation failed for input types in AggregateRel."
+                << std::endl;
+      return false;
+    }
   }
 
   // Validate groupings.
