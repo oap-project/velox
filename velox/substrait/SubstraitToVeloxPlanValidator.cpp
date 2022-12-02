@@ -458,18 +458,20 @@ bool SubstraitToVeloxPlanValidator::validate(
     for (auto colIdx = 0; colIdx < veloxTypeList.size(); colIdx++) {
       names.emplace_back(subParser_->makeNodeName(inputPlanNodeId, colIdx));
     }
-    auto rowType = std::make_shared<RowType>(std::move(names), std::move(veloxTypeList));
+    auto rowType =
+        std::make_shared<RowType>(std::move(names), std::move(veloxTypeList));
 
     try {
-      expressions.emplace_back(exprConverter_->toVeloxExpr(sRead.filter(), rowType));
-      // Try to compile the expressions. If there is any unregistered function or
-      // mismatched type, exception will be thrown.
+      expressions.emplace_back(
+          exprConverter_->toVeloxExpr(sRead.filter(), rowType));
+      // Try to compile the expressions. If there is any unregistered function
+      // or mismatched type, exception will be thrown.
       exec::ExprSet exprSet(std::move(expressions), execCtx_);
-     } catch (const VeloxException& err) {
+    } catch (const VeloxException& err) {
       std::cout << "Validation failed for filter expression in ReadRel due to:"
-              << err.message() << std::endl;
+                << err.message() << std::endl;
       return false;
-      }
+    }
   }
   return true;
 }
