@@ -147,7 +147,7 @@ class SubstraitVeloxPlanConverter {
       std::vector<const ::substrait::Expression::FieldReference*>& leftExprs,
       std::vector<const ::substrait::Expression::FieldReference*>& rightExprs);
 
-  /// get aggregation step from AggregateRel
+  /// Get aggregation step from AggregateRel.
   core::AggregationNode::Step toAggregationStep(
       const ::substrait::AggregateRel& sAgg);
 

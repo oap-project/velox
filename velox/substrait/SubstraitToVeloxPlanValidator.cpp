@@ -395,7 +395,7 @@ bool SubstraitToVeloxPlanValidator::validateAggRelFunctionType(
                        "Validation failed for function {} resolve type in AggregateRel.",
                        funcName)
                 << std::endl;
-                return false;
+            return false;
           }
           return true;
         }
@@ -419,9 +419,9 @@ bool SubstraitToVeloxPlanValidator::validate(
     return false;
   }
 
-  // Validate input types
-  std::vector<TypePtr> types;
+  // Validate input types.
   if (sAgg.has_advanced_extension()) {
+    std::vector<TypePtr> types;
     const auto& extension = sAgg.advanced_extension();
     if (!validateInputTypes(extension, types)) {
       std::cout << "Validation failed for input types in AggregateRel."
@@ -487,7 +487,7 @@ bool SubstraitToVeloxPlanValidator::validate(
     return false;
   }
 
-  // corner case, groupby and aggregates input is empty
+  // Validate both groupby and aggregates input are empty, which is corner case.
   if (sAgg.measures_size() == 0) {
     bool hasExpr = false;
     for (const auto& grouping : sAgg.groupings()) {

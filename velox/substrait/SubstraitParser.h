@@ -49,7 +49,7 @@ class SubstraitParser {
   std::shared_ptr<SubstraitType> parseType(
       const ::substrait::Type& substraitType);
 
-  // Parse substraitType type such as i32
+  // Parse substraitType type such as i32.
   std::string parseType(const std::string& substraitType);
 
   /// Parse Substrait ReferenceSegment.
@@ -115,7 +115,9 @@ class SubstraitParser {
       {"BitwiseAnd", "bitwise_and"},
       {"BitwiseOr", "bitwise_or"},
       {"modulus", "mod"} /*Presto functions.*/};
-  // key is in function name, value is substrait type name
+  // The map is uesd for mapping substrait type.
+  // Key: type in function name.
+  // Value: substrait type name.
   const std::unordered_map<std::string, std::string> typeMap_ = {
       {"bool", "BOOLEAN"},
       {"i8", "TINYINT"},
