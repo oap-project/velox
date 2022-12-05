@@ -215,15 +215,15 @@ TEST_F(FunctionTest, streamIsInput) {
 
 TEST_F(FunctionTest, getFunctionType) {
   std::vector<std::string> types;
-  substraitParser_.getSubFunctionTypes("sum:opt_i32", types);
+  substraitParser_->getSubFunctionTypes("sum:opt_i32", types);
   ASSERT_EQ("i32", types[0]);
 
   types.clear();
-  substraitParser_.getSubFunctionTypes("sum:i32", types);
+  substraitParser_->getSubFunctionTypes("sum:i32", types);
   ASSERT_EQ("i32", types[0]);
 
   types.clear();
-  substraitParser_.getSubFunctionTypes("sum:opt_str_str", types);
+  substraitParser_->getSubFunctionTypes("sum:opt_str_str", types);
   ASSERT_EQ(2, types.size());
   ASSERT_EQ("str", types[0]);
   ASSERT_EQ("str", types[1]);
