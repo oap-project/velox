@@ -49,7 +49,7 @@ class SubstraitParser {
   std::shared_ptr<SubstraitType> parseType(
       const ::substrait::Type& substraitType);
 
-  // input type like i32
+  // Parse substraitType type such as i32
   std::string parseType(const std::string& substraitType);
 
   /// Parse Substrait ReferenceSegment.

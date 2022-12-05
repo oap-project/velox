@@ -395,6 +395,7 @@ bool SubstraitToVeloxPlanValidator::validateAggRelFunctionType(
                        "Validation failed for function {} resolve type in AggregateRel.",
                        funcName)
                 << std::endl;
+                return false;
           }
           return true;
         }
