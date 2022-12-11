@@ -341,8 +341,8 @@ bool SubstraitToVeloxPlanValidator::validate(
   // REAL, DOUBLE. Hash.cpp (L148 - L156)
   for (auto i = 0; i < types.size(); i++) {
     switch (types[i]->kind()) {
-      case TypeKind::DATE:
-        return false;
+//      case TypeKind::DATE:
+//        return false;
       case TypeKind::ARRAY:
         return false;
       default:;

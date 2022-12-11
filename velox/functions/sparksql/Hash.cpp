@@ -106,6 +106,10 @@ uint32_t hashDouble(double input, uint32_t seed) {
       input == -0. ? 0 : *reinterpret_cast<uint64_t*>(&input), seed);
 }
 
+uint32_t hashDate(Date input, uint32_t seed) {
+  return hashInt32(input.days(), seed);
+}
+
 class HashFunction final : public exec::VectorFunction {
   bool isDefaultNullBehavior() const final {
     return false;
@@ -154,6 +158,7 @@ class HashFunction final : public exec::VectorFunction {
         CASE(VARBINARY, hashBytes, StringView);
         CASE(REAL, hashFloat, float);
         CASE(DOUBLE, hashDouble, double);
+        CASE(DATE, hashDate, int32_t);
 #undef CASE
         default:
           VELOX_NYI("Unsupported type for HASH(): {}", arg->type()->toString());
