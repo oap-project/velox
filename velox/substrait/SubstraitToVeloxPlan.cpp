@@ -276,16 +276,32 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
         exprConverter_->toVeloxExpr(sJoin.post_join_filter(), inputRowType);
   }
 
-  // Create join node
-  return std::make_shared<core::HashJoinNode>(
-      nextPlanNodeId(),
-      joinType,
-      leftKeys,
-      rightKeys,
-      filter,
-      leftNode,
-      rightNode,
-      getJoinOutputType(leftNode, rightNode, joinType));
+  if (sJoin.has_advanced_extension() &&
+          configSetInOptimization(
+              sJoin.advanced_extension(), "isSMJ=")) {
+    // Create MergeJoinNode node
+    return std::make_shared<core::MergeJoinNode>(
+        nextPlanNodeId(),
+        joinType,
+        leftKeys,
+        rightKeys,
+        filter,
+        leftNode,
+        rightNode,
+        getJoinOutputType(leftNode, rightNode, joinType));
+
+  } else {
+    // Create HashJoinNode node
+    return std::make_shared<core::HashJoinNode>(
+        nextPlanNodeId(),
+        joinType,
+        leftKeys,
+        rightKeys,
+        filter,
+        leftNode,
+        rightNode,
+        getJoinOutputType(leftNode, rightNode, joinType));
+  }
 }
 
 core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(

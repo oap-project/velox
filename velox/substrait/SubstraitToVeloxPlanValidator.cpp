@@ -18,7 +18,29 @@
 #include "TypeUtils.h"
 #include "velox/expression/SignatureBinder.h"
 
+#include <google/protobuf/wrappers.pb.h>
+
 namespace facebook::velox::substrait {
+
+/// @brief Return whether a config is set as true in AdvancedExtension
+/// optimization.
+/// @param extension Substrait advanced extension.
+/// @param config the key string of a config.
+/// @return Whether the config is set as true.
+bool configSetInOptimization(
+    const ::substrait::extensions::AdvancedExtension& extension,
+    const std::string& config) {
+  if (extension.has_optimization()) {
+    google::protobuf::StringValue msg;
+    extension.optimization().UnpackTo(&msg);
+    std::size_t pos = msg.value().find(config);
+    if ((pos != std::string::npos) &&
+        (msg.value().substr(pos + config.size(), 1) == "1")) {
+      return true;
+    }
+  }
+  return false;
+}
 
 bool SubstraitToVeloxPlanValidator::validateInputTypes(
     const ::substrait::extensions::AdvancedExtension& extension,
@@ -429,6 +451,19 @@ bool SubstraitToVeloxPlanValidator::validate(
     return false;
   }
 
+  if (sJoin.has_advanced_extension() &&
+          configSetInOptimization(
+              sJoin.advanced_extension(), "isSMJ=")) {
+    switch (sJoin.type()) {
+      case ::substrait::JoinRel_JoinType_JOIN_TYPE_INNER:
+      case ::substrait::JoinRel_JoinType_JOIN_TYPE_LEFT:
+        break;
+      default:
+        std::cout << "Sort merge join only support inner and left join"
+                  << std::endl;
+        return false;
+    }
+  }
   switch (sJoin.type()) {
     case ::substrait::JoinRel_JoinType_JOIN_TYPE_INNER:
     case ::substrait::JoinRel_JoinType_JOIN_TYPE_OUTER:
