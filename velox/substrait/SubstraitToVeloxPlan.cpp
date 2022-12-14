@@ -1906,7 +1906,7 @@ connector::hive::SubfieldFilters SubstraitVeloxPlanConverter::mapToFilters(
             colIdx, inputNameList[colIdx], colInfoMap[colIdx], filters);
         break;
       case TypeKind::DATE:
-        constructSubfieldFilters<TypeKind::DATE, common::Filter>(
+        constructSubfieldFilters<TypeKind::DATE, common::BigintRange>(
             colIdx, inputNameList[colIdx], colInfoMap[colIdx], filters);
         break;
       default:
