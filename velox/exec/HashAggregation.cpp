@@ -178,6 +178,7 @@ void HashAggregation::addInput(RowVectorPtr input) {
   }
   groupingSet_->addInput(input, mayPushdown_);
   numInputRows_ += input->size();
+  numInputVectors_ += 1;
   {
     auto spillStats = groupingSet_->spilledStats();
     auto lockedStats = stats_.wlock();
@@ -190,9 +191,18 @@ void HashAggregation::addInput(RowVectorPtr input) {
   // NOTE: we should not trigger partial output flush in case of global
   // aggregation as the final aggregator will handle it the same way as the
   // partial aggregator. Hence, we have to use more memory anyway.
-  if (isPartialOutput_ && !isGlobal_ &&
-      groupingSet_->allocatedBytes() > maxPartialAggregationMemoryUsage_) {
-    partialFull_ = true;
+  if (isPartialOutput_ && !isGlobal_) {
+    uint64_t kDefaultFlushMemory = 1L << 24;
+    if (groupingSet_->allocatedBytes() > kDefaultFlushMemory &&
+        numInputVectors_ % 15 == 0) {
+      double ratio = (double)(groupingSet_->numDistincts()) / (double)numInputRows_;
+      // Indicator of high cardinality.
+      if (ratio > 0.9) {
+        partialFull_ = true;
+      }
+    } else if (groupingSet_->allocatedBytes() > maxPartialAggregationMemoryUsage_) {
+      partialFull_ = true;
+    }
   }
 
   if (isDistinct_) {
@@ -234,6 +244,7 @@ void HashAggregation::resetPartialOutputIfNeed() {
   partialFull_ = false;
   numOutputRows_ = 0;
   numInputRows_ = 0;
+  numInputVectors_ = 0;
   if (!finished_) {
     maybeIncreasePartialAggregationMemoryUsage(aggregationPct);
   }
