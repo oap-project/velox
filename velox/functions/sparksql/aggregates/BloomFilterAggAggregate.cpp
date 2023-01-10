@@ -17,7 +17,6 @@
 #include "velox/functions/sparksql/aggregates/BloomFilterAggAggregate.h"
 
 #include <fmt/format.h>
-
 #include "velox/common/base/BloomFilter.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/expression/FunctionSignature.h"
@@ -136,11 +135,12 @@ class BloomFilterAggAggregate : public exec::Aggregate {
     decodedIntermediate_.decode(*args[0], rows);
     VELOX_CHECK(!decodedIntermediate_.mayHaveNulls());
     auto tracker = trackRowSize(group);
+    auto accumulator = value<BloomFilterAccumulator>(group);
     rows.applyToSelected([&](auto row) {
       auto serialized = decodedIntermediate_.valueAt<StringView>(row);
-      auto accumulator = value<BloomFilterAccumulator>(group);
       accumulator->mergeWith(serialized);
     });
+
   }
 
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
@@ -155,12 +155,12 @@ class BloomFilterAggAggregate : public exec::Aggregate {
       auto size = accumulator->serializedSize();
       if (StringView::isInline(size)) {
         StringView serialized(size);
-        accumulator->bloomFilter.serialize(serialized);
+        accumulator->serialize(serialized);
         flatResult->setNoCopy(i, serialized);
       } else {
         Buffer* buffer = flatResult->getBufferWithSpace(size);
         StringView serialized(buffer->as<char>() + buffer->size(), size);
-        accumulator->bloomFilter.serialize(serialized);
+        accumulator->serialize(serialized);
         buffer->setSize(buffer->size() + size);
         flatResult->setNoCopy(i, serialized);
       }

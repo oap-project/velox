@@ -150,9 +150,9 @@ void registerFunctions(const std::string& prefix) {
   exec::registerStatefulVectorFunction(
       prefix + "sort_array", sortArraySignatures(), makeSortArray);
 
-  // Register bloom filter function
-  registerFunction<MightContainFunction, bool, Varbinary, int64_t>(
-      {prefix + "might_contain"});
+// Register bloom filter function
+  exec::registerStatefulVectorFunction(
+      prefix + "might_contain", mightContainSignatures(), makeMightContain);
       
   // Register DateTime functions.
   registerFunction<MillisecondFunction, int32_t, Date>(

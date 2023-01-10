@@ -13,26 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/common/base/BloomFilter.h"
 #include "velox/expression/VectorFunction.h"
-#include "velox/functions/Macros.h"
-#include "velox/functions/lib/string/StringImpl.h"
 
 namespace facebook::velox::functions::sparksql {
 
-template <typename T>
-struct MightContainFunction {
-  VELOX_DEFINE_FUNCTION_TYPES(T);
+std::vector<std::shared_ptr<exec::FunctionSignature>> mightContainSignatures();
 
-  FOLLY_ALWAYS_INLINE bool call(
-      out_type<bool>& result,
-      const arg_type<Varbinary>& serializedBloom,
-      const arg_type<int64_t>& value) {
-    BloomFilter<int64_t, false> output;
-    BloomFilter<int64_t, false>::deserialize(
-        std::string(std::string_view(serializedBloom)).data(), output);
-    return output.mayContain(value);
-  }
-};
+std::shared_ptr<exec::VectorFunction> makeMightContain(
+    const std::string& name,
+    const std::vector<exec::VectorFunctionArg>& inputArgs);
 
 } // namespace facebook::velox::functions::sparksql

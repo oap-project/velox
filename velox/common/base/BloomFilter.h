@@ -20,7 +20,6 @@
 #include <vector>
 
 #include <folly/Hash.h>
-
 #include "velox/common/base/BitUtil.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/IOUtils.h"
@@ -69,12 +68,12 @@ class BloomFilter {
         hashInput ? folly::hasher<InputType>()(value) : value);
   }
 
-// Combines the two bloomFilter bits_ using bitwise OR.
+  // Combines the two bloomFilter bits_ using bitwise OR.
   void merge(BloomFilter& bloomFilter) {
     if (bits_.size() == 0) {
       bits_ = bloomFilter.bits_;
       return;
-    } else if (bloomFilter.bits_.size() == 0){
+    } else if (bloomFilter.bits_.size() == 0) {
       VELOX_FAIL("Input bit length should not be 0");
     }
     VELOX_CHECK_EQ(bits_.size(), bloomFilter.bits_.size());
@@ -85,7 +84,7 @@ class BloomFilter {
 
   uint32_t serializedSize() {
     return 4 /* number of bits */
-      + bits_.size() * 8;
+        + bits_.size() * 8;
   }
 
   void serialize(StringView& output) {
@@ -101,7 +100,8 @@ class BloomFilter {
     common::InputByteStream stream(serialized);
     auto size = stream.read<int32_t>();
     output.bits_.resize(size);
-    auto bitsdata = reinterpret_cast<const uint64_t*>(serialized + stream.offset());
+    auto bitsdata =
+        reinterpret_cast<const uint64_t*>(serialized + stream.offset());
     for (auto i = 0; i < size; i++) {
       output.bits_[i] = bitsdata[i];
     }

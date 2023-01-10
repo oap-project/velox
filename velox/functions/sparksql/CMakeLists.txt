@@ -27,7 +27,8 @@ add_library(
   Size.cpp
   SplitFunctions.cpp
   String.cpp
-  Subscript.cpp)
+  Subscript.cpp
+  MightContain.cpp)
 
 target_link_libraries(
   velox_functions_spark velox_functions_lib velox_functions_prestosql_impl
