@@ -309,7 +309,7 @@ bool testFilters(
 template <TypeKind ToKind>
 velox::variant convertFromString(const std::optional<std::string>& value) {
   if (value.has_value()) {
-    if constexpr (ToKind == TypeKind::VARCHAR) {
+    if constexpr (ToKind == TypeKind::VARCHAR || ToKind == TypeKind::VARBINARY) {
       return velox::variant(value.value());
     }
     bool nullOutput = false;
