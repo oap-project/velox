@@ -74,7 +74,7 @@ class BloomFilter {
       bits_ = bloomFilter.bits_;
       return;
     } else if (bloomFilter.bits_.size() == 0) {
-      VELOX_FAIL("Input bit length should not be 0");
+      return;
     }
     VELOX_CHECK_EQ(bits_.size(), bloomFilter.bits_.size());
     for (auto i = 0; i < bloomFilter.bits_.size(); i++) {
