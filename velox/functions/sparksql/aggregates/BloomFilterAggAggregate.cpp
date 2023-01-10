@@ -206,7 +206,7 @@ class BloomFilterAggAggregate : public exec::Aggregate {
     // spark bit_ size is Math.ceil(numBits / 64.0) so there is equal bit_ size
     // using numBits_ / 16
     // but with TPCDS test, for velox BloomFilter, this value should be 64
-    capacity_ = numBits_ / 64;
+    capacity_ = numBits_ / 16;
   }
 
   static void
