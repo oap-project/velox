@@ -94,6 +94,28 @@ bool SubstraitToVeloxPlanValidator::validateLiteral(
   return true;
 }
 
+bool SubstraitToVeloxPlanValidator::validateCast(
+    const ::substrait::Expression::Cast& castExpr,
+    const RowTypePtr& inputType) {
+  std::vector<core::TypedExprPtr> inputs{
+      exprConverter_->toVeloxExpr(castExpr.input(), inputType)};
+
+  // Casting from some types is not supported. See CastExpr::applyCast.
+  for (const auto& input : inputs) {
+    switch (input->type()->kind()) {
+      case TypeKind::ARRAY:
+      case TypeKind::MAP:
+      case TypeKind::ROW:
+      case TypeKind::VARBINARY:
+        VLOG(1) << "Invalid input type in casting: " << input->type() << ".";
+        return false;
+      default: {
+      }
+    }
+  }
+  return true;
+}
+
 bool SubstraitToVeloxPlanValidator::validateExpression(
     const ::substrait::Expression& expression,
     const RowTypePtr& inputType) {
@@ -104,6 +126,8 @@ bool SubstraitToVeloxPlanValidator::validateExpression(
       return validateScalarFunction(expression.scalar_function(), inputType);
     case ::substrait::Expression::RexTypeCase::kLiteral:
       return validateLiteral(expression.literal(), inputType);
+    case ::substrait::Expression::RexTypeCase::kCast:
+      return validateCast(expression.cast(), inputType);
     default:
       return true;
   }

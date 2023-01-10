@@ -101,6 +101,11 @@ class SubstraitToVeloxPlanValidator {
       const ::substrait::Expression::ScalarFunction& scalarFunction,
       const RowTypePtr& inputType);
 
+  /// Validate Substrait Cast expression.
+  bool validateCast(
+    const ::substrait::Expression::Cast& castExpr,
+    const RowTypePtr& inputType);  
+
   /// Validate Substrait expression.
   bool validateExpression(
       const ::substrait::Expression& expression,
