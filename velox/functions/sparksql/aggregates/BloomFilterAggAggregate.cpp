@@ -202,10 +202,6 @@ class BloomFilterAggAggregate : public exec::Aggregate {
     }
     estimatedNumItems_ = std::min(estimatedNumItems_, MAX_NUM_ITEMS);
     numBits_ = std::min(numBits_, MAX_NUM_BITS);
-    // velox BloomFilter bit_ size is bits::nextPowerOfTwo(capacity) / 4, and
-    // spark bit_ size is Math.ceil(numBits / 64.0) so there is equal bit_ size
-    // using numBits_ / 16
-    // but with TPCDS test, for velox BloomFilter, this value should be 64
     capacity_ = numBits_ / 16;
   }
 
