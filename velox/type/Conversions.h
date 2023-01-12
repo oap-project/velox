@@ -374,6 +374,10 @@ struct Converter<TypeKind::VARCHAR, void, TRUNCATE> {
     return folly::to<std::string>(val);
   }
 
+  static std::string cast(const Date& d, bool& nullOutput) {
+    return d.toString();
+  }
+
   static std::string cast(const bool& val, bool& nullOutput) {
     return val ? "true" : "false";
   }
