@@ -76,7 +76,7 @@ class BloomFilter {
     } else if (bloomFilter.bits_.size() == 0) {
       return;
     }
-    VELOX_CHECK_EQ(bits_.size(), bloomFilter.bits_.size());
+    VELOX_DCHECK_EQ(bits_.size(), bloomFilter.bits_.size());
     for (auto i = 0; i < bloomFilter.bits_.size(); i++) {
       bits_[i] |= bloomFilter.bits_[i];
     }

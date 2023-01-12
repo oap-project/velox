@@ -97,8 +97,10 @@ class BloomFilterAggAggregate : public exec::Aggregate {
       bool /*mayPushdown*/) override {
     VELOX_CHECK_EQ(args.size(), 1);
     decodedIntermediate_.decode(*args[0], rows);
-    VELOX_CHECK(!decodedIntermediate_.mayHaveNulls());
     rows.applyToSelected([&](auto row) {
+      if (UNLIKELY(decodedIntermediate_.isNullAt(row))) {
+        return;
+      }
       auto group = groups[row];
       auto tracker = trackRowSize(group);
       auto serialized = decodedIntermediate_.valueAt<StringView>(row);
@@ -114,6 +116,7 @@ class BloomFilterAggAggregate : public exec::Aggregate {
       bool /*mayPushdown*/) override {
     decodeArguments(rows, args);
     auto accumulator = value<BloomFilterAccumulator>(group);
+    VELOX_CHECK(!decodedRaw_.mayHaveNulls());
     if (decodedRaw_.isConstantMapping()) {
       // all values are same, just do for the first
       accumulator->init(capacity_);
@@ -133,14 +136,15 @@ class BloomFilterAggAggregate : public exec::Aggregate {
       bool /*mayPushdown*/) override {
     VELOX_CHECK_EQ(args.size(), 1);
     decodedIntermediate_.decode(*args[0], rows);
-    VELOX_CHECK(!decodedIntermediate_.mayHaveNulls());
     auto tracker = trackRowSize(group);
     auto accumulator = value<BloomFilterAccumulator>(group);
     rows.applyToSelected([&](auto row) {
+      if (UNLIKELY(decodedIntermediate_.isNullAt(row))) {
+        return;
+      }
       auto serialized = decodedIntermediate_.valueAt<StringView>(row);
       accumulator->mergeWith(serialized);
     });
-
   }
 
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
@@ -153,6 +157,10 @@ class BloomFilterAggAggregate : public exec::Aggregate {
       VELOX_CHECK_NOT_NULL(group);
       auto accumulator = value<BloomFilterAccumulator>(group);
       auto size = accumulator->serializedSize();
+      if (UNLIKELY(!accumulator->bloomFilter.isSet())) {
+        flatResult->setNull(i, true);
+        continue;
+      }
       if (StringView::isInline(size)) {
         StringView serialized(size);
         accumulator->serialize(serialized);
