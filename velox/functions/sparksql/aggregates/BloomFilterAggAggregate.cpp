@@ -16,7 +16,6 @@
 
 #include "velox/functions/sparksql/aggregates/BloomFilterAggAggregate.h"
 
-#include <fmt/format.h>
 #include "velox/common/base/BloomFilter.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/expression/FunctionSignature.h"
