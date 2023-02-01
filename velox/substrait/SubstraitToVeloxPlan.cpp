@@ -1588,14 +1588,17 @@ void SubstraitVeloxPlanConverter::setFilterMap(
   // Extract the column index and column bound from the scalar function.
   std::optional<uint32_t> colIdx;
   std::optional<::substrait::Expression_Literal> substraitLit;
+  std::vector<std::string> typeCases;
   for (const auto& param : scalarFunction.arguments()) {
     auto typeCase = param.value().rex_type_case();
     switch (typeCase) {
       case ::substrait::Expression::RexTypeCase::kSelection:
+        typeCases.emplace_back("kSelection");
         colIdx = subParser_->parseReferenceSegment(
             param.value().selection().direct_reference());
         break;
       case ::substrait::Expression::RexTypeCase::kLiteral:
+        typeCases.emplace_back("kLiteral");
         substraitLit = param.value().literal();
         break;
       default:
@@ -1603,6 +1606,16 @@ void SubstraitVeloxPlanConverter::setFilterMap(
             "Substrait conversion not supported for arg type '{}'", typeCase);
     }
   }
+
+  std::unordered_map<std::string, std::string> functionRevertMap = {
+      {"lt", "gt"}, {"gt", "lt"}, {"gte", "lte"}, {"lte", "gte"}};
+
+  // Handle 123 < q1 case
+  if (typeCases[0] == "kLiteral") {
+    // change the function name: lt => gt, gt => lt, gte => lte, lte => gte
+    functionName = functionRevertMap[functionName];
+  }
+
   if (!colIdx.has_value()) {
     VELOX_NYI("Column index is expected in subfield filters creation.");
   }
