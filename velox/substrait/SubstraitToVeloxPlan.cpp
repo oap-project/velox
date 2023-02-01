@@ -1608,10 +1608,12 @@ void SubstraitVeloxPlanConverter::setFilterMap(
   }
 
   std::unordered_map<std::string, std::string> functionRevertMap = {
-      {"lt", "gt"}, {"gt", "lt"}, {"gte", "lte"}, {"lte", "gte"}};
+      {sLt, sGt}, {sGt, sLt}, {sGte, sLte}, {sLte, sGte}};
 
-  // Handle 123 < q1 case
-  if (typeCases[0] == "kLiteral") {
+  // Handle "123 < q1" type expression case
+  if (typeCases.size() > 1 &&
+      (typeCases[0] == "kLiteral" && typeCases[1] == "kSelection") &&
+      functionRevertMap.find(functionName) != functionRevertMap.end()) {
     // change the function name: lt => gt, gt => lt, gte => lte, lte => gte
     functionName = functionRevertMap[functionName];
   }
