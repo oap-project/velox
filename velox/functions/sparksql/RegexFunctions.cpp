@@ -16,7 +16,6 @@
 #include "velox/functions/lib/Re2Functions.h"
 
 #include "velox/common/base/Exceptions.h"
-#include <iostream>
 
 namespace facebook::velox::functions::sparksql {
 namespace {
@@ -27,19 +26,15 @@ namespace {
 void ensureRegexIsCompatible(
     const char* functionName,
     const VectorPtr& patternVector) {
-  std::cout << "#### 000" << std::endl;
   if (!patternVector ||
       patternVector->encoding() != VectorEncoding::Simple::CONSTANT) {
-    VELOX_USER_FAIL("{} requires a constant ###### pattern.", functionName);
+    VELOX_USER_FAIL("{} requires a constant pattern.", functionName);
   }
-  std::cout << "#### 001" << std::endl;
   if (patternVector->isNullAt(0)) {
     return;
   }
-  std::cout << "#### 002" << std::endl;
   const StringView pattern =
       patternVector->as<ConstantVector<StringView>>()->valueAt(0);
-  std::cout << "#### pattern: " << pattern << std::endl;
   // If in a character class, points to the [ at the beginning of that class.
   const char* charClassStart = nullptr;
   // This minimal regex parser looks just for the class begin/end markers.
@@ -61,7 +56,6 @@ void ensureRegexIsCompatible(
     } else if (*c == '(' && c + 3 < pattern.end() && *(c + 1) == '?') {
       // RE2 doesn't support lookaround (lookahead or lookbehind), so we should exclude such patterns:
       // (?=), (?!), (?<=), (?<!).
-      std::cout << "#### entern the if branch " << std::endl;
       if (*(c + 2) == '=' ||  *(c + 2) == '!') {
         VELOX_USER_FAIL("{} does NOT support lookahead in RE2-based implementation.", functionName)
       } else if (*(c + 2) == '<' && (*(c + 3) == '=' ||  *(c + 3) == '!')) {
