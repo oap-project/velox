@@ -27,6 +27,7 @@
 #include "velox/expression/Expr.h"
 #include "velox/type/Filter.h"
 #include "velox/type/Subfield.h"
+#include "velox/connectors/hive/HiveConfig.h"
 
 namespace facebook::velox::connector::hive {
 
@@ -112,6 +113,7 @@ class HiveDataSource : public DataSource {
       ExpressionEvaluator* FOLLY_NONNULL expressionEvaluator,
       memory::MemoryAllocator* FOLLY_NONNULL allocator,
       const std::string& scanId,
+      bool caseSensitive,
       folly::Executor* FOLLY_NULLABLE executor);
 
   void addSplit(std::shared_ptr<ConnectorSplit> split) override;
@@ -221,6 +223,7 @@ class HiveConnector final : public Connector {
         connectorQueryCtx->expressionEvaluator(),
         connectorQueryCtx->allocator(),
         connectorQueryCtx->scanId(),
+        HiveConfig::isCaseSensitive(connectorQueryCtx->config()),
         executor_);
   }
 

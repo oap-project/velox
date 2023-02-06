@@ -33,6 +33,10 @@ class HiveConfig {
 
   static InsertExistingPartitionsBehavior insertExistingPartitionsBehavior(
       const Config* config);
+
+  static constexpr const char* kCaseSensitive = "case_sensitive";
+
+  static bool isCaseSensitive(const Config* config);
 };
 
 } // namespace facebook::velox::connector::hive

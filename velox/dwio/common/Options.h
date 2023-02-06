@@ -346,6 +346,7 @@ class ReaderOptions {
   int32_t maxCoalesceDistance_{kDefaultCoalesceDistance};
   SerDeOptions serDeOptions;
   std::shared_ptr<encryption::DecrypterFactory> decrypterFactory_;
+  bool caseSensitive;
 
  public:
   static constexpr int32_t kDefaultLoadQuantum = 8 << 20; // 8MB
@@ -357,7 +358,8 @@ class ReaderOptions {
         fileFormat(FileFormat::UNKNOWN),
         fileSchema(nullptr),
         autoPreloadLength(DEFAULT_AUTO_PRELOAD_SIZE),
-        prefetchMode(PrefetchMode::PREFETCH) {
+        prefetchMode(PrefetchMode::PREFETCH),
+        caseSensitive(true) {
     // PASS
   }
 
@@ -467,6 +469,11 @@ class ReaderOptions {
     return *this;
   }
 
+  ReaderOptions& setCaseSensitive(bool caseSensitiveMode) {
+    caseSensitive = caseSensitiveMode;
+    return *this;
+  }
+
   /**
    * Get the desired tail location.
    * @return if not set, return the maximum long.
@@ -523,6 +530,10 @@ class ReaderOptions {
   const std::shared_ptr<encryption::DecrypterFactory> getDecrypterFactory()
       const {
     return decrypterFactory_;
+  }
+
+ const bool isCaseSensitive() const {
+    return caseSensitive;
   }
 };
 

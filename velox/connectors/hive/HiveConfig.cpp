@@ -47,4 +47,8 @@ HiveConfig::insertExistingPartitionsBehavior(const Config* config) {
       : InsertExistingPartitionsBehavior::kError;
 }
 
+bool HiveConfig::isCaseSensitive(const Config* config) {
+  return config->get<bool>(kCaseSensitive, true);
+}
+
 } // namespace facebook::velox::connector::hive
