@@ -17,9 +17,25 @@
 #include "velox/substrait/SubstraitToVeloxPlanValidator.h"
 #include "TypeUtils.h"
 #include "velox/expression/SignatureBinder.h"
+#include "velox/type/Tokenizer.h"
 
 namespace facebook::velox::substrait {
-
+namespace {
+bool validateColNames(const ::substrait::NamedStruct& schema) {
+  for (auto& name : schema.names()) {
+    common::Tokenizer token(name);
+    for (auto i = 0; i < name.size(); i++) {
+      auto c = name[i];
+      if (!token.isUnquotedPathCharacter(c)) {
+        std::cout << "Illegal column charactor " << c << "in column " << name
+                  << std::endl;
+        return false;
+      }
+    }
+  }
+  return true;
+}
+} // namespace
 bool SubstraitToVeloxPlanValidator::validateInputTypes(
     const ::substrait::extensions::AdvancedExtension& extension,
     std::vector<TypePtr>& types) {
@@ -805,6 +821,15 @@ bool SubstraitToVeloxPlanValidator::validate(
                 << err.message() << std::endl;
       return false;
     }
+  }
+  if (sRead.has_base_schema()) {
+    const auto& baseSchema = sRead.base_schema();
+    if (!validateColNames(baseSchema)) {
+      std::cout
+          << "Validation failed for column name contains illegal charactor."
+          << std::endl;
+      return false;
+    };
   }
   return true;
 }
