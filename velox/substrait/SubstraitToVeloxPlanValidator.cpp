@@ -829,7 +829,7 @@ bool SubstraitToVeloxPlanValidator::validate(
           << "Validation failed for column name contains illegal charactor."
           << std::endl;
       return false;
-    };
+    }
   }
   return true;
 }
