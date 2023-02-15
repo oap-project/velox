@@ -741,7 +741,8 @@ bool SubstraitToVeloxPlanValidator::validate(
   }
 
   std::unordered_set<std::string> supportedFuncs = {
-      "sum", "count", "avg", "min", "max", "stddev_samp", "stddev_pop", "bloom_filter_agg"};
+      "sum", "count", "avg", "min", "max", "stddev_samp", "stddev_pop",
+      "bloom_filter_agg", "var_samp", "var_pop"};
   for (const auto& funcSpec : funcSpecs) {
     auto funcName = subParser_->getSubFunctionName(funcSpec);
     if (supportedFuncs.find(funcName) == supportedFuncs.end()) {
