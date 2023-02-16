@@ -323,9 +323,11 @@ bool SubstraitToVeloxPlanValidator::validate(
     for (const auto& expr : groupByExprs) {
       auto expression = exprConverter_->toVeloxExpr(expr, rowType);
       auto expr_field =
-        dynamic_cast<const core::FieldAccessTypedExpr*>(expression.get());
+          dynamic_cast<const core::FieldAccessTypedExpr*>(expression.get());
       if (expr_field == nullptr) {
-        std::cout << "Only field is supported for partition key in Window Operator!" << std::endl;
+        std::cout
+            << "Only field is supported for partition key in Window Operator!"
+            << std::endl;
         return false;
       } else {
         expressions.emplace_back(expression);
