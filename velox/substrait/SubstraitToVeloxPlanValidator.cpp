@@ -323,9 +323,11 @@ bool SubstraitToVeloxPlanValidator::validate(
     for (const auto& expr : groupByExprs) {
       auto expression = exprConverter_->toVeloxExpr(expr, rowType);
       auto expr_field =
-        dynamic_cast<const core::FieldAccessTypedExpr*>(expression.get());
+          dynamic_cast<const core::FieldAccessTypedExpr*>(expression.get());
       if (expr_field == nullptr) {
-        std::cout << "Only field is supported for partition key in Window Operator!" << std::endl;
+        std::cout
+            << "Only field is supported for partition key in Window Operator!"
+            << std::endl;
         return false;
       } else {
         expressions.emplace_back(expression);
@@ -749,8 +751,16 @@ bool SubstraitToVeloxPlanValidator::validate(
   }
 
   std::unordered_set<std::string> supportedFuncs = {
-      "sum", "count", "avg", "min", "max", "stddev_samp", "stddev_pop",
-      "bloom_filter_agg", "var_samp", "var_pop"};
+      "sum",
+      "count",
+      "avg",
+      "min",
+      "max",
+      "stddev_samp",
+      "stddev_pop",
+      "bloom_filter_agg",
+      "var_samp",
+      "var_pop"};
   for (const auto& funcSpec : funcSpecs) {
     auto funcName = subParser_->getSubFunctionName(funcSpec);
     if (supportedFuncs.find(funcName) == supportedFuncs.end()) {
