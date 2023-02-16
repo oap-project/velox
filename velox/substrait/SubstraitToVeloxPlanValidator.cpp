@@ -321,7 +321,15 @@ bool SubstraitToVeloxPlanValidator::validate(
   expressions.reserve(groupByExprs.size());
   try {
     for (const auto& expr : groupByExprs) {
-      expressions.emplace_back(exprConverter_->toVeloxExpr(expr, rowType));
+      auto expression = exprConverter_->toVeloxExpr(expr, rowType);
+      auto expr_field =
+        dynamic_cast<const core::FieldAccessTypedExpr*>(expression.get());
+      if (expr_field == nullptr) {
+        std::cout << "Only field is supported for partition key in Window Operator!" << std::endl;
+        return false;
+      } else {
+        expressions.emplace_back(expression);
+      }
     }
     // Try to compile the expressions. If there is any unregistred funciton or
     // mismatched type, exception will be thrown.
