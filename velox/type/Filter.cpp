@@ -661,25 +661,29 @@ bool BytesRange::testBytesRange(
 
   if (lowerUnbounded_) {
     // min > upper_
+    int compare = compareRanges(min->data(), min->length(), upper_);
     return min.has_value() &&
-        compareRanges(min->data(), min->length(), upper_) < 0;
+        (compare < 0 || (!upperExclusive_ && compare == 0));
   }
 
   if (upperUnbounded_) {
     // max < lower_
+    int compare = compareRanges(max->data(), max->length(), lower_);
     return max.has_value() &&
-        compareRanges(max->data(), max->length(), lower_) > 0;
+        (compare > 0 || (!lowerExclusive_ && compare == 0));
   }
 
   // min > upper_
+  int compare = compareRanges(min->data(), min->length(), upper_);
   if (min.has_value() &&
-      compareRanges(min->data(), min->length(), upper_) > 0) {
+      (compare > 0 || (compare == 0 && upperExclusive_))) {
     return false;
   }
 
   // max < lower_
+  compare = compareRanges(max->data(), max->length(), lower_);
   if (max.has_value() &&
-      compareRanges(max->data(), max->length(), lower_) < 0) {
+      (compare < 0 || (compare == 0 && lowerExclusive_))) {
     return false;
   }
   return true;
