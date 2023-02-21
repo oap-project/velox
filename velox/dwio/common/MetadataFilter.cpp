@@ -157,13 +157,6 @@ std::unique_ptr<MetadataFilter::Node> MetadataFilter::Node::fromExpression(
     }
     return std::make_unique<OrNode>(std::move(lhs), std::move(rhs));
   }
-  if (call->name() == "not") {
-    auto negated = fromExpression(scanSpec, *call->inputs()[0]);
-    if (!negated) {
-      return nullptr;
-    }
-    return std::make_unique<NotNode>(std::move(negated));
-  }
   if (call->name() == "endswith" || call->name() == "contains" ||
       call->name() == "like" || call->name() == "startswith" ||
       call->name() == "in" || call->name() == "rlike" ||
