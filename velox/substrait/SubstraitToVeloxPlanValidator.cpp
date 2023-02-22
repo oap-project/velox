@@ -621,11 +621,10 @@ bool SubstraitToVeloxPlanValidator::validateAggRelFunctionType(
     auto funcName = subParser_->getSubFunctionName(funcSpec);
     std::vector<TypePtr> types;
     try {
-      std::vector<std::string> funcTypes;
-      subParser_->getSubFunctionTypes(funcSpec, funcTypes);
-      types.reserve(funcTypes.size());
-      for (auto& type : funcTypes) {
-        types.emplace_back(toVeloxType(subParser_->parseType(type)));
+      types.reserve(aggFunction.arguments().size());
+      auto arguments = aggFunction.arguments();
+      for (auto& argument: arguments) {
+        types.emplace_back(toVeloxType(subParser_->parseType(argument.type())->type));
       }
     } catch (const VeloxException& err) {
       std::cout

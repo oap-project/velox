@@ -124,21 +124,6 @@ class SubstraitParser {
       {"ends_with", "endswith"},
       {"starts_with", "startswith"},
       {"modulus", "mod"} /*Presto functions.*/};
-  // The map is uesd for mapping substrait type.
-  // Key: type in function name.
-  // Value: substrait type name.
-  const std::unordered_map<std::string, std::string> typeMap_ = {
-      {"bool", "BOOLEAN"},
-      {"i8", "TINYINT"},
-      {"i16", "SMALLINT"},
-      {"i32", "INTEGER"},
-      {"i64", "BIGINT"},
-      {"fp32", "REAL"},
-      {"fp64", "DOUBLE"},
-      {"date", "DATE"},
-      {"ts", "TIMESTAMP_TZ"},
-      {"str", "VARCHAR"},
-      {"vbin", "VARBINARY"}};
 };
 
 } // namespace facebook::velox::substrait

@@ -144,14 +144,6 @@ std::shared_ptr<SubstraitParser::SubstraitType> SubstraitParser::parseType(
   return std::make_shared<SubstraitType>(type);
 }
 
-std::string SubstraitParser::parseType(const std::string& substraitType) {
-  auto it = typeMap_.find(substraitType);
-  if (it == typeMap_.end()) {
-    VELOX_NYI("Substrait parsing for type {} not supported.", substraitType);
-  }
-  return it->second;
-};
-
 std::vector<std::shared_ptr<SubstraitParser::SubstraitType>>
 SubstraitParser::parseNamedStruct(const ::substrait::NamedStruct& namedStruct) {
   // Nte that "names" are not used.
