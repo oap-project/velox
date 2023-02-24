@@ -4056,6 +4056,50 @@ TEST_F(HashJoinTest, dynamicFilters) {
 
 // Verify the size of the join output vectors when projecting build-side
 // variable-width column.
+TEST_F(HashJoinTest, decimalTest) {
+
+   std::vector<RowVectorPtr> probeVectors =
+      makeBatches(10, [&](int32_t /*unused*/) {
+        return makeRowVector(
+            { makeLongDecimalFlatVector({10001}, DECIMAL(19, 2))});
+      });
+ 
+ 
+  std::vector<RowVectorPtr> buildVectors =
+      makeBatches(5, [&](int32_t /*unused*/) {
+        return makeRowVector(
+            {"u_c0", "u_c1"},
+            { makeLongDecimalFlatVector({10001}, DECIMAL(19, 2)),
+             makeLongDecimalFlatVector({10001}, DECIMAL(19, 2))});
+      });
+
+  core::PlanNodeId joinNodeId;
+
+  createDuckDbTable("t", {probeVectors});
+  createDuckDbTable("u", {buildVectors});
+
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .values(probeVectors)
+                  .hashJoin(
+                      {"c0"},
+                      {"u_c0"},
+                      PlanBuilder(planNodeIdGenerator)
+                          .values({buildVectors})
+                          .planNode(),
+                      "",
+                      {"c0", "u_c1"})
+                  .capturePlanNodeId(joinNodeId)
+                  .planNode();
+  
+  AssertQueryBuilder(plan).config(
+    core::QueryConfig::kPreferredOutputBatchSize, std::to_string(32768)).copyResults(pool_.get());
+}
+
+
+
+// Verify the size of the join output vectors when projecting build-side
+// variable-width column.
 TEST_F(HashJoinTest, memoryUsage) {
   std::vector<RowVectorPtr> probeVectors =
       makeBatches(10, [&](int32_t /*unused*/) {
