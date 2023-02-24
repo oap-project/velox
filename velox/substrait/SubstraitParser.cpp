@@ -118,6 +118,18 @@ std::shared_ptr<SubstraitParser::SubstraitType> SubstraitParser::parseType(
       nullability = substraitType.date().nullability();
       break;
     }
+    case ::substrait::Type::KindCase::kDecimal: {
+      auto precision = substraitType.decimal().precision();
+      auto scale = substraitType.decimal().scale();
+      if (precision < 18) {
+        typeName = "SHORT_DECIMAL<" + std::to_string(precision) + "," + std::to_string(scale) + ">";
+      } else {
+        typeName = "LONG_DECIMAL<" + std::to_string(precision) + "," + std::to_string(scale) + ">";
+      }
+      
+      nullability = substraitType.decimal().nullability();
+      break;
+    }
     default:
       VELOX_NYI(
           "Parsing for Substrait type not supported: {}",

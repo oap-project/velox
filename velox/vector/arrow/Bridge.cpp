@@ -1165,8 +1165,8 @@ VectorPtr importFromArrowImpl(
       arrowArray.n_buffers, 2, "Primitive types expect two buffers as input.");
   auto values = wrapInBufferView(
       arrowArray.buffers[1], arrowArray.length * type->cppSizeInBytes());
-
-  return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+  
+  return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH_ALL(
       createFlatVector,
       type->kind(),
       pool,
