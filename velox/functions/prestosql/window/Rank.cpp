@@ -113,7 +113,7 @@ void registerRank(const std::string& name) {
   registerRankInternal<RankType::kRank, int32_t>(name, "integer");
 }
 void registerDenseRank(const std::string& name) {
-  registerRankInternal<RankType::kDenseRank, int64_t>(name, "bigint");
+  registerRankInternal<RankType::kDenseRank, int32_t>(name, "integer");
 }
 void registerPercentRank(const std::string& name) {
   registerRankInternal<RankType::kPercentRank, double>(name, "double");
