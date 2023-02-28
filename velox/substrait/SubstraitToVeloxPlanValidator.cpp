@@ -799,7 +799,16 @@ bool SubstraitToVeloxPlanValidator::validate(
       auto substraitTypeList = subParser_->parseNamedStruct(baseSchema);
       veloxTypeList.reserve(substraitTypeList.size());
       for (const auto& substraitType : substraitTypeList) {
-        veloxTypeList.emplace_back(toVeloxType(substraitType->type));
+        auto inputVeloxType = toVeloxType(substraitType->type);
+        // Currently, complex types are NOT supported, even though they can be converted to velox types.
+        // See setFilterMap in SubstraitToVeloxPlan.cpp for handling filter.
+        switch (inputVeloxType->kind()) {
+          case TypeKind::ARRAY:
+          case TypeKind::MAP:
+          case TypeKind::ROW:
+              VELOX_NYI("Velox read does NOT support complex type: {}.", inputVeloxType->kindName());
+        }
+        veloxTypeList.emplace_back(inputVeloxType);
       }
     }
     std::vector<std::string> names;
