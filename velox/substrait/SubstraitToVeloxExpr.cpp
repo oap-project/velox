@@ -19,6 +19,7 @@
 #include "velox/substrait/VariantToVectorConverter.h"
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/VariantToVector.h"
+
 using namespace facebook::velox;
 namespace {
 // Get values for the different supported types.
@@ -101,11 +102,27 @@ ArrayVectorPtr makeArrayVector(const VectorPtr& elements) {
       elements);
 }
 
+RowVectorPtr makeRowVector(const std::vector<VectorPtr>& children) {
+  std::vector<std::shared_ptr<const Type>> types;
+  types.resize(children.size());
+  for (int i = 0; i < children.size(); i++) {
+    types[i] = children[i]->type();
+  }
+  const size_t vectorSize = children.empty() ? 0 : children.front()->size();
+  auto rowType = ROW(std::move(types));
+  return std::make_shared<RowVector>(
+      children[0]->pool(), rowType, BufferPtr(nullptr), vectorSize, children);
+}
+
 ArrayVectorPtr makeEmptyArrayVector(memory::MemoryPool* pool) {
   BufferPtr offsets = allocateOffsets(1, pool);
   BufferPtr sizes = allocateOffsets(1, pool);
   return std::make_shared<ArrayVector>(
       pool, ARRAY(UNKNOWN()), nullptr, 1, offsets, sizes, nullptr);
+}
+
+RowVectorPtr makeEmptyRowVector(memory::MemoryPool* pool) {
+  return makeRowVector({});
 }
 
 template <typename T>
@@ -120,8 +137,10 @@ void setLiteralValue(
       vector->set(index, StringView(literal.string()));
     } else if (literal.has_var_char()) {
       vector->set(index, StringView(literal.var_char().value()));
+    } else if (literal.has_binary()) {
+      vector->set(index, StringView(literal.binary()));
     } else {
-      VELOX_FAIL("Unexpected string literal");
+      VELOX_FAIL("Unexpected string or binary literal");
     }
   } else {
     vector->set(index, getLiteralValue<T>(literal));
@@ -143,6 +162,20 @@ VectorPtr constructFlatVector(
   for (auto child : listLiteral.list().values()) {
     setLiteralValue(child, flatVector, index++);
   }
+  return vector;
+}
+
+template <TypeKind kind>
+VectorPtr constructFlatVectorForStruct(
+    const ::substrait::Expression::Literal& child,
+    const vector_size_t size,
+    const TypePtr& type,
+    memory::MemoryPool* pool) {
+  VELOX_CHECK(type->isPrimitiveType());
+  auto vector = BaseVector::create(type, size, pool);
+  using T = typename TypeTraits<kind>::NativeType;
+  auto flatVector = vector->as<FlatVector<T>>();
+  setLiteralValue(child, flatVector, 0);
   return vector;
 }
 
@@ -348,14 +381,19 @@ SubstraitVeloxExprConverter::toVeloxExpr(
     case ::substrait::Expression_Literal::LiteralTypeCase::kVarChar:
       return std::make_shared<core::ConstantTypedExpr>(
           variant(substraitLit.var_char().value()));
+    case ::substrait::Expression_Literal::LiteralTypeCase::kBinary:
+      return std::make_shared<core::ConstantTypedExpr>(
+          variant::binary(substraitLit.binary()));
     case ::substrait::Expression_Literal::LiteralTypeCase::kList: {
       auto constantVector =
           BaseVector::wrapInConstant(1, 0, literalsToArrayVector(substraitLit));
       return std::make_shared<const core::ConstantTypedExpr>(constantVector);
     }
-    case ::substrait::Expression_Literal::LiteralTypeCase::kBinary:
-      return std::make_shared<core::ConstantTypedExpr>(
-          variant::binary(substraitLit.binary()));
+    case ::substrait::Expression_Literal::LiteralTypeCase::kStruct: {
+      auto constantVector =
+          BaseVector::wrapInConstant(1, 0, literalsToRowVector(substraitLit));
+      return std::make_shared<const core::ConstantTypedExpr>(constantVector);
+    }
     default:
       VELOX_NYI(
           "Substrait conversion not supported for type case '{}'", typeCase);
@@ -426,6 +464,29 @@ ArrayVectorPtr SubstraitVeloxExprConverter::literalsToArrayVector(
     default:
       VELOX_NYI(
           "literalsToArrayVector not supported for type case '{}'", typeCase);
+  }
+}
+
+RowVectorPtr SubstraitVeloxExprConverter::literalsToRowVector(
+    const ::substrait::Expression::Literal& structLiteral) {
+  auto childSize = structLiteral.struct_().fields().size();
+  if (childSize == 0) {
+    return makeEmptyRowVector(pool_);
+  }
+  auto typeCase = structLiteral.struct_().fields(0).literal_type_case();
+  switch (typeCase) {
+    case ::substrait::Expression_Literal::LiteralTypeCase::kBinary: {
+      std::vector<VectorPtr> vectors;
+      vectors.reserve(structLiteral.struct_().fields().size());
+      for (auto& child : structLiteral.struct_().fields()) {
+        vectors.emplace_back(constructFlatVectorForStruct<TypeKind::VARBINARY>(
+            child, 1, VARBINARY(), pool_));
+      }
+      return makeRowVector(vectors);
+    }
+    default:
+      VELOX_NYI(
+          "literalsToRowVector not supported for type case '{}'", typeCase);
   }
 }
 

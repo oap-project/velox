@@ -94,6 +94,9 @@ class SubstraitVeloxExprConverter {
   ArrayVectorPtr literalsToArrayVector(
       const ::substrait::Expression::Literal& listLiteral);
 
+  RowVectorPtr literalsToRowVector(
+      const ::substrait::Expression::Literal& structLiteral);
+
   /// Memory pool.
   memory::MemoryPool* pool_;
 
