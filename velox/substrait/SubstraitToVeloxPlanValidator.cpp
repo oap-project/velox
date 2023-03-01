@@ -810,6 +810,7 @@ bool SubstraitToVeloxPlanValidator::validate(
             VELOX_NYI(
                 "Velox read does NOT support complex type: {}.",
                 inputVeloxType->kindName());
+          default:;
         }
         veloxTypeList.emplace_back(inputVeloxType);
       }
