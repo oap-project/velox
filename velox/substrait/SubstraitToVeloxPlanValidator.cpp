@@ -626,7 +626,7 @@ bool SubstraitToVeloxPlanValidator::validateAggRelFunctionType(
     
     std::string decimalStr = msg.value();
 
-    std::size_t start = precisionStr.find_first_of('<');
+    std::size_t start = decimalStr.find_first_of('<');
     std::size_t end = decimalStr.find_last_of('>');
     while (start != std::string::npos && end != std::string::npos) {
       auto precisionAndScale = decimalStr.substr(start + 1, end - start -1);
