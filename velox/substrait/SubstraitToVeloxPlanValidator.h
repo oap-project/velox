@@ -20,6 +20,11 @@
 
 namespace facebook::velox::substrait {
 
+struct DecimalInfo {
+  uint8_t precision;
+  uint8_t scale;
+};
+
 /// This class is used to validate whether the computing of
 /// a Substrait plan is supported in Velox.
 class SubstraitToVeloxPlanValidator {

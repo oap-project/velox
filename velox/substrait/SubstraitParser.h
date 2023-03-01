@@ -138,7 +138,9 @@ class SubstraitParser {
       {"date", "DATE"},
       {"ts", "TIMESTAMP_TZ"},
       {"str", "VARCHAR"},
-      {"vbin", "VARBINARY"}};
+      {"vbin", "VARBINARY"},
+      {"decShort", "SHORT_DECIMAL"},
+      {"decLong", "LONG_DECIMAL"}};
 };
 
 } // namespace facebook::velox::substrait
