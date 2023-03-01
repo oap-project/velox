@@ -70,6 +70,9 @@ void applyWithType(
       CASE(REAL, hash.hashFloat, float);
       CASE(DOUBLE, hash.hashDouble, double);
       CASE(DATE, hash.hashDate, int32_t);
+      CASE(SHORT_DECIMAL, hash.hashShortDecimal, UnscaledShortDecimal)
+      CASE(LONG_DECIMAL, hash.hashLongDecimal, UnscaledLongDecimal)
+
 #undef CASE
       default:
         VELOX_NYI(
@@ -139,6 +142,14 @@ class Murmur3Hash final {
   uint32_t hashDate(Date input, uint32_t seed) {
     return hashInt32(input.days(), seed);
   }
+
+  uint32_t hashShortDecimal(UnscaledShortDecimal input, uint32_t seed) {
+    return hashInt64(input.unscaledValue(), seed);
+  }
+
+  uint32_t hashLongDecimal(UnscaledLongDecimal input, uint32_t seed) {
+    return hashBytes(StringView(std::to_string(input.unscaledValue())), seed);
+  } 
 
  private:
   uint32_t mixK1(uint32_t k1) {
@@ -243,6 +254,14 @@ class XxHash64 final {
   uint32_t hashDate(Date input, uint32_t seed) {
     return hashInt32(input.days(), seed);
   }
+
+  uint32_t hashShortDecimal(UnscaledShortDecimal input, uint32_t seed) {
+    return hashInt64(input.unscaledValue(), seed);
+  }
+
+  uint32_t hashLongDecimal(UnscaledLongDecimal input, uint32_t seed) {
+    return hashBytes(StringView(std::to_string(input.unscaledValue())), seed);
+  } 
 
  private:
   uint64_t fmix(uint64_t hash) {
