@@ -1754,6 +1754,60 @@ void SubstraitVeloxPlanConverter::setInFilter<TypeKind::INTEGER>(
 }
 
 template <>
+void SubstraitVeloxPlanConverter::setInFilter<TypeKind::SMALLINT>(
+    const std::vector<variant>& variants,
+    bool nullAllowed,
+    const std::string& inputName,
+    connector::hive::SubfieldFilters& filters) {
+  // Use bigint values for small int type.
+  std::vector<int64_t> values;
+  values.reserve(variants.size());
+  for (const auto& variant : variants) {
+    // Use the matched type to get value from variant.
+    int64_t value = variant.value<int16_t>();
+    values.emplace_back(value);
+  }
+  filters[common::Subfield(inputName)] =
+      common::createBigintValues(values, nullAllowed);
+}
+
+template <>
+void SubstraitVeloxPlanConverter::setInFilter<TypeKind::TINYINT>(
+    const std::vector<variant>& variants,
+    bool nullAllowed,
+    const std::string& inputName,
+    connector::hive::SubfieldFilters& filters) {
+  // Use bigint values for tiny int type.
+  std::vector<int64_t> values;
+  values.reserve(variants.size());
+  for (const auto& variant : variants) {
+    // Use the matched type to get value from variant.
+    int64_t value = variant.value<int8_t>();
+    values.emplace_back(value);
+  }
+  filters[common::Subfield(inputName)] =
+      common::createBigintValues(values, nullAllowed);
+}
+
+template <>
+void SubstraitVeloxPlanConverter::setInFilter<TypeKind::DATE>(
+    const std::vector<variant>& variants,
+    bool nullAllowed,
+    const std::string& inputName,
+    connector::hive::SubfieldFilters& filters) {
+  // Use bigint values for int type.
+  std::vector<int64_t> values;
+  values.reserve(variants.size());
+  for (const auto& variant : variants) {
+    // Use int32 to get value from date variant.
+    int64_t value = variant.value<int32_t>();
+    values.emplace_back(value);
+  }
+  filters[common::Subfield(inputName)] =
+      common::createBigintValues(values, nullAllowed);
+}
+
+template <>
 void SubstraitVeloxPlanConverter::setInFilter<TypeKind::VARCHAR>(
     const std::vector<variant>& variants,
     bool nullAllowed,
@@ -1919,6 +1973,14 @@ connector::hive::SubfieldFilters SubstraitVeloxPlanConverter::mapToFilters(
   for (uint32_t colIdx = 0; colIdx < inputNameList.size(); colIdx++) {
     auto inputType = inputTypeList[colIdx];
     switch (inputType->kind()) {
+      case TypeKind::TINYINT:
+        constructSubfieldFilters<TypeKind::TINYINT, common::BigintRange>(
+            colIdx, inputNameList[colIdx], colInfoMap[colIdx], filters);
+        break;
+      case TypeKind::SMALLINT:
+        constructSubfieldFilters<TypeKind::SMALLINT, common::BigintRange>(
+            colIdx, inputNameList[colIdx], colInfoMap[colIdx], filters);
+        break;
       case TypeKind::INTEGER:
         constructSubfieldFilters<TypeKind::INTEGER, common::BigintRange>(
             colIdx, inputNameList[colIdx], colInfoMap[colIdx], filters);
