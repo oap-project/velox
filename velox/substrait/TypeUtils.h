@@ -33,6 +33,20 @@ template <TypeKind KIND>
 struct RangeTraits {};
 
 template <>
+struct RangeTraits<TypeKind::TINYINT> {
+  using RangeType = common::BigintRange;
+  using MultiRangeType = common::BigintMultiRange;
+  using NativeType = int8_t;
+};
+
+template <>
+struct RangeTraits<TypeKind::SMALLINT> {
+  using RangeType = common::BigintRange;
+  using MultiRangeType = common::BigintMultiRange;
+  using NativeType = int16_t;
+};
+
+template <>
 struct RangeTraits<TypeKind::INTEGER> {
   using RangeType = common::BigintRange;
   using MultiRangeType = common::BigintMultiRange;
