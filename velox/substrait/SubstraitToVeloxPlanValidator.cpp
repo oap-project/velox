@@ -656,7 +656,7 @@ bool SubstraitToVeloxPlanValidator::validateAggRelFunctionType(
       types.reserve(funcTypes.size());
       auto index = 0;
       for (auto& type : funcTypes) {
-        if (type == "dec") {
+        if (type == "dec" && precisions.size() > 0) {
           auto decimalInfo = precisions[index++];
           auto precision = decimalInfo->precision;
           auto scale = decimalInfo->scale;
