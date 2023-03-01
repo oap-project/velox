@@ -807,9 +807,10 @@ bool SubstraitToVeloxPlanValidator::validate(
           case TypeKind::ARRAY:
           case TypeKind::MAP:
           case TypeKind::ROW:
-            VELOX_NYI(
-                "Velox read does NOT support complex type: {}.",
-                inputVeloxType->kindName());
+            std::cout
+                << "Validation failed: Velox read does NOT support complex type: "
+                << inputVeloxType->kindName();
+            return false;
           default:;
         }
         veloxTypeList.emplace_back(inputVeloxType);
