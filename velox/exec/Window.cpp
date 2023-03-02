@@ -17,6 +17,8 @@
 #include "velox/exec/OperatorUtils.h"
 #include "velox/exec/Task.h"
 
+#include "third_party/timsort.hpp"
+
 namespace facebook::velox::exec {
 
 namespace {
@@ -242,7 +244,7 @@ void Window::sortPartitions() {
   RowContainerIterator iter;
   data_->listRows(&iter, numRows_, sortedRows_.data());
 
-  std::sort(
+  gfx::timsort(
       sortedRows_.begin(),
       sortedRows_.end(),
       [this](const char* leftRow, const char* rightRow) {
