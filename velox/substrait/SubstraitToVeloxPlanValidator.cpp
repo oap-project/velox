@@ -718,9 +718,15 @@ bool SubstraitToVeloxPlanValidator::validate(
       }
 
       const auto& aggFunction = smea.measure();
-      funcSpecs.emplace_back(
-          planConverter_->findFuncSpec(aggFunction.function_reference()));
+      const auto& functionSpec = planConverter_->findFuncSpec(aggFunction.function_reference());
+      funcSpecs.emplace_back(functionSpec);
       toVeloxType(subParser_->parseType(aggFunction.output_type())->type);
+      // Validate the size of arguments.
+      if (subParser_->getSubFunctionName(functionSpec) == "count" &&
+          aggFunction.arguments().size() > 1) {
+        // Count accepts only one argument.
+        return false;
+      }
       for (const auto& arg : aggFunction.arguments()) {
         auto typeCase = arg.value().rex_type_case();
         switch (typeCase) {
