@@ -29,6 +29,12 @@ class DateTimeFunctionsTest : public SparkFunctionBaseTest {
         {core::QueryConfig::kAdjustTimestampToTimezone, "true"},
     });
   }
+
+  Date parseDate(const std::string& dateStr) {
+    Date returnDate;
+    parseTo(dateStr, returnDate);
+    return returnDate;
+  }
 };
 
 TEST_F(DateTimeFunctionsTest, year) {
@@ -63,6 +69,49 @@ TEST_F(DateTimeFunctionsTest, yearDate) {
   EXPECT_EQ(1969, year(Date(-1)));
   EXPECT_EQ(2020, year(Date(18262)));
   EXPECT_EQ(1920, year(Date(-18262)));
+}
+
+TEST_F(DateTimeFunctionsTest, dateAdd) {
+  const auto dateAddInt32 = [&](std::optional<Date> date,
+                           std::optional<int32_t> value) {
+    return evaluateOnce<Date>(
+        "date_add(c0, c1)", date, value);
+  };
+  const auto dateAddInt16 = [&](std::optional<Date> date,
+                           std::optional<int16_t> value) {
+    return evaluateOnce<Date>(
+        "date_add(c0, c1)", date, value);
+  };
+  const auto dateAddInt8 = [&](std::optional<Date> date,
+                           std::optional<int8_t> value) {
+    return evaluateOnce<Date>(
+        "date_add(c0, c1)", date, value);
+  };
+
+  // Check null behaviors
+  EXPECT_EQ(std::nullopt, dateAddInt32(std::nullopt, 1));
+  EXPECT_EQ(std::nullopt, dateAddInt16(std::nullopt, 1));
+  EXPECT_EQ(std::nullopt, dateAddInt8(std::nullopt, 1));
+
+  // Simple tests
+  EXPECT_EQ(
+      parseDate("2019-03-01"), dateAddInt32(parseDate("2019-02-28"), 1));
+  EXPECT_EQ(
+      parseDate("2019-03-01"), dateAddInt16(parseDate("2019-02-28"), 1));
+  EXPECT_EQ(
+      parseDate("2019-03-01"), dateAddInt8(parseDate("2019-02-28"), 1));
+
+  // Account for the last day of a year-month
+  EXPECT_EQ(
+      parseDate("2020-02-29"), dateAddInt32(parseDate("2019-01-30"), 395));
+  EXPECT_EQ(
+      parseDate("2020-02-29"), dateAddInt16(parseDate("2019-01-30"), 395));
+
+  // Check for negative intervals
+  EXPECT_EQ(
+      parseDate("2019-02-28"), dateAddInt32(parseDate("2020-02-29"), -366));
+  EXPECT_EQ(
+      parseDate("2019-02-28"), dateAddInt16(parseDate("2020-02-29"), -366));
 }
 
 } // namespace

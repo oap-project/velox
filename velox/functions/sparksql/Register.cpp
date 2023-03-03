@@ -208,6 +208,9 @@ void registerFunctions(const std::string& prefix) {
       {prefix + "year_of_week"});
   registerFunction<YearOfWeekFunction, int32_t, TimestampWithTimezone>(
       {prefix + "year_of_week"});
+  registerFunction<DateAddFunction, Date, Date, int32_t>({"date_add"});
+  registerFunction<DateAddFunction, Date, Date, int16_t>({"date_add"});
+  registerFunction<DateAddFunction, Date, Date, int8_t>({"date_add"});
 }
 
 } // namespace sparksql

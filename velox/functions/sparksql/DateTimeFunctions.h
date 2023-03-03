@@ -15,6 +15,7 @@
  */
 
 #include "velox/functions/lib/TimeUtils.h"
+#include "velox/functions/prestosql/DateTimeImpl.h"
 
 namespace facebook::velox::functions::sparksql {
 
@@ -34,6 +35,35 @@ struct YearFunction : public InitSessionTimezone<T> {
 
   FOLLY_ALWAYS_INLINE void call(int32_t& result, const arg_type<Date>& date) {
     result = getYear(getDateTime(date));
+  }
+};
+
+template <typename T>
+struct DateAddFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Date>& result,
+      const arg_type<Date>& date,
+      const int32_t value) {
+    result = addToDate(date, DateTimeUnit::kDay, value);
+    return true;
+  }
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Date>& result,
+      const arg_type<Date>& date,
+      const int16_t value) {
+    result = addToDate(date, DateTimeUnit::kDay, (int32_t)value);
+    return true;
+  }
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Date>& result,
+      const arg_type<Date>& date,
+      const int8_t value) {
+    result = addToDate(date, DateTimeUnit::kDay, (int32_t)value);
+    return true;
   }
 };
 } // namespace facebook::velox::functions::sparksql
