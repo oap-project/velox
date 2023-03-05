@@ -38,6 +38,34 @@ Unless specified otherwise, all functions return NULL if at least one of the arg
 
     Returns the length of ``string`` in characters.
 
+.. spark:function:: ltrim(string) -> varchar
+
+    Removes leading 0x20(space) characters from ``string``. ::
+
+        SELECT ltrim('  data  '); -- "data  "
+
+.. spark:function:: ltrim(trimCharacters, string) -> varchar
+
+    Removes specified leading characters from ``string``. The specified character
+    is any character contained in ``trimCharacters``.
+    ``trimCharacters`` can be empty and may contain duplicate characters. ::
+
+        SELECT ltrim('ps', 'spark'); -- "ark"
+
+.. spark:function:: rtrim(string) -> varchar
+
+    Removes trailing 0x20(space) characters from ``string``. ::
+
+        SELECT rtrim('  data  '); -- "  data"
+
+.. spark:function:: rtrim(trimCharacters, string) -> varchar
+
+    Removes specified trailing characters from ``string``. The specified character
+    is any character contained in ``trimCharacters``.
+    ``trimCharacters`` can be empty and may contain duplicate characters. ::
+
+        SELECT rtrim('kr', 'spark'); -- "spa"
+
 .. spark:function:: split(string, delimiter) -> array(string)
 
     Splits ``string`` on ``delimiter`` and returns an array. ::
@@ -78,3 +106,17 @@ Unless specified otherwise, all functions return NULL if at least one of the arg
         SELECT substring('Spark SQL', 5, 0); -- ""
         SELECT substring('Spark SQL', 5, -1); -- ""
         SELECT substring('Spark SQL', 5, 10000); -- "k SQL"
+
+.. spark:function:: trim(string) -> varchar
+
+    Removes leading and trailing 0x20(space) characters from ``string``. ::
+
+        SELECT trim('  data  '); -- "data"
+
+.. spark:function:: trim(trimCharacters, string) -> varchar
+
+    Removes specified leading and trailing characters from ``string``.
+    The specified character is any character contained in ``trimCharacters``.
+    ``trimCharacters`` can be empty and may contain duplicate characters. ::
+
+        SELECT trim('sprk', 'spark'); -- "a"
