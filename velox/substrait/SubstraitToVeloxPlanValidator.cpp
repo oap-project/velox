@@ -799,8 +799,7 @@ bool SubstraitToVeloxPlanValidator::validate(
       auto substraitTypeList = subParser_->parseNamedStruct(baseSchema);
       veloxTypeList.reserve(substraitTypeList.size());
       for (const auto& substraitType : substraitTypeList) {
-        auto inputVeloxType = toVeloxType(substraitType->type);
-        veloxTypeList.emplace_back(inputVeloxType);
+        veloxTypeList.emplace_back(toVeloxType(substraitType->type));
       }
     }
     std::vector<std::string> names;
