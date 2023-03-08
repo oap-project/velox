@@ -789,7 +789,10 @@ bool SubstraitToVeloxPlanValidator::validate(
       "var_samp",
       "var_pop",
       "bitwise_and_agg",
-      "bitwise_or_agg"};
+      "bitwise_or_agg",
+      "corr",
+      "covar_pop",
+      "covar_samp"};
   for (const auto& funcSpec : funcSpecs) {
     auto funcName = subParser_->getSubFunctionName(funcSpec);
     if (supportedFuncs.find(funcName) == supportedFuncs.end()) {
