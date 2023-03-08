@@ -19,6 +19,7 @@
 #include "velox/substrait/TypeUtils.h"
 #include "velox/substrait/VariantToVectorConverter.h"
 #include "velox/type/Type.h"
+#include <boost/stacktrace.hpp>
 
 namespace facebook::velox::substrait {
 namespace {
@@ -1089,6 +1090,8 @@ void SubstraitVeloxPlanConverter::flattenConditions(
       break;
     }
     default:
+      LOG(INFO) << "The stack call info in flattenConditions method is: " << std::endl;
+      LOG(INFO) << boost::stacktrace::stacktrace() << std::endl;
       VELOX_NYI("GetFlatConditions not supported for type '{}'", typeCase);
   }
 }
