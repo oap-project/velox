@@ -331,7 +331,7 @@ std::string SubstraitParser::mapToVeloxFunction(
   auto it = substraitVeloxFunctionMap_.find(subFunc);
   if (isDecimal) {
     if (subFunc == "add" || subFunc == "subtract" || subFunc == "multiply" ||
-        subFunc == "divide") {
+        subFunc == "divide" || subFunc == "avg") {
       return "decimal_" + subFunc;
     }
   }

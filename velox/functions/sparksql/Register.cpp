@@ -27,6 +27,7 @@
 #include "velox/functions/sparksql/CompareFunctionsNullSafe.h"
 #include "velox/functions/sparksql/DateTime.h"
 #include "velox/functions/sparksql/DateTimeFunctions.h"
+#include "velox/functions/sparksql/Decimal.h"
 #include "velox/functions/sparksql/Hash.h"
 #include "velox/functions/sparksql/In.h"
 #include "velox/functions/sparksql/LeastGreatest.h"
@@ -224,8 +225,9 @@ void registerFunctions(const std::string& prefix) {
   registerFunction<DateAddFunction, Date, Date, int32_t>({"date_add"});
   registerFunction<DateAddFunction, Date, Date, int16_t>({"date_add"});
   registerFunction<DateAddFunction, Date, Date, int8_t>({"date_add"});
-  registerFunction<DateDiffFunction, int32_t, Date, Date>(
-      {"date_diff"});
+  registerFunction<DateDiffFunction, int32_t, Date, Date>({"date_diff"});
+  registerFunction<UnscaledValueFunction, int64_t, UnscaledShortDecimal>(
+      {prefix + "unscaled_value"});
 }
 
 } // namespace sparksql

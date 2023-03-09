@@ -477,6 +477,11 @@ IMemoryManager& getProcessDefaultMemoryManager();
 /// set to the input value provided.
 std::shared_ptr<MemoryPool> getDefaultMemoryPool(int64_t cap = kMaxMemory);
 
+FOLLY_ALWAYS_INLINE int32_t alignmentPadding(void* address, int32_t alignment) {
+  auto extra = reinterpret_cast<uintptr_t>(address) % alignment;
+  return extra == 0 ? 0 : alignment - extra;
+}
+
 /// An Allocator backed by a memory pool for STL containers.
 template <typename T>
 class StlAllocator {
