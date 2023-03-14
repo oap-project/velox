@@ -114,5 +114,29 @@ TEST_F(DateTimeFunctionsTest, dateAdd) {
       parseDate("2019-02-28"), dateAddInt16(parseDate("2020-02-29"), -366));
 }
 
+TEST_F(DateTimeFunctionsTest, dateDiff) {
+  const auto dateDiff = [&](std::optional<Date> date1,
+                            std::optional<Date> date2) {
+    return evaluateOnce<int32_t>(
+        "date_diff(c0, c1)", date1, date2);
+  };
+
+  // Check null behaviors
+  EXPECT_EQ(std::nullopt, dateDiff(Date(1), std::nullopt));
+  EXPECT_EQ(std::nullopt, dateDiff(std::nullopt, Date(0)));
+
+  // Simple tests
+  EXPECT_EQ(
+      1, dateDiff(parseDate("2019-02-28"), parseDate("2019-03-01")));
+
+  // Account for the last day of a year-month
+  EXPECT_EQ(
+      395, dateDiff(parseDate("2019-01-30"), parseDate("2020-02-29")));
+
+  // Check for negative intervals
+  EXPECT_EQ(
+      -366, dateDiff(parseDate("2020-02-29"), parseDate("2019-02-28")));
+}
+
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test
