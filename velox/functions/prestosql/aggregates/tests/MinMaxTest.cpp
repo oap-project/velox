@@ -236,4 +236,13 @@ TEST_F(MinMaxTest, initialValue) {
   testAggregations({row}, {}, {"max(c1)"}, "SELECT -1");
 }
 
+TEST_F(MinMaxTest, shortDecimal) {
+  doTest(max, SHORT_DECIMAL(18, 3));
+  doTest(min, SHORT_DECIMAL(3, 1));
+}
+
+TEST_F(MinMaxTest, longDecimal) {
+  doTest(max, LONG_DECIMAL(20, 3));
+  doTest(min, LONG_DECIMAL(38, 19));
+}
 } // namespace
