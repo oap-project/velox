@@ -844,6 +844,10 @@ void HashProbe::checkStateTransition(State state) {
 }
 
 RowVectorPtr HashProbe::getOutput() {
+  if (isFinished()) {
+    return nullptr;
+  }
+
   checkRunning();
 
   clearIdentityProjectedOutput();
