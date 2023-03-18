@@ -392,6 +392,22 @@ SubstraitVeloxExprConverter::toVeloxExpr(
           BaseVector::wrapInConstant(1, 0, literalsToRowVector(substraitLit));
       return std::make_shared<const core::ConstantTypedExpr>(constantVector);
     }
+    case ::substrait::Expression_Literal::LiteralTypeCase::kDecimal: {
+      auto decimal = substraitLit.decimal().value();
+      auto precision = substraitLit.decimal().precision();
+      auto scale = substraitLit.decimal().scale();
+      int128_t decimalValue;
+      memcpy(&decimalValue, decimal.c_str(), 16);
+      if (precision <= 18) {
+        auto type = SHORT_DECIMAL(precision, scale);
+        return std::make_shared<core::ConstantTypedExpr>(
+            type, variant::shortDecimal((int64_t)decimalValue, type));
+      } else {
+        auto type = LONG_DECIMAL(precision, scale);
+        return std::make_shared<core::ConstantTypedExpr>(
+            type, variant::longDecimal(decimalValue, type));
+      }
+    }
     default:
       VELOX_NYI(
           "Substrait conversion not supported for type case '{}'", typeCase);

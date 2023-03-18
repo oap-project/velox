@@ -15,6 +15,8 @@
  */
 
 #include "velox/substrait/SubstraitToVeloxPlanValidator.h"
+#include <google/protobuf/wrappers.pb.h>
+#include <string>
 #include "TypeUtils.h"
 #include "velox/expression/SignatureBinder.h"
 #include "velox/type/Tokenizer.h"
@@ -623,6 +625,7 @@ bool SubstraitToVeloxPlanValidator::validateAggRelFunctionType(
   if (sAgg.measures_size() == 0) {
     return true;
   }
+
   core::AggregationNode::Step step = planConverter_->toAggregationStep(sAgg);
   for (const auto& smea : sAgg.measures()) {
     const auto& aggFunction = smea.measure();
@@ -635,7 +638,24 @@ bool SubstraitToVeloxPlanValidator::validateAggRelFunctionType(
       subParser_->getSubFunctionTypes(funcSpec, funcTypes);
       types.reserve(funcTypes.size());
       for (auto& type : funcTypes) {
-        types.emplace_back(toVeloxType(subParser_->parseType(type)));
+        if (type.find("dec") != std::string::npos) {
+          // dec info is as dec<precision,scale>
+          auto precisionStart = type.find_first_of('<');
+          auto tokenIndex = type.find_first_of(',');
+          auto scaleStart = type.find_first_of('>');
+          auto precision = stoi(type.substr(
+              precisionStart + 1, (tokenIndex - precisionStart - 1)));
+          auto scale =
+              stoi(type.substr(tokenIndex + 1, (scaleStart - tokenIndex - 1)));
+
+          if (precision <= 18) {
+            types.emplace_back(SHORT_DECIMAL(precision, scale));
+          } else {
+            types.emplace_back(LONG_DECIMAL(precision, scale));
+          }
+        } else {
+          types.emplace_back(toVeloxType(subParser_->parseType(type)));
+        }
       }
     } catch (const VeloxException& err) {
       std::cout
@@ -728,7 +748,8 @@ bool SubstraitToVeloxPlanValidator::validate(
       }
 
       const auto& aggFunction = smea.measure();
-      const auto& functionSpec = planConverter_->findFuncSpec(aggFunction.function_reference());
+      const auto& functionSpec =
+          planConverter_->findFuncSpec(aggFunction.function_reference());
       funcSpecs.emplace_back(functionSpec);
       toVeloxType(subParser_->parseType(aggFunction.output_type())->type);
       // Validate the size of arguments.
@@ -757,8 +778,17 @@ bool SubstraitToVeloxPlanValidator::validate(
   }
 
   std::unordered_set<std::string> supportedFuncs = {
-      "sum", "count", "avg", "min", "max", "stddev_samp", "stddev_pop",
-      "bloom_filter_agg", "var_samp", "var_pop", "bitwise_and_agg",
+      "sum",
+      "count",
+      "avg",
+      "min",
+      "max",
+      "stddev_samp",
+      "stddev_pop",
+      "bloom_filter_agg",
+      "var_samp",
+      "var_pop",
+      "bitwise_and_agg",
       "bitwise_or_agg"};
   for (const auto& funcSpec : funcSpecs) {
     auto funcName = subParser_->getSubFunctionName(funcSpec);

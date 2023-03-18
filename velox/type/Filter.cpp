@@ -89,6 +89,12 @@ std::string Filter::toString() const {
     case FilterKind::kMultiRange:
       strKind = "MultiRange";
       break;
+    case FilterKind::kShortDecimalRange:
+      strKind = "ShortDecimalRange";
+      break;
+    case FilterKind::kShortDecimalMultiRange:
+      strKind = "ShortDecimalMultiRange";
+      break;
   };
 
   return fmt::format(
@@ -605,6 +611,23 @@ BigintMultiRange::BigintMultiRange(
   }
 }
 
+ShortDecimalMultiRange::ShortDecimalMultiRange(
+    std::vector<std::unique_ptr<ShortDecimalRange>> ranges,
+    bool nullAllowed)
+    : Filter(true, nullAllowed, FilterKind::kShortDecimalMultiRange),
+      ranges_(std::move(ranges)) {
+  VELOX_CHECK(!ranges_.empty(), "ranges is empty");
+  VELOX_CHECK(ranges_.size() > 1, "should contain at least 2 ranges");
+  for (const auto& range : ranges_) {
+    lowerBounds_.push_back(range->lower().unscaledValue());
+  }
+  for (int i = 1; i < lowerBounds_.size(); i++) {
+    VELOX_CHECK(
+        lowerBounds_[i] >= ranges_[i - 1]->upper().unscaledValue(),
+        "ShortDecimal ranges must not overlap");
+  }
+}
+
 namespace {
 int compareRanges(const char* lhs, size_t length, const std::string& rhs) {
   int size = std::min(length, rhs.length());
@@ -675,15 +698,13 @@ bool BytesRange::testBytesRange(
 
   // min > upper_
   int compare = compareRanges(min->data(), min->length(), upper_);
-  if (min.has_value() &&
-      (compare > 0 || (compare == 0 && upperExclusive_))) {
+  if (min.has_value() && (compare > 0 || (compare == 0 && upperExclusive_))) {
     return false;
   }
 
   // max < lower_
   compare = compareRanges(max->data(), max->length(), lower_);
-  if (max.has_value() &&
-      (compare < 0 || (compare == 0 && lowerExclusive_))) {
+  if (max.has_value() && (compare < 0 || (compare == 0 && lowerExclusive_))) {
     return false;
   }
   return true;
@@ -831,6 +852,54 @@ bool BigintMultiRange::testInt64(int64_t value) const {
 
 bool BigintMultiRange::testInt64Range(int64_t min, int64_t max, bool hasNull)
     const {
+  if (hasNull && nullAllowed_) {
+    return true;
+  }
+
+  for (const auto& range : ranges_) {
+    if (range->testInt64Range(min, max, hasNull)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+std::unique_ptr<Filter> ShortDecimalMultiRange::clone(
+    std::optional<bool> nullAllowed) const {
+  std::vector<std::unique_ptr<ShortDecimalRange>> ranges;
+  ranges.reserve(ranges_.size());
+  for (auto& range : ranges_) {
+    ranges.emplace_back(std::make_unique<ShortDecimalRange>(*range));
+  }
+  if (nullAllowed) {
+    return std::make_unique<ShortDecimalMultiRange>(
+        std::move(ranges), nullAllowed.value());
+  } else {
+    return std::make_unique<ShortDecimalMultiRange>(
+        std::move(ranges), nullAllowed_);
+  }
+}
+
+bool ShortDecimalMultiRange::testInt64(int64_t value) const {
+  int32_t i = binarySearch(lowerBounds_, value);
+  if (i >= 0) {
+    return true;
+  }
+  int place = (-i) - 1;
+  if (place == 0) {
+    // Below first
+    return false;
+  }
+  // When value did not hit a lower bound of a filter, test with the filter
+  // before the place where value would be inserted.
+  return ranges_[place - 1]->testInt64(value);
+}
+
+bool ShortDecimalMultiRange::testInt64Range(
+    int64_t min,
+    int64_t max,
+    bool hasNull) const {
   if (hasNull && nullAllowed_) {
     return true;
   }
@@ -1093,6 +1162,12 @@ std::unique_ptr<BigintRange> toBigintRange(std::unique_ptr<Filter> filter) {
       dynamic_cast<BigintRange*>(filter.release()));
 }
 
+std::unique_ptr<ShortDecimalRange> toShortDecimalRange(
+    std::unique_ptr<Filter> filter) {
+  return std::unique_ptr<ShortDecimalRange>(
+      dynamic_cast<ShortDecimalRange*>(filter.release()));
+}
+
 // takes a sorted vector of ranges and a sorted vector of rejected values, and
 // returns a range filter of values accepted by both filters
 std::unique_ptr<Filter> combineRangesAndNegatedValues(
@@ -1281,6 +1356,91 @@ std::unique_ptr<Filter> BigintRange::mergeWith(const Filter* other) const {
       rangeList.emplace_back(
           std::make_unique<common::BigintRange>(lower_, upper_, false));
       return combineRangesAndNegatedValues(rangeList, vals, bothNullAllowed);
+    }
+    default:
+      VELOX_UNREACHABLE();
+  }
+}
+
+std::unique_ptr<Filter> ShortDecimalRange::mergeWith(
+    const Filter* other) const {
+  switch (other->kind()) {
+    case FilterKind::kAlwaysTrue:
+    case FilterKind::kAlwaysFalse:
+    case FilterKind::kIsNull:
+      return other->mergeWith(this);
+    case FilterKind::kIsNotNull:
+      return this->clone(false);
+    case FilterKind::kShortDecimalRange: {
+      bool bothNullAllowed = nullAllowed_ && other->testNull();
+
+      auto otherRange = static_cast<const ShortDecimalRange*>(other);
+
+      auto lower = std::max(lower_, otherRange->lower_);
+      auto upper = std::min(upper_, otherRange->upper_);
+
+      if (lower <= upper) {
+        return std::make_unique<ShortDecimalRange>(
+            lower, upper, bothNullAllowed);
+      }
+
+      return nullOrFalse(bothNullAllowed);
+    }
+
+    default:
+      VELOX_UNREACHABLE();
+  }
+}
+
+std::unique_ptr<Filter> ShortDecimalMultiRange::mergeWith(
+    const Filter* other) const {
+  switch (other->kind()) {
+    case FilterKind::kAlwaysTrue:
+    case FilterKind::kAlwaysFalse:
+    case FilterKind::kIsNull:
+      return other->mergeWith(this);
+    case FilterKind::kIsNotNull: {
+      std::vector<std::unique_ptr<ShortDecimalRange>> ranges;
+      ranges.reserve(ranges_.size());
+      for (auto& range : ranges_) {
+        ranges.push_back(std::make_unique<ShortDecimalRange>(*range));
+      }
+      return std::make_unique<ShortDecimalMultiRange>(std::move(ranges), false);
+    }
+    case FilterKind::kShortDecimalRange:
+      return other->mergeWith(this);
+
+    case FilterKind::kShortDecimalMultiRange: {
+      std::vector<std::unique_ptr<ShortDecimalRange>> newRanges;
+      for (const auto& range : ranges_) {
+        auto merged = range->mergeWith(other);
+        if (merged->kind() == FilterKind::kShortDecimalRange) {
+          newRanges.push_back(toShortDecimalRange(std::move(merged)));
+        } else if (merged->kind() == FilterKind::kBigintMultiRange) {
+          auto mergedMultiRange =
+              dynamic_cast<ShortDecimalMultiRange*>(merged.get());
+          for (const auto& newRange : mergedMultiRange->ranges_) {
+            newRanges.push_back(toShortDecimalRange(newRange->clone()));
+          }
+        } else {
+          VELOX_CHECK(merged->kind() == FilterKind::kAlwaysFalse);
+        }
+      }
+
+      bool bothNullAllowed = nullAllowed_ && other->testNull();
+      if (newRanges.empty()) {
+        return nullOrFalse(bothNullAllowed);
+      }
+
+      if (newRanges.size() == 1) {
+        return std::make_unique<ShortDecimalRange>(
+            newRanges.front()->lower(),
+            newRanges.front()->upper(),
+            bothNullAllowed);
+      }
+
+      return std::make_unique<ShortDecimalMultiRange>(
+          std::move(newRanges), bothNullAllowed);
     }
     default:
       VELOX_UNREACHABLE();

@@ -94,7 +94,9 @@ class SubstraitParser {
       uint64_t id) const;
 
   /// Map the Substrait function keyword into Velox function keyword.
-  std::string mapToVeloxFunction(const std::string& substraitFunction) const;
+  std::string mapToVeloxFunction(
+      const std::string& substraitFunction,
+      bool isDecimal) const;
 
   /// @brief Return whether a config is set as true in AdvancedExtension
   /// optimization.
@@ -139,7 +141,9 @@ class SubstraitParser {
       {"date", "DATE"},
       {"ts", "TIMESTAMP_TZ"},
       {"str", "VARCHAR"},
-      {"vbin", "VARBINARY"}};
+      {"vbin", "VARBINARY"},
+      {"decShort", "SHORT_DECIMAL"},
+      {"decLong", "LONG_DECIMAL"}};
 };
 
 } // namespace facebook::velox::substrait

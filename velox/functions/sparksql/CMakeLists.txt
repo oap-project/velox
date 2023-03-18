@@ -15,6 +15,7 @@ add_library(
   velox_functions_spark
   ArraySort.cpp
   Bitwise.cpp
+  CheckOverflow.cpp
   CompareFunctionsNullSafe.cpp
   Hash.cpp
   In.cpp

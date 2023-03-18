@@ -23,6 +23,7 @@
 #include "velox/functions/prestosql/StringFunctions.h"
 #include "velox/functions/sparksql/ArraySort.h"
 #include "velox/functions/sparksql/Bitwise.h"
+#include "velox/functions/sparksql/CheckOverflow.h"
 #include "velox/functions/sparksql/CompareFunctionsNullSafe.h"
 #include "velox/functions/sparksql/DateTime.h"
 #include "velox/functions/sparksql/DateTimeFunctions.h"
@@ -66,6 +67,10 @@ static void workAroundRegistrationMacro(const std::string& prefix) {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_not, prefix + "not");
   registerIsNullFunction(prefix + "isnull");
   registerIsNotNullFunction(prefix + "isnotnull");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_add, prefix + "decimal_add");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_sub, prefix + "decimal_subtract");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_mul, prefix + "decimal_multiply");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_div, prefix + "decimal_divide");
 }
 
 namespace sparksql {
@@ -158,6 +163,9 @@ void registerFunctions(const std::string& prefix) {
       prefix + "array_sort", arraySortSignatures(), makeArraySort);
   exec::registerStatefulVectorFunction(
       prefix + "sort_array", sortArraySignatures(), makeSortArray);
+
+  exec::registerStatefulVectorFunction(
+      prefix + "check_overflow", checkOverflowSignatures(), makeCheckOverflow);
 
   // Register bloom filter function
   exec::registerStatefulVectorFunction(
