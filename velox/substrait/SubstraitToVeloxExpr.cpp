@@ -370,8 +370,16 @@ SubstraitVeloxExprConverter::toVeloxExpr(
     case ::substrait::Expression_Literal::LiteralTypeCase::kNull: {
       auto veloxType =
           toVeloxType(subParser_->parseType(substraitLit.null())->type);
-      return std::make_shared<core::ConstantTypedExpr>(
+      if (veloxType->isShortDecimal()) {
+        return std::make_shared<core::ConstantTypedExpr>(
+            veloxType, variant::shortDecimal(std::nullopt, veloxType));
+      } else if (veloxType->isLongDecimal()) {
+        return std::make_shared<core::ConstantTypedExpr>(
+            veloxType, variant::longDecimal(std::nullopt, veloxType));
+      } else {
+        return std::make_shared<core::ConstantTypedExpr>(
           veloxType, variant::null(veloxType->kind()));
+      }
     }
     case ::substrait::Expression_Literal::LiteralTypeCase::kDate:
       return std::make_shared<core::ConstantTypedExpr>(

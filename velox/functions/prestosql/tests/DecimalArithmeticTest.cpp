@@ -142,6 +142,12 @@ TEST_F(DecimalArithmeticTest, add) {
       "Decimal overflow: 1 + 99999999999999999999999999999999999999");
 }
 
+TEST_F(DecimalArithmeticTest, int128Abs) {
+    int128_t va = UnscaledLongDecimal::min().unscaledValue();
+    int128_t absVal = std::abs(va);
+;
+}
+
 TEST_F(DecimalArithmeticTest, subtract) {
   auto shortFlatA = makeShortDecimalFlatVector({1000, 2000}, DECIMAL(18, 3));
   // Subtract short and short, returning long.

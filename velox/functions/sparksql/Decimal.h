@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 #include <velox/type/UnscaledShortDecimal.h>
+#include "velox/expression/VectorFunction.h"
 #include "velox/functions/Macros.h"
 #include "velox/type/Type.h"
 
-namespace facebook::velox::functions {
+namespace facebook::velox::functions::sparksql {
 
 template <typename T>
 struct UnscaledValueFunction {
@@ -29,4 +30,29 @@ struct UnscaledValueFunction {
     result = shortDecimal.unscaledValue();
   }
 };
-} // namespace facebook::velox::functions
+
+std::vector<std::shared_ptr<exec::FunctionSignature>> checkOverflowSignatures();
+
+std::shared_ptr<exec::VectorFunction> makeCheckOverflow(
+    const std::string& name,
+    const std::vector<exec::VectorFunctionArg>& inputArgs);
+
+std::vector<std::shared_ptr<exec::FunctionSignature>> makeDecimalSignatures();
+
+std::shared_ptr<exec::VectorFunction> makeMakeDecimal(
+    const std::string& name,
+    const std::vector<exec::VectorFunctionArg>& inputArgs);
+
+std::vector<std::shared_ptr<exec::FunctionSignature>> roundDecimalSignatures();
+
+std::shared_ptr<exec::VectorFunction> makeRoundDecimal(
+    const std::string& name,
+    const std::vector<exec::VectorFunctionArg>& inputArgs);
+
+std::vector<std::shared_ptr<exec::FunctionSignature>> absSignatures();
+
+std::shared_ptr<exec::VectorFunction> makeAbs(
+    const std::string& name,
+    const std::vector<exec::VectorFunctionArg>& inputArgs);
+
+} // namespace facebook::velox::functions::sparksql

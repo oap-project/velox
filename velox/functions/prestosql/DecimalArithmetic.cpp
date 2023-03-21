@@ -17,6 +17,7 @@
 #include "velox/expression/DecodedArgs.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/type/DecimalUtil.h"
+#include "velox/type/DecimalUtilOp.h"
 
 namespace facebook::velox::functions {
 namespace {
@@ -28,16 +29,19 @@ template <
     typename Operation /* Arithmetic operation */>
 class DecimalBaseFunction : public exec::VectorFunction {
  public:
-  DecimalBaseFunction(uint8_t aRescale, uint8_t bRescale)
-      : aRescale_(aRescale), bRescale_(bRescale) {}
+  DecimalBaseFunction(
+      uint8_t aRescale,
+      uint8_t bRescale,
+      const TypePtr& resultType)
+      : aRescale_(aRescale), bRescale_(bRescale), resultType_(resultType) {}
 
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      const TypePtr& resultType,
+      const TypePtr& resultType, // cannot used in spark
       exec::EvalCtx& context,
       VectorPtr& result) const override {
-    auto rawResults = prepareResults(rows, resultType, context, result);
+    auto rawResults = prepareResults(rows, context, result);
     if (args[0]->isConstantEncoding() && args[1]->isFlatEncoding()) {
       // Fast path for (const, flat).
       auto constant = args[0]->asUnchecked<SimpleVector<A>>()->valueAt(0);
@@ -85,16 +89,19 @@ class DecimalBaseFunction : public exec::VectorFunction {
  private:
   R* prepareResults(
       const SelectivityVector& rows,
-      const TypePtr& resultType,
       exec::EvalCtx& context,
       VectorPtr& result) const {
-    context.ensureWritable(rows, resultType, result);
+    // Here we can not use `resultType`, because this type derives from
+    // substrait plan in spark spark arithmetic result type is left datatype,
+    // but velox need new computed type
+    context.ensureWritable(rows, resultType_, result);
     result->clearNulls(rows);
     return result->asUnchecked<FlatVector<R>>()->mutableRawValues();
   }
 
   const uint8_t aRescale_;
   const uint8_t bRescale_;
+  const TypePtr resultType_;
 };
 
 class Addition {
@@ -214,7 +221,7 @@ class Divide {
   template <typename R, typename A, typename B>
   inline static void
   apply(R& r, const A& a, const B& b, uint8_t aRescale, uint8_t /*bRescale*/) {
-    DecimalUtil::divideWithRoundUp<R, A, B>(r, a, b, false, aRescale, 0);
+    DecimalUtilOp::divideWithRoundUp<R, A, B>(r, a, b, false, aRescale, 0);
   }
 
   inline static uint8_t
@@ -225,11 +232,17 @@ class Divide {
   inline static std::pair<uint8_t, uint8_t> computeResultPrecisionScale(
       const uint8_t aPrecision,
       const uint8_t aScale,
-      const uint8_t /*bPrecision*/,
+      const uint8_t bPrecision,
       const uint8_t bScale) {
-    return {
-        std::min(38, aPrecision + bScale + std::max(0, bScale - aScale)),
-        std::max(aScale, bScale)};
+    auto scale = std::max(6, aScale + bPrecision + 1);
+    auto precision = aPrecision - aScale + bScale + scale;
+    if (precision > 38) {
+      int32_t min_scale = std::min(scale, 6);
+      int32_t delta = precision - 38;
+      precision = 38;
+      scale = std::max(scale - delta, min_scale);
+    }
+    return {precision, scale};
   }
 };
 
@@ -268,19 +281,28 @@ decimalAddSubtractSignature() {
 }
 
 std::vector<std::shared_ptr<exec::FunctionSignature>> decimalDivideSignature() {
-  return {exec::FunctionSignatureBuilder()
-              .integerVariable("a_precision")
-              .integerVariable("a_scale")
-              .integerVariable("b_precision")
-              .integerVariable("b_scale")
-              .integerVariable(
-                  "r_precision",
-                  "min(38, a_precision + b_scale + max(0, b_scale - a_scale))")
-              .integerVariable("r_scale", "max(a_scale, b_scale)")
-              .returnType("DECIMAL(r_precision, r_scale)")
-              .argumentType("DECIMAL(a_precision, a_scale)")
-              .argumentType("DECIMAL(b_precision, b_scale)")
-              .build()};
+  return {
+      exec::FunctionSignatureBuilder()
+          .integerVariable("a_precision")
+          .integerVariable("a_scale")
+          .integerVariable("b_precision")
+          .integerVariable("b_scale")
+          .integerVariable(
+              "r_precision",
+              "min(38, a_precision - a_scale + b_scale + max(6, a_scale + b_precision + 1))")
+          .integerVariable(
+              "r_scale",
+              "min(37, max(6, a_scale + b_precision + 1))") // if precision is
+                                                            // more than 38,
+                                                            // scale has new
+                                                            // value, this check
+                                                            // constrait is not
+                                                            // same with result
+                                                            // type
+          .returnType("DECIMAL(r_precision, r_scale)")
+          .argumentType("DECIMAL(a_precision, a_scale)")
+          .argumentType("DECIMAL(b_precision, b_scale)")
+          .build()};
 }
 
 template <typename Operation>
@@ -303,14 +325,14 @@ std::shared_ptr<exec::VectorFunction> createDecimalFunction(
             UnscaledLongDecimal /*result*/,
             UnscaledShortDecimal,
             UnscaledShortDecimal,
-            Operation>>(aRescale, bRescale);
+            Operation>>(aRescale, bRescale, LONG_DECIMAL(rPrecision, rScale));
       } else {
         // Arguments are short decimals and result is a short decimal.
         return std::make_shared<DecimalBaseFunction<
             UnscaledShortDecimal /*result*/,
             UnscaledShortDecimal,
             UnscaledShortDecimal,
-            Operation>>(aRescale, bRescale);
+            Operation>>(aRescale, bRescale, SHORT_DECIMAL(rPrecision, rScale));
       }
     } else {
       // LHS is short decimal and rhs is a long decimal, result is long decimal.
@@ -318,7 +340,7 @@ std::shared_ptr<exec::VectorFunction> createDecimalFunction(
           UnscaledLongDecimal /*result*/,
           UnscaledShortDecimal,
           UnscaledLongDecimal,
-          Operation>>(aRescale, bRescale);
+          Operation>>(aRescale, bRescale, LONG_DECIMAL(rPrecision, rScale));
     }
   } else {
     if (bType->kind() == TypeKind::SHORT_DECIMAL) {
@@ -327,14 +349,14 @@ std::shared_ptr<exec::VectorFunction> createDecimalFunction(
           UnscaledLongDecimal /*result*/,
           UnscaledLongDecimal,
           UnscaledShortDecimal,
-          Operation>>(aRescale, bRescale);
+          Operation>>(aRescale, bRescale, LONG_DECIMAL(rPrecision, rScale));
     } else {
       // Arguments and result are all long decimals.
       return std::make_shared<DecimalBaseFunction<
           UnscaledLongDecimal /*result*/,
           UnscaledLongDecimal,
           UnscaledLongDecimal,
-          Operation>>(aRescale, bRescale);
+          Operation>>(aRescale, bRescale, LONG_DECIMAL(rPrecision, rScale));
     }
   }
   VELOX_UNSUPPORTED();
