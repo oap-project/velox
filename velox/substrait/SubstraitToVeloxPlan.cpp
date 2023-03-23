@@ -896,7 +896,8 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
       splitInfo->lengths.emplace_back(file.length());
       switch (file.file_format_case()) {
         case SubstraitFileFormatCase::kOrc:
-
+          splitInfo->format = dwio::common::FileFormat::ORC;
+          break;
         case SubstraitFileFormatCase::kDwrf:
           splitInfo->format = dwio::common::FileFormat::DWRF;
           break;
