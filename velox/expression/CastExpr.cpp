@@ -201,6 +201,30 @@ void applyDoubleToDecimalCastKernel(
     }
   });
 }
+
+template <typename TOutput>
+void applyVarCharToDecimalCastKernel(
+    const SelectivityVector& rows,
+    const BaseVector& input,
+    exec::EvalCtx& context,
+    const TypePtr& toType,
+    VectorPtr castResult) {
+  auto sourceVector = input.as<SimpleVector<StringView>>();
+  auto castResultRawBuffer =
+      castResult->asUnchecked<FlatVector<TOutput>>()->mutableRawValues();
+  const auto& toPrecisionScale = getDecimalPrecisionScale(*toType);
+  context.applyToSelectedNoThrow(rows, [&](vector_size_t row) {
+    auto rescaledValue = DecimalUtil::rescaleVarchar<TOutput>(
+        sourceVector->valueAt(row),
+        toPrecisionScale.first,
+        toPrecisionScale.second);
+    if (rescaledValue.has_value()) {
+      castResultRawBuffer[row] = rescaledValue.value();
+    } else {
+      castResult->setNull(row, true);
+    }
+  });
+}
 } // namespace
 
 template <typename To, typename From>
@@ -635,12 +659,24 @@ VectorPtr CastExpr::applyDecimal(
       }
       break;
     }
+    case TypeKind::VARCHAR: {
+      if (toType->kind() == TypeKind::SHORT_DECIMAL) {
+        applyVarCharToDecimalCastKernel<UnscaledShortDecimal>(
+            rows, input, context, toType, castResult);
+      } else {
+        applyVarCharToDecimalCastKernel<UnscaledLongDecimal>(
+            rows, input, context, toType, castResult);
+      }
+      break;
+    }
     default:
       VELOX_UNSUPPORTED(
           "Cast from {} to {} is not supported",
           fromType->toString(),
           toType->toString());
   }
+
+  // std::cout <<"cast result "<< castResult->toString(0, 5)<< std::endl;
   return castResult;
 }
 
