@@ -222,7 +222,7 @@ bool SubstraitToVeloxPlanValidator::validate(
     }
   }
   // GroupIdNode constructor check
-  if (sExpand.groupings_size() <= 2) {
+  if (sExpand.groupings_size() < 2) {
     LOG(INFO) << "GroupIdNode requires two or more grouping sets.";
     return false;
   }
