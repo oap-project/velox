@@ -102,7 +102,18 @@ struct StringView {
   }
 
   const char* data() const {
+#if defined(__x86_64__)
+    // force to generate ASM
+    const char* ret=prefix_;
+    __asm__(
+        "cmp %[kInlineSize], %[size_]\n"
+        "cmovg %[data],%[ret]\n"
+        : [ret] "+r"(ret)
+        : [kInlineSize] "i"(kInlineSize), [size_] "r"(size_), [data] "r"(value_.data));
+    return ret;
+#else
     return isInline() ? prefix_ : value_.data;
+#endif
   }
 
   size_t size() const {
