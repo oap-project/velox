@@ -21,6 +21,7 @@
 #include "velox/dwio/common/ReaderFactory.h"
 #include "velox/expression/FieldReference.h"
 #include "velox/type/Conversions.h"
+#include "velox/type/DecimalUtilOp.h"
 #include "velox/type/Type.h"
 #include "velox/type/Variant.h"
 
@@ -418,6 +419,32 @@ velox::variant convertFromString(const std::optional<std::string>& value) {
   return velox::variant(ToKind);
 }
 
+velox::variant convertDecimalFromString(
+  const std::optional<std::string>& value,
+  const TypePtr& type) {
+  VELOX_CHECK(isDecimalKind(type->kind()), "Decimal type is expected.");
+  if (type->isShortDecimal()) {
+    if (!value.has_value()) {
+      return variant::shortDecimal(std::nullopt, type);
+    }
+    bool nullOutput = false;
+    auto result =
+        velox::util::Converter<TypeKind::BIGINT>::cast(value.value(), nullOutput);
+    VELOX_CHECK(
+        not nullOutput, "Failed to cast {} to {}", value.value(), TypeKind::BIGINT);
+    return variant::shortDecimal(result, type);
+  }
+
+  if (!value.has_value()) {
+    return variant::longDecimal(std::nullopt, type);
+  }
+  bool nullOutput = false;
+  int128_t result = DecimalUtilOp::convertStringToInt128(value.value(), nullOutput);
+  VELOX_CHECK(
+        not nullOutput, "Failed to cast {} to int128", value.value());
+  return variant::longDecimal(result, type);
+}
+
 } // namespace
 
 void HiveDataSource::addDynamicFilter(
@@ -687,9 +714,16 @@ void HiveDataSource::setPartitionValue(
       it != partitionKeys_.end(),
       "ColumnHandle is missing for partition key {}",
       partitionKey);
-  auto constValue = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-      convertFromString, it->second->dataType()->kind(), value);
-  setConstantValue(spec, it->second->dataType(), constValue);
+  auto toTypeKind = it->second->dataType()->kind();
+  velox::variant constantValue;
+  if (isDecimalKind(toTypeKind)) {
+    constantValue =
+        convertDecimalFromString(value, it->second->dataType());
+  } else {
+    constantValue = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+        convertFromString, toTypeKind, value);
+  }
+  setConstantValue(spec, it->second->dataType(), constantValue);
 }
 
 std::unordered_map<std::string, RuntimeCounter> HiveDataSource::runtimeStats() {
