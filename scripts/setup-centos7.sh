@@ -172,6 +172,45 @@ function install_boost {
   ./b2 "-j$(nproc)" -d0 install threading=multi
 }
 
+function install_libhdfs3 {
+  cd "${DEPENDENCY_DIR}"
+  github_checkout apache/hawq master
+  cd depends/libhdfs3
+  sed -i "/FIND_PACKAGE(GoogleTest REQUIRED)/d" ./CMakeLists.txt
+  sed -i "s/dumpversion/dumpfullversion/" ./CMake/Platform.cmake
+  sed -i "s/dfs.domain.socket.path\", \"\"/dfs.domain.socket.path\", \"\/var\/lib\/hadoop-hdfs\/dn_socket\"/g" src/common/SessionConfig.cpp
+  sed -i "s/pos < endOfCurBlock/pos \< endOfCurBlock \&\& pos \- cursor \<\= 128 \* 1024/g" src/client/InputStreamImpl.cpp
+  cmake_install
+}
+
+function install_protobuf {
+  cd "${DEPENDENCY_DIR}"
+  wget https://github.com/protocolbuffers/protobuf/releases/download/v21.4/protobuf-all-21.4.tar.gz
+  tar -xzf protobuf-all-21.4.tar.gz
+  cd protobuf-21.4
+  ./configure  CXXFLAGS="-fPIC"  --prefix=/usr/local
+  make "-j$(nproc)"
+  make install
+  cd ../../ && ldconfig
+}
+
+function install_awssdk {
+  cd "${DEPENDENCY_DIR}"
+  github_checkout aws/aws-sdk-cpp 1.9.379 --depth 1 --recurse-submodules
+  cmake_install -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS:BOOL=OFF -DMINIMIZE_SIZE:BOOL=ON -DENABLE_TESTING:BOOL=OFF -DBUILD_ONLY:STRING="s3;identity-management" 
+}
+
+function install_gtest {
+  cd "${DEPENDENCY_DIR}"
+  wget https://github.com/google/googletest/archive/refs/tags/release-1.12.1.tar.gz
+  tar -xzf release-1.12.1.tar.gz
+  cd googletest-release-1.12.1
+  mkdir -p build && cd build && cmake -DBUILD_GTEST=ON -DBUILD_GMOCK=ON -DINSTALL_GTEST=ON -DINSTALL_GMOCK=ON -DBUILD_SHARED_LIBS=ON ..
+  make "-j$(nproc)"
+  make install
+  cd ../../ && ldconfig
+} 
+
 function install_prerequisites {
   run_and_time install_lzo
   run_and_time install_boost
@@ -196,7 +235,7 @@ dnf_install epel-release dnf-plugins-core # For ccache, ninja
 # dnf config-manager --set-enabled powertools
 dnf_install ccache git wget which libevent-devel \
   openssl-devel libzstd-devel lz4-devel double-conversion-devel \
-  curl-devel cmake sudo
+  curl-devel cmake sudo libxml2-devel libgsasl-devel libuuid-devel
 
 dnf remove -y gflags
 
