@@ -26,6 +26,7 @@
 #include "velox/expression/StringWriter.h"
 #include "velox/external/date/tz.h"
 #include "velox/functions/lib/RowsTranslationUtil.h"
+#include "velox/type/DecimalUtilOp.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FunctionVector.h"
 #include "velox/vector/SelectivityVector.h"
@@ -214,7 +215,7 @@ void applyVarCharToDecimalCastKernel(
       castResult->asUnchecked<FlatVector<TOutput>>()->mutableRawValues();
   const auto& toPrecisionScale = getDecimalPrecisionScale(*toType);
   context.applyToSelectedNoThrow(rows, [&](vector_size_t row) {
-    auto rescaledValue = DecimalUtil::rescaleVarchar<TOutput>(
+    auto rescaledValue = DecimalUtilOp::rescaleVarchar<TOutput>(
         sourceVector->valueAt(row),
         toPrecisionScale.first,
         toPrecisionScale.second);
@@ -687,6 +688,8 @@ void CastExpr::applyPeeled(
     const TypePtr& fromType,
     const TypePtr& toType,
     VectorPtr& result) {
+  // std::cout << "cast input type" << input.toString() << std::endl;
+  // std::cout << "cast input " << input.toString(0, 5) << std::endl;
   if (castFromOperator_ || castToOperator_) {
     VELOX_CHECK_NE(
         fromType,

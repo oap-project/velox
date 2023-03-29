@@ -140,5 +140,115 @@ class DecimalUtilOp {
       VELOX_FAIL("Should not reach here in DecimalUtilOp.h");
     }
   }
+
+  // return unscaled value and scale
+  inline static std::pair<std::string, uint8_t> splitVarChar(
+      const StringView& value) {
+    std::string s = value.str();
+    size_t pos = s.find('.');
+    if (pos == std::string::npos) {
+      return {s.substr(0, pos), 0};
+    } else {
+      return {
+          s.substr(0, pos) + s.substr(pos + 1, s.length()), s.length() - pos - 1};
+    }
+  }
+
+  static int128_t convertStringToInt128(
+      const std::string& value,
+      bool& nullOutput) {
+    // Handling integer target cases
+    const char* v = value.c_str();
+    nullOutput = true;
+    bool negative = false;
+    int128_t result = 0;
+    int index = 0;
+    int len = value.size();
+    if (len == 0) {
+      return -1;
+    }
+    // Setting negative flag
+    if (v[0] == '-') {
+      if (len == 1) {
+        return -1;
+      }
+      negative = true;
+      index = 1;
+    }
+    if (negative) {
+      for (; index < len; index++) {
+        if (!std::isdigit(v[index])) {
+          return -1;
+        }
+        result = result * 10 - (v[index] - '0');
+        // Overflow check
+        if (result > 0) {
+          return -1;
+        }
+      }
+    } else {
+      for (; index < len; index++) {
+        if (!std::isdigit(v[index])) {
+          return -1;
+        }
+        result = result * 10 + (v[index] - '0');
+        // Overflow check
+        if (result < 0) {
+          return -1;
+        }
+      }
+    }
+    // Final result
+    nullOutput = false;
+    return result;
+  }
+
+  template <typename TOutput>
+  inline static std::optional<TOutput> rescaleVarchar(
+      const StringView inputValue,
+      const int toPrecision,
+      const int toScale) {
+    static_assert(
+        std::is_same_v<TOutput, UnscaledShortDecimal> ||
+        std::is_same_v<TOutput, UnscaledLongDecimal>);
+    auto [unscaledStr, fromScale] = splitVarChar(inputValue);
+    // std::cout << "input value " << inputValue << std::endl;
+
+    uint8_t fromPrecision = unscaledStr.size() - fromScale >= 0
+        ? unscaledStr.size() - fromScale
+        : fromScale;
+    VELOX_CHECK_LE(
+        fromPrecision, DecimalType<TypeKind::LONG_DECIMAL>::kMaxPrecision);
+    if (fromPrecision <= 18) {
+      int64_t fromUnscaledValue = folly::to<int64_t>(unscaledStr);
+      return DecimalUtil::rescaleWithRoundUp<UnscaledShortDecimal, TOutput>(
+          UnscaledShortDecimal(fromUnscaledValue),
+          fromPrecision,
+          fromScale,
+          toPrecision,
+          toScale,
+          false,
+          false);
+    } else {
+      // std::cout << "convert to int128" << std::endl;
+      bool nullOutput = true;
+      int128_t decimalValue = convertStringToInt128(unscaledStr, nullOutput);
+      if (nullOutput) {
+        VELOX_USER_FAIL(
+            "Cannot cast StringView '{}' to DECIMAL({},{})",
+            inputValue,
+            toPrecision,
+            toScale);
+      }
+      return DecimalUtil::rescaleWithRoundUp<UnscaledLongDecimal, TOutput>(
+          UnscaledLongDecimal(decimalValue),
+          fromPrecision,
+          fromScale,
+          toPrecision,
+          toScale,
+          false,
+          false);
+    }
+  }
 };
 } // namespace facebook::velox
