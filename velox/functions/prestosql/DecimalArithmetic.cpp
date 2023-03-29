@@ -239,10 +239,11 @@ class Addition {
       const uint8_t aScale,
       const uint8_t bPrecision,
       const uint8_t bScale) {
-    return adjustPrecisionScale(
-        std::max(aPrecision - aScale, bPrecision - bScale) +
-            std::max(aScale, bScale) + 1,
-        std::max(aScale, bScale));
+    return {std::min(
+            38,
+            std::max(aPrecision - aScale, bPrecision - bScale) +
+                std::max(aScale, bScale) + 1),
+        std::max(aScale, bScale)};
   }
 
   inline static std::pair<uint8_t, uint8_t> adjustPrecisionScale(
@@ -379,7 +380,7 @@ class Multiply {
             // Since deltaScale is greater than zero, result can now be at most
             // ((2^64 - 1) * (2^63 - 1)) / 10, which is less than
             // BasicDecimal128::kMaxValue, so there cannot be any overflow.
-            r = res / DecimalUtil::kPowersOfTen[deltaScale];
+            r = res / R(DecimalUtil::kPowersOfTen[deltaScale]);
           } else {
             // We are multiplying decimal(38, 38) by decimal(38, 38). The result
             // should be a
