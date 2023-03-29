@@ -155,13 +155,37 @@ void applyBigintToDecimalCastKernel(
 }
 
 template <typename TOutput>
+void applyDateToDecimalCastKernel(
+    const SelectivityVector& rows,
+    const BaseVector& input,
+    exec::EvalCtx& context,
+    const TypePtr& toType,
+    VectorPtr castResult) {
+  auto sourceVector = input.as<SimpleVector<Date>>();
+  auto castResultRawBuffer =
+      castResult->asUnchecked<FlatVector<TOutput>>()->mutableRawValues();
+  const auto& toPrecisionScale = getDecimalPrecisionScale(*toType);
+  context.applyToSelectedNoThrow(rows, [&](vector_size_t row) {
+    auto rescaledValue = DecimalUtil::rescaleBigint<TOutput>(
+        sourceVector->valueAt(row).days(),
+        toPrecisionScale.first,
+        toPrecisionScale.second);
+    if (rescaledValue.has_value()) {
+      castResultRawBuffer[row] = rescaledValue.value();
+    } else {
+      castResult->setNull(row, true);
+    }
+  });
+}
+
+template <typename From, typename TOutput>
 void applyDoubleToDecimalCastKernel(
     const SelectivityVector& rows,
     const BaseVector& input,
     exec::EvalCtx& context,
     const TypePtr& toType,
     VectorPtr castResult) {
-  auto sourceVector = input.as<SimpleVector<double>>();
+  auto sourceVector = input.as<SimpleVector<From>>();
   auto castResultRawBuffer =
       castResult->asUnchecked<FlatVector<TOutput>>()->mutableRawValues();
   const auto& toPrecisionScale = getDecimalPrecisionScale(*toType);
@@ -531,6 +555,16 @@ VectorPtr CastExpr::applyDecimal(
   context.ensureWritable(rows, toType, castResult);
   (*castResult).clearNulls(rows);
   switch (fromType->kind()) {
+    case TypeKind::BOOLEAN: {
+      if (toType->kind() == TypeKind::SHORT_DECIMAL) {
+        applyBigintToDecimalCastKernel<bool, UnscaledShortDecimal>(
+            rows, input, context, toType, castResult);
+      } else {
+        applyBigintToDecimalCastKernel<bool, UnscaledLongDecimal>(
+            rows, input, context, toType, castResult);
+      }
+      break;
+    }
     case TypeKind::SHORT_DECIMAL: {
       if (toType->kind() == TypeKind::SHORT_DECIMAL) {
         applyDecimalCastKernel<UnscaledShortDecimal, UnscaledShortDecimal>(
@@ -561,6 +595,16 @@ VectorPtr CastExpr::applyDecimal(
       }
       break;
     }
+    case TypeKind::DATE: {
+      if (toType->kind() == TypeKind::SHORT_DECIMAL) {
+        applyDateToDecimalCastKernel<UnscaledShortDecimal>(
+            rows, input, context, toType, castResult);
+      } else {
+        applyDateToDecimalCastKernel<UnscaledLongDecimal>(
+            rows, input, context, toType, castResult);
+      }
+      break;
+    }
     case TypeKind::BIGINT: {
       if (toType->kind() == TypeKind::SHORT_DECIMAL) {
         applyBigintToDecimalCastKernel<int64_t, UnscaledShortDecimal>(
@@ -571,13 +615,22 @@ VectorPtr CastExpr::applyDecimal(
       }
       break;
     }
-
-    case TypeKind::DOUBLE: {
+    case TypeKind::REAL: {
       if (toType->kind() == TypeKind::SHORT_DECIMAL) {
-        applyDoubleToDecimalCastKernel<UnscaledShortDecimal>(
+        applyDoubleToDecimalCastKernel<float, UnscaledShortDecimal>(
             rows, input, context, toType, castResult);
       } else {
-        applyDoubleToDecimalCastKernel<UnscaledLongDecimal>(
+        applyDoubleToDecimalCastKernel<float, UnscaledLongDecimal>(
+            rows, input, context, toType, castResult);
+      }
+      break;
+    }
+    case TypeKind::DOUBLE: {
+      if (toType->kind() == TypeKind::SHORT_DECIMAL) {
+        applyDoubleToDecimalCastKernel<double, UnscaledShortDecimal>(
+            rows, input, context, toType, castResult);
+      } else {
+        applyDoubleToDecimalCastKernel<double, UnscaledLongDecimal>(
             rows, input, context, toType, castResult);
       }
       break;
