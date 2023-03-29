@@ -229,9 +229,8 @@ struct CorrResultAccessor {
   }
 
   static double result(const CorrAccumulator& accumulator) {
-    double stddevX = std::sqrt(accumulator.m2X());
-    double stddevY = std::sqrt(accumulator.m2Y());
-    return accumulator.c2() / stddevX / stddevY;
+    // Need to modify the calculation order to maintain the same accuracy as spark
+    return accumulator.c2() / std::sqrt(accumulator.m2X() * accumulator.m2Y());
   }
 };
 
