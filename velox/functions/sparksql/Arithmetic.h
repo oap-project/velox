@@ -25,7 +25,7 @@
 namespace facebook::velox::functions::sparksql {
 
 template <typename T>
-struct PModFunction {
+struct PModIntFunction {
   template <typename TInput>
   FOLLY_ALWAYS_INLINE bool call(TInput& result, const TInput a, const TInput n)
 #if defined(__has_feature)
@@ -39,6 +39,20 @@ struct PModFunction {
     }
     TInput r = a % n;
     result = (r > 0) ? r : (r + n) % n;
+    return true;
+  }
+};
+
+template <typename T>
+struct PModFloatFunction {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE bool call(TInput& result, const TInput a, const TInput n)
+  {
+    if (UNLIKELY(n == (TInput)0)) {
+      return false;
+    }
+    TInput r = fmod(a, n);
+    result = (r > 0) ? r : fmod(r + n, n);
     return true;
   }
 };

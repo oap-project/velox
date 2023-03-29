@@ -67,6 +67,16 @@ TEST_F(PmodTest, int64) {
   EXPECT_EQ(INT64_MAX - 1, pmod<int64_t>(INT64_MIN, INT64_MAX));
 }
 
+TEST_F(PmodTest, float) {
+  EXPECT_FLOAT_EQ(0.2, pmod<float>(0.5, 0.3).value());
+  EXPECT_FLOAT_EQ(0.9, pmod<float>(-1.1, 2).value());
+}
+
+TEST_F(PmodTest, double) {
+  EXPECT_DOUBLE_EQ(0.2, pmod<double>(0.5, 0.3).value());
+  EXPECT_DOUBLE_EQ(0.9, pmod<double>(-1.1, 2).value());
+}
+
 class RemainderTest : public SparkFunctionBaseTest {
  protected:
   template <typename T>
