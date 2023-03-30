@@ -212,14 +212,12 @@ class DecimalUtilOp {
         std::is_same_v<TOutput, UnscaledShortDecimal> ||
         std::is_same_v<TOutput, UnscaledLongDecimal>);
     auto [unscaledStr, fromScale] = splitVarChar(inputValue);
-    // std::cout << "input value " << inputValue << std::endl;
-
-    uint8_t fromPrecision = unscaledStr.size() - fromScale >= 0
-        ? unscaledStr.size() - fromScale
-        : fromScale;
+    uint8_t fromPrecision = unscaledStr.size() - fromScale;
+    fromPrecision = std::max(fromPrecision, fromScale);  
     VELOX_CHECK_LE(
         fromPrecision, DecimalType<TypeKind::LONG_DECIMAL>::kMaxPrecision);
-    if (fromPrecision <= 18) {
+    // because UnscaledShortDecimal max value length is 17
+    if (fromPrecision <= 18 && unscaledStr.length() <= 17) {
       int64_t fromUnscaledValue = folly::to<int64_t>(unscaledStr);
       return DecimalUtil::rescaleWithRoundUp<UnscaledShortDecimal, TOutput>(
           UnscaledShortDecimal(fromUnscaledValue),
@@ -230,7 +228,6 @@ class DecimalUtilOp {
           false,
           false);
     } else {
-      // std::cout << "convert to int128" << std::endl;
       bool nullOutput = true;
       int128_t decimalValue = convertStringToInt128(unscaledStr, nullOutput);
       if (nullOutput) {
@@ -249,6 +246,18 @@ class DecimalUtilOp {
           false,
           false);
     }
+  }
+
+  template <typename TInput, typename TOutput>
+  inline static std::optional<TOutput> rescaleDouble(
+      const TInput inputValue,
+      const int toPrecision,
+      const int toScale) {
+    static_assert(
+        std::is_same_v<TOutput, UnscaledShortDecimal> ||
+        std::is_same_v<TOutput, UnscaledLongDecimal>);
+    return rescaleVarchar<TOutput>(
+        velox::to<std::string>(inputValue), toPrecision, toScale);
   }
 };
 } // namespace facebook::velox
