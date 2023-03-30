@@ -29,7 +29,6 @@ std::mutex mtx;
 
 class HdfsFileSystem::Impl {
  public:
-
  explicit Impl(const Config* config) {
     auto endpointInfo = getServiceEndpoint(config);
     auto builder = hdfsNewBuilder();
@@ -42,11 +41,11 @@ class HdfsFileSystem::Impl {
         hdfsGetLastError())
   }
 
-  explicit Impl(const Config* config, std::string_view host, std::string_view port) {
+  explicit Impl(const Config* config, const std::string host, const std::string port) {
     // auto endpointInfo = getServiceEndpoint(config);
     auto builder = hdfsNewBuilder();
     hdfsBuilderSetNameNode(builder, host.c_str());
-    hdfsBuilderSetNameNodePort(builder, port);
+    hdfsBuilderSetNameNodePort(builder, atoi(port.data()));
     hdfsClient_ = hdfsBuilderConnect(builder);
     VELOX_CHECK_NOT_NULL(
         hdfsClient_,
@@ -89,6 +88,11 @@ HdfsFileSystem::HdfsFileSystem(const std::shared_ptr<const Config>& config)
   impl_ = std::make_shared<Impl>(config.get());
 }
 
+HdfsFileSystem::HdfsFileSystem(const std::shared_ptr<const Config>& config, std::string host, std::string port)
+    : FileSystem(config) {
+  impl_ = std::make_shared<Impl>(config.get(), host, port);
+}
+
 std::string HdfsFileSystem::name() const {
   return "HDFS";
 }
@@ -110,15 +114,30 @@ std::unique_ptr<WriteFile> HdfsFileSystem::openFileForWrite(
   return std::make_unique<HdfsWriteFile>(impl_->hdfsClient(), path);
 }
 
-bool HdfsFileSystem::isHdfsFile(const std::string_view filename) {
-  return filename.find(kScheme) == 0;
+bool HdfsFileSystem::isHdfsFile(const std::string_view filePath) {
+  return filePath.find(kScheme) == 0;
 }
 
-static std::function<std::shared_ptr<FileSystem>(std::shared_ptr<const Config>, std::string_view host, std::string_view port)>
-    filesystemGenerator = [](std::shared_ptr<const Config> properties, std::string_view host, std::string_view port) {
+std::string HdfsFileSystem::getHost(const std::string_view filePath) {
+  auto index = filePath.find(':', kScheme.size());
+  std::string host{filePath.data(), kScheme.size(), index - kScheme.size()};
+  return host;
+}
+
+std::string HdfsFileSystem::getPort(const std::string_view filePath) {
+  auto index1 = filePath.find(':', kScheme.size());
+  auto index2 = filePath.find('/', index1);
+  std::string port{filePath.data(), index1 + 1, index2 - index1 - 1};
+  return port;
+}
+
+static std::function<std::shared_ptr<FileSystem>(std::shared_ptr<const Config>, std::string_view)>
+    filesystemGenerator = [](std::shared_ptr<const Config> properties, std::string_view filePath) {
       std::unordered_map<std::string, std::shared_ptr<FileSystem>> filesystems;
       static std::shared_ptr<FileSystem> filesystem;
-      std::string hdfsHostPort = std::string(host) + std::string(port);
+      std::string host = HdfsFileSystem::getHost(filePath);
+      std::string port = HdfsFileSystem::getPort(filePath);
+      std::string hdfsHostPort = host + port;
       if (filesystems.find(hdfsHostPort) != filesystems.end()) {
         return filesystems[hdfsHostPort];
       }
@@ -126,7 +145,7 @@ static std::function<std::shared_ptr<FileSystem>(std::shared_ptr<const Config>, 
       if (filesystems.find(hdfsHostPort) != filesystems.end()) {
         return filesystems[hdfsHostPort];
       }
-      filesystem = std::make_shared<HdfsFileSystem>(properties, std::string_view host, std::string_view port);
+      filesystem = std::make_shared<HdfsFileSystem>(properties, host, port);
       // folly::call_once(hdfsInitiationFlag, [&properties]() {
       //   filesystem = std::make_shared<HdfsFileSystem>(properties, std::string_view host, std::string_view port);
       // });
