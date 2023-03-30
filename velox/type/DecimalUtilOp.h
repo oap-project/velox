@@ -212,12 +212,11 @@ class DecimalUtilOp {
         std::is_same_v<TOutput, UnscaledShortDecimal> ||
         std::is_same_v<TOutput, UnscaledLongDecimal>);
     auto [unscaledStr, fromScale] = splitVarChar(inputValue);
-    uint8_t fromPrecision = unscaledStr.size() - fromScale;
-    fromPrecision = std::max(fromPrecision, fromScale);  
+    uint8_t fromPrecision = unscaledStr.size();
     VELOX_CHECK_LE(
         fromPrecision, DecimalType<TypeKind::LONG_DECIMAL>::kMaxPrecision);
     // because UnscaledShortDecimal max value length is 17
-    if (fromPrecision <= 18 && unscaledStr.length() <= 17) {
+    if (fromPrecision <= 17) {
       int64_t fromUnscaledValue = folly::to<int64_t>(unscaledStr);
       return DecimalUtil::rescaleWithRoundUp<UnscaledShortDecimal, TOutput>(
           UnscaledShortDecimal(fromUnscaledValue),
