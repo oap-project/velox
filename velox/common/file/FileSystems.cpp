@@ -173,9 +173,9 @@ class LocalFileSystem : public FileSystem {
   }
 
   static std::function<
-      std::shared_ptr<FileSystem>(std::shared_ptr<const Config>)>
+      std::shared_ptr<FileSystem>(std::shared_ptr<const Config>, std::string_view host, std::string_view port)>
   fileSystemGenerator() {
-    return [](std::shared_ptr<const Config> properties) {
+    return [](std::shared_ptr<const Config> properties, std::string_view host, std::string_view port) {
       // One instance of Local FileSystem is sufficient.
       // Initialize on first access and reuse after that.
       static std::shared_ptr<FileSystem> lfs;

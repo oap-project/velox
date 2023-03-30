@@ -34,6 +34,7 @@ class HdfsFileSystem : public FileSystem {
 
  public:
   explicit HdfsFileSystem(const std::shared_ptr<const Config>& config);
+  explicit HdfsFileSystem(const std::shared_ptr<const Config>& config, std::string_view host, std::string_view port);
 
   std::string name() const override;
 

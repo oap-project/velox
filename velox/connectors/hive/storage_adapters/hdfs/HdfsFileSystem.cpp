@@ -19,18 +19,34 @@
 #include "velox/connectors/hive/storage_adapters/hdfs/HdfsReadFile.h"
 #include "velox/connectors/hive/storage_adapters/hdfs/HdfsWriteFile.h"
 #include "velox/core/Context.h"
+#include <unordered_map>
+#include <mutex>
 
 namespace facebook::velox::filesystems {
 folly::once_flag hdfsInitiationFlag;
 std::string_view HdfsFileSystem::kScheme("hdfs://");
+std::mutex mtx;
 
 class HdfsFileSystem::Impl {
  public:
-  explicit Impl(const Config* config) {
+
+ explicit Impl(const Config* config) {
     auto endpointInfo = getServiceEndpoint(config);
     auto builder = hdfsNewBuilder();
     hdfsBuilderSetNameNode(builder, endpointInfo.host.c_str());
     hdfsBuilderSetNameNodePort(builder, endpointInfo.port);
+    hdfsClient_ = hdfsBuilderConnect(builder);
+    VELOX_CHECK_NOT_NULL(
+        hdfsClient_,
+        "Unable to connect to HDFS, got error: {}.",
+        hdfsGetLastError())
+  }
+
+  explicit Impl(const Config* config, std::string_view host, std::string_view port) {
+    // auto endpointInfo = getServiceEndpoint(config);
+    auto builder = hdfsNewBuilder();
+    hdfsBuilderSetNameNode(builder, host.c_str());
+    hdfsBuilderSetNameNodePort(builder, port);
     hdfsClient_ = hdfsBuilderConnect(builder);
     VELOX_CHECK_NOT_NULL(
         hdfsClient_,
@@ -98,12 +114,24 @@ bool HdfsFileSystem::isHdfsFile(const std::string_view filename) {
   return filename.find(kScheme) == 0;
 }
 
-static std::function<std::shared_ptr<FileSystem>(std::shared_ptr<const Config>)>
-    filesystemGenerator = [](std::shared_ptr<const Config> properties) {
+static std::function<std::shared_ptr<FileSystem>(std::shared_ptr<const Config>, std::string_view host, std::string_view port)>
+    filesystemGenerator = [](std::shared_ptr<const Config> properties, std::string_view host, std::string_view port) {
+      std::unordered_map<std::string, std::shared_ptr<FileSystem>> filesystems;
       static std::shared_ptr<FileSystem> filesystem;
-      folly::call_once(hdfsInitiationFlag, [&properties]() {
-        filesystem = std::make_shared<HdfsFileSystem>(properties);
-      });
+      std::string hdfsHostPort = std::string(host) + std::string(port);
+      if (filesystems.find(hdfsHostPort) != filesystems.end()) {
+        return filesystems[hdfsHostPort];
+      }
+      mtx.lock();
+      if (filesystems.find(hdfsHostPort) != filesystems.end()) {
+        return filesystems[hdfsHostPort];
+      }
+      filesystem = std::make_shared<HdfsFileSystem>(properties, std::string_view host, std::string_view port);
+      // folly::call_once(hdfsInitiationFlag, [&properties]() {
+      //   filesystem = std::make_shared<HdfsFileSystem>(properties, std::string_view host, std::string_view port);
+      // });
+      filesystems[hdfsHostPort] = filesystem;
+      mtx.unlock();
       return filesystem;
     };
 
