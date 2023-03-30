@@ -24,17 +24,20 @@ export CFLAGS=$(get_cxx_flags $CPU_TARGET)  # Used by LZO.
 export CXXFLAGS=$CFLAGS  # Used by boost.
 export CPPFLAGS=$CFLAGS  # Used by LZO.
 
+# shellcheck disable=SC2037
+SUDO="sudo -E"
+
 function dnf_install {
-  dnf install -y -q --setopt=install_weak_deps=False "$@"
+  $SUDO dnf install -y -q --setopt=install_weak_deps=False "$@"
 }
 
 dnf_install epel-release dnf-plugins-core # For ccache, ninja
-dnf config-manager --set-enabled powertools
+$SUDO dnf config-manager --set-enabled powertools
 dnf_install ninja-build ccache gcc-toolset-9 git wget which libevent-devel \
   openssl-devel re2-devel libzstd-devel lz4-devel double-conversion-devel \
   libdwarf-devel curl-devel cmake libicu-devel
 
-dnf remove -y gflags
+$SUDO dnf remove -y gflags
 
 # Required for Thrift
 dnf_install autoconf automake libtool bison flex python3
@@ -48,7 +51,7 @@ set -u
 function cmake_install_deps {
   cmake -B "$1-build" -GNinja -DCMAKE_CXX_STANDARD=17 \
     -DCMAKE_CXX_FLAGS="${CFLAGS}" -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_BUILD_TYPE=Release -Wno-dev "$@"
-  ninja -C "$1-build" install
+  $SUDO ninja -C "$1-build" install
 }
 
 function wget_and_untar {
@@ -74,19 +77,16 @@ wait  # For cmake and source downloads to complete.
   cd lzo
   ./configure --prefix=/usr --enable-shared --disable-static --docdir=/usr/share/doc/lzo-2.10
   make "-j$(nproc)"
-  make install
+  $SUDO make install
 )
 
 (
   cd boost
   ./bootstrap.sh --prefix=/usr/local
-  ./b2 "-j$(nproc)" -d0 install threading=multi
+  $SUDO ./b2 "-j$(nproc)" -d0 install threading=multi
 )
 
 cmake_install_deps gflags -DBUILD_SHARED_LIBS=ON -DBUILD_STATIC_LIBS=ON -DBUILD_gflags_LIB=ON -DLIB_SUFFIX=64 -DCMAKE_INSTALL_PREFIX:PATH=/usr
 cmake_install_deps glog -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX:PATH=/usr
 cmake_install_deps snappy -DSNAPPY_BUILD_TESTS=OFF
 cmake_install_deps fmt -DFMT_TEST=OFF
-
-dnf clean all
-

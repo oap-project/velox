@@ -27,23 +27,27 @@ export CPPFLAGS=$CFLAGS  # Used by LZO.
 export PKG_CONFIG_PATH=/usr/local/lib64/pkgconfig:/usr/local/lib/pkgconfig:/usr/lib64/pkgconfig:/usr/lib/pkgconfig:$PKG_CONFIG_PATH
 FB_OS_VERSION=v2022.11.14.00
 
+# shellcheck disable=SC2037
+SUDO="sudo -E"
+
 function run_and_time {
   time "$@"
   { echo "+ Finished running $*"; } 2> /dev/null
 }
 
 function dnf_install {
-  dnf install -y -q --setopt=install_weak_deps=False "$@"
+  $SUDO dnf install -y -q --setopt=install_weak_deps=False "$@"
 }
 
 function yum_install {
-  yum install -y "$@"
+  $SUDO yum install -y "$@"
 }
 
 function cmake_install_deps {
   cmake -B"$1-build" -GNinja -DCMAKE_CXX_STANDARD=17 \
     -DCMAKE_CXX_FLAGS="${CFLAGS}" -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_BUILD_TYPE=Release -Wno-dev "$@"
-  ninja -C "$1-build" install
+  ninja -C "$1-build"
+  $SUDO ninja -C "$1-build" install
 }
 
 function wget_and_untar {
@@ -59,7 +63,7 @@ function install_cmake {
   cd cmake-3
   ./bootstrap --prefix=/usr/local
   make -j$(nproc)
-  make install
+  $SUDO make install
   cmake --version
 }
 
@@ -69,7 +73,7 @@ function install_ninja {
   ./configure.py --bootstrap
   cmake -Bbuild-cmake
   cmake --build build-cmake
-  cp ninja /usr/local/bin/  
+  $SUDO cp ninja /usr/local/bin/  
 }
 
 function install_fmt {
@@ -99,7 +103,7 @@ function install_openssl {
   ./config no-shared
   make depend
   make
-  make install
+  $SUDO make install
 }
 
 function install_gflags {
@@ -136,14 +140,14 @@ function install_dwarf {
   ./configure --enable-shared=no
   make
   make check
-  make install
+  $SUDO make install
 }
 
 function install_re2 {
   cd "${DEPENDENCY_DIR}"
   wget_and_untar https://github.com/google/re2/archive/refs/tags/2023-03-01.tar.gz re2
   cd re2
-  make install
+  $SUDO make install
 }
 
 function install_flex {
@@ -152,7 +156,7 @@ function install_flex {
   cd flex
   ./autogen.sh
   ./configure
-  make install
+  $SUDO make install
 }
 
 function install_lzo {
@@ -161,7 +165,7 @@ function install_lzo {
   cd lzo
   ./configure --prefix=/usr/local --enable-shared --disable-static --docdir=/usr/local/share/doc/lzo-2.10
   make "-j$(nproc)"
-  make install
+  $SUDO make install
 }
 
 function install_boost {
@@ -169,7 +173,7 @@ function install_boost {
   wget_and_untar https://boostorg.jfrog.io/artifactory/main/release/1.72.0/source/boost_1_72_0.tar.gz boost
   cd boost
   ./bootstrap.sh --prefix=/usr/local --with-python=/usr/bin/python3 --with-python-root=/usr/lib/python3.6 --without-libraries=python
-  ./b2 "-j$(nproc)" -d0 install threading=multi
+  $SUDO ./b2 "-j$(nproc)" -d0 install threading=multi
 }
 
 function install_libhdfs3 {
@@ -190,7 +194,7 @@ function install_protobuf {
   cd protobuf-21.4
   ./configure  CXXFLAGS="-fPIC"  --prefix=/usr/local
   make "-j$(nproc)"
-  make install
+  $SUDO make install
   cd ../../ && ldconfig
 }
 
@@ -207,7 +211,7 @@ function install_gtest {
   cd googletest-release-1.12.1
   mkdir -p build && cd build && cmake -DBUILD_GTEST=ON -DBUILD_GMOCK=ON -DINSTALL_GTEST=ON -DINSTALL_GMOCK=ON -DBUILD_SHARED_LIBS=ON ..
   make "-j$(nproc)"
-  make install
+  $SUDO make install
   cd ../../ && ldconfig
 } 
 
@@ -235,9 +239,9 @@ dnf_install epel-release dnf-plugins-core # For ccache, ninja
 # dnf config-manager --set-enabled powertools
 dnf_install ccache git wget which libevent-devel \
   openssl-devel libzstd-devel lz4-devel double-conversion-devel \
-  curl-devel cmake sudo libxml2-devel libgsasl-devel libuuid-devel
+  curl-devel cmake libxml2-devel libgsasl-devel libuuid-devel
 
-dnf remove -y gflags
+$SUDO dnf remove -y gflags
 
 # Required for Thrift
 dnf_install autoconf automake libtool bison python3 python3-devel
@@ -264,5 +268,3 @@ run_and_time install_ninja
 
 install_prerequisites
 install_velox_deps
-
-dnf clean all
