@@ -239,7 +239,8 @@ class Addition {
       const uint8_t aScale,
       const uint8_t bPrecision,
       const uint8_t bScale) {
-    return {std::min(
+    return {
+        std::min(
             38,
             std::max(aPrecision - aScale, bPrecision - bScale) +
                 std::max(aScale, bScale) + 1),
@@ -366,7 +367,7 @@ class Multiply {
           int256_t aLarge = a.unscaledValue();
           int256_t blarge = b.unscaledValue();
           int256_t reslarge = aLarge * blarge;
-          reslarge = reslarge / DecimalUtil::kPowersOfTen[deltaScale];
+          reslarge = ReduceScaleBy(reslarge, deltaScale);
           auto res = R::convert(reslarge, overflow);
           if (!*overflow) {
             r = res;
@@ -411,6 +412,26 @@ class Multiply {
       const uint8_t bScale) {
     return Addition::adjustPrecisionScale(
         aPrecision + bPrecision + 1, aScale + bScale);
+  }
+
+ private:
+  // derive from Arrow
+  inline static int256_t ReduceScaleBy(int256_t in, int32_t reduceBy) {
+    if (reduceBy == 0) {
+      // nothing to do.
+      return in;
+    }
+
+    int256_t divisor = DecimalUtil::kPowersOfTen[reduceBy];
+    DCHECK_GT(divisor, 0);
+    DCHECK_EQ(divisor % 2, 0); // multiple of 10.
+    auto result = in / divisor;
+    auto remainder = in % divisor;
+    // round up (same as BasicDecimal128::ReduceScaleBy)
+    if (abs(remainder) >= (divisor >> 1)) {
+      result += (in > 0 ? 1 : -1);
+    }
+    return result;
   }
 };
 
