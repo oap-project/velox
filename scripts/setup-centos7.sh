@@ -195,7 +195,6 @@ function install_protobuf {
   ./configure  CXXFLAGS="-fPIC"  --prefix=/usr/local
   make "-j$(nproc)"
   $SUDO make install
-  cd ../../ && ldconfig
 }
 
 function install_awssdk {
@@ -212,7 +211,6 @@ function install_gtest {
   mkdir -p build && cd build && cmake -DBUILD_GTEST=ON -DBUILD_GMOCK=ON -DINSTALL_GTEST=ON -DINSTALL_GMOCK=ON -DBUILD_SHARED_LIBS=ON ..
   make "-j$(nproc)"
   $SUDO make install
-  cd ../../ && ldconfig
 } 
 
 function install_prerequisites {
