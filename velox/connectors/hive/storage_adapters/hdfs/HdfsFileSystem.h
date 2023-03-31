@@ -34,7 +34,7 @@ class HdfsFileSystem : public FileSystem {
 
  public:
   explicit HdfsFileSystem(const std::shared_ptr<const Config>& config);
-  explicit HdfsFileSystem(const std::shared_ptr<const Config>& config, const std::string host, const std::string port);
+  explicit HdfsFileSystem(const std::shared_ptr<const Config>& config, const HdfsServiceEndpoint& endpoint);
 
   std::string name() const override;
 
@@ -68,8 +68,8 @@ class HdfsFileSystem : public FileSystem {
   }
 
   static bool isHdfsFile(std::string_view filename);
-  static std::string getHost(const std::string_view filePath);
-  static std::string getPort(const std::string_view filePath);
+  static HdfsServiceEndpoint getServiceEndpoint(const Config* config);
+  static HdfsServiceEndpoint getServiceEndpoint(const std::string_view filePath);
 
  protected:
   class Impl;
