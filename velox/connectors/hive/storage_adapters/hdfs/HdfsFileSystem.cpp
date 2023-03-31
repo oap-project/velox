@@ -23,7 +23,6 @@
 #include <mutex>
 
 namespace facebook::velox::filesystems {
-folly::once_flag hdfsInitiationFlag;
 std::string_view HdfsFileSystem::kScheme("hdfs://");
 std::mutex mtx;
 
@@ -141,24 +140,27 @@ HdfsServiceEndpoint HdfsFileSystem::getServiceEndpoint(const std::string_view fi
 
 static std::function<std::shared_ptr<FileSystem>(std::shared_ptr<const Config>, std::string_view)>
     filesystemGenerator = [](std::shared_ptr<const Config> properties, std::string_view filePath) {
-      std::unordered_map<std::string, std::shared_ptr<FileSystem>> filesystems;
-      static std::shared_ptr<FileSystem> filesystem;
+      static std::unordered_map<std::string, std::shared_ptr<FileSystem>> filesystems;
+      static std::unordered_map<std::string, std::shared_ptr<folly::once_flag>> hdfsInitiationFlags;
       auto endpoint = HdfsFileSystem::getServiceEndpoint(filePath);
       std::string hdfsHostPort = endpoint.host + std::to_string(endpoint.port);
       if (filesystems.find(hdfsHostPort) != filesystems.end()) {
         return filesystems[hdfsHostPort];
       }
-      mtx.lock();
-      if (filesystems.find(hdfsHostPort) != filesystems.end()) {
-        return filesystems[hdfsHostPort];
+      std::unique_lock<std::mutex> lk(mtx, std::defer_lock);
+      if (hdfsInitiationFlags.find(hdfsHostPort) == hdfsInitiationFlags.end()) {
+        lk.lock();
+         if (hdfsInitiationFlags.find(hdfsHostPort) == hdfsInitiationFlags.end()) {
+          std::shared_ptr<folly::once_flag> initiationFlagPtr = std::make_shared<folly::once_flag>();
+          hdfsInitiationFlags[hdfsHostPort] = initiationFlagPtr;
+         }
+        lk.unlock();
       }
-      filesystem = std::make_shared<HdfsFileSystem>(properties, endpoint);
-      // folly::call_once(hdfsInitiationFlag, [&properties]() {
-      //   filesystem = std::make_shared<HdfsFileSystem>(properties, std::string_view host, std::string_view port);
-      // });
-      filesystems[hdfsHostPort] = filesystem;
-      mtx.unlock();
-      return filesystem;
+      folly::call_once(*hdfsInitiationFlags[hdfsHostPort].get(), [&properties, endpoint, hdfsHostPort]() {
+        auto filesystem = std::make_shared<HdfsFileSystem>(properties, endpoint);
+        filesystems[hdfsHostPort] = filesystem;
+      });
+      return filesystems[hdfsHostPort];
     };
 
 void HdfsFileSystem::remove(std::string_view path) {
