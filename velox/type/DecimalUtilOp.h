@@ -216,7 +216,7 @@ class DecimalUtilOp {
     VELOX_CHECK_LE(
         fromPrecision, DecimalType<TypeKind::LONG_DECIMAL>::kMaxPrecision);
     // because UnscaledShortDecimal max value length is 17
-    if (fromPrecision <= 17) {
+    if (fromPrecision <= 18) {
       int64_t fromUnscaledValue = folly::to<int64_t>(unscaledStr);
       return DecimalUtil::rescaleWithRoundUp<UnscaledShortDecimal, TOutput>(
           UnscaledShortDecimal(fromUnscaledValue),
