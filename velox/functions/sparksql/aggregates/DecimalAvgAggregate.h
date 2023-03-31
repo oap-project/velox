@@ -36,7 +36,7 @@ class DecimalAverageAggregate : public exec::Aggregate {
   }
 
   int32_t accumulatorAlignmentSize() const override {
-    return sizeof(LongDecimalWithOverflowState);
+    return static_cast<int32_t>(sizeof(int128_t));
   }
 
   void initializeNewGroups(
