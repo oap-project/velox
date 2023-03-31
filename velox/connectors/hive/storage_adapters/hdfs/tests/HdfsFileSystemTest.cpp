@@ -262,7 +262,7 @@ TEST_F(HdfsFileSystemTest, schemeMatching) {
     EXPECT_THAT(
         error.message(),
         testing::HasSubstr(
-            "No registered file system matched with filename '/'"));
+            "No registered file system matched with file path '/'"));
   }
   auto fs =
       std::dynamic_pointer_cast<facebook::velox::filesystems::HdfsFileSystem>(
