@@ -88,7 +88,6 @@ class DecimalUtilOp {
       bSign = -1;
     }
     auto bitsRequiredAfterScaling = maxBitsRequiredAfterScaling<A>(a, aRescale);
-    // std::cout << "number bits " << bitsRequiredAfterScaling << std::endl;
     if (bitsRequiredAfterScaling <= 127) {
       unsignedDividendRescaled = unsignedDividendRescaled.multiply(
           R(DecimalUtil::kPowersOfTen[aRescale]), overflow);
@@ -106,7 +105,6 @@ class DecimalUtilOp {
         std::is_same_v<R, UnscaledShortDecimal> ||
         std::is_same_v<R, UnscaledLongDecimal>) {
       // Derives from Arrow BasicDecimal128 Divide
-      // std::cout << "convert to 256 bit" << std::endl;
       if (aRescale > 38 && bitsRequiredAfterScaling > 255) {
         *overflow = true;
         return R(-1);
@@ -125,8 +123,6 @@ class DecimalUtilOp {
         // x -ve and y -ve, result is +ve =>  (-1 ^ -1) + 1 =  0 + 1 = +1
         result_large += (aSign ^ bSign) + 1;
       }
-
-      // std::cout << "result_large" << result_large << std::endl;
 
       auto result = R::convert(result_large, overflow);
       auto remainder = R::convert(remainder_large, overflow);
@@ -215,7 +211,6 @@ class DecimalUtilOp {
     uint8_t fromPrecision = unscaledStr.size();
     VELOX_CHECK_LE(
         fromPrecision, DecimalType<TypeKind::LONG_DECIMAL>::kMaxPrecision);
-    // because UnscaledShortDecimal max value length is 17
     if (fromPrecision <= 18) {
       int64_t fromUnscaledValue = folly::to<int64_t>(unscaledStr);
       return DecimalUtil::rescaleWithRoundUp<UnscaledShortDecimal, TOutput>(

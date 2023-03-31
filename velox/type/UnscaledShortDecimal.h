@@ -239,7 +239,6 @@ inline UnscaledShortDecimal checkedMultiply(
   }
   return UnscaledShortDecimal(result);
 }
-
 } // namespace facebook::velox
 
 namespace folly {

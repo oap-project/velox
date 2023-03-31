@@ -55,10 +55,6 @@ class DecimalBaseFunction : public exec::VectorFunction {
       const TypePtr& resultType, // cannot used in spark
       exec::EvalCtx& context,
       VectorPtr& result) const override {
-    // std::cout << "input 0" << args[0]->toString() << std::endl;
-    // std::cout << "input 0" << args[0]->toString(0, 10) << std::endl;
-    // std::cout << "input 1" << args[1]->toString() << std::endl;
-    // std::cout << "input 1" << args[1]->toString(0, 10) << std::endl;
     auto rawResults = prepareResults(rows, context, result);
     if (args[0]->isConstantEncoding() && args[1]->isFlatEncoding()) {
       // Fast path for (const, flat).
@@ -159,9 +155,6 @@ class DecimalBaseFunction : public exec::VectorFunction {
         }
       });
     }
-
-    // std::cout << "result type" << result->toString() << std::endl;
-    // std::cout << "result" << result->toString(0, 10) << std::endl;
   }
 
  private:

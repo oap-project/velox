@@ -676,8 +676,6 @@ VectorPtr CastExpr::applyDecimal(
           fromType->toString(),
           toType->toString());
   }
-
-  // std::cout <<"cast result "<< castResult->toString(0, 5)<< std::endl;
   return castResult;
 }
 
@@ -688,8 +686,6 @@ void CastExpr::applyPeeled(
     const TypePtr& fromType,
     const TypePtr& toType,
     VectorPtr& result) {
-  // std::cout << "cast input type" << input.toString() << std::endl;
-  // std::cout << "cast input " << input.toString(0, 5) << std::endl;
   if (castFromOperator_ || castToOperator_) {
     VELOX_CHECK_NE(
         fromType,

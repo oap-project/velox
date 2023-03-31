@@ -39,7 +39,7 @@ class DecimalArithmeticTest : public FunctionBaseTest {
     auto result =
         evaluate<SimpleVector<EvalType>>(expression, makeRowVector(input));
     assertEqualVectors(expected, result);
-    // testOpDictVectors<EvalType>(expression, expected, input);
+    testOpDictVectors<EvalType>(expression, expected, input);
   }
 
   template <typename T>
