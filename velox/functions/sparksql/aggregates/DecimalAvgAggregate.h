@@ -357,7 +357,7 @@ class DecimalAverageAggregate : public exec::Aggregate {
         clearNull(rawNulls, i);
         if (accumulator->overflow > 0) {
           // Spark does not support ansi mode yet,
-          // and needs to return null when overflow or count is 0
+          // and needs to return null when overflow
           vector->setNull(i, true);
         } else {
           try {
