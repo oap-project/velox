@@ -15,12 +15,13 @@
  */
 #include "velox/connectors/hive/storage_adapters/hdfs/HdfsFileSystem.h"
 #include <hdfs/hdfs.h>
+#include <mutex>
+#include <unordered_map>
+#include "folly/concurrency/ConcurrentHashMap.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/connectors/hive/storage_adapters/hdfs/HdfsReadFile.h"
 #include "velox/connectors/hive/storage_adapters/hdfs/HdfsWriteFile.h"
 #include "velox/core/Context.h"
-#include <unordered_map>
-#include <mutex>
 
 namespace facebook::velox::filesystems {
 std::string_view HdfsFileSystem::kScheme("hdfs://");
@@ -140,8 +141,8 @@ HdfsServiceEndpoint HdfsFileSystem::getServiceEndpoint(const std::string_view fi
 
 static std::function<std::shared_ptr<FileSystem>(std::shared_ptr<const Config>, std::string_view)>
     filesystemGenerator = [](std::shared_ptr<const Config> properties, std::string_view filePath) {
-      static std::unordered_map<std::string, std::shared_ptr<FileSystem>> filesystems;
-      static std::unordered_map<std::string, std::shared_ptr<folly::once_flag>> hdfsInitiationFlags;
+      static folly::ConcurrentHashMap<std::string, std::shared_ptr<FileSystem>> filesystems;
+      static folly::ConcurrentHashMap<std::string, std::shared_ptr<folly::once_flag>> hdfsInitiationFlags;
       auto endpoint = HdfsFileSystem::getServiceEndpoint(filePath);
       std::string hdfsIdentity = endpoint.identity;
       if (filesystems.find(hdfsIdentity) != filesystems.end()) {
@@ -152,13 +153,13 @@ static std::function<std::shared_ptr<FileSystem>(std::shared_ptr<const Config>, 
         lk.lock();
          if (hdfsInitiationFlags.find(hdfsIdentity) == hdfsInitiationFlags.end()) {
           std::shared_ptr<folly::once_flag> initiationFlagPtr = std::make_shared<folly::once_flag>();
-          hdfsInitiationFlags[hdfsIdentity] = initiationFlagPtr;
+          hdfsInitiationFlags.insert(hdfsIdentity, initiationFlagPtr);
          }
         lk.unlock();
       }
       folly::call_once(*hdfsInitiationFlags[hdfsIdentity].get(), [&properties, endpoint, hdfsIdentity]() {
         auto filesystem = std::make_shared<HdfsFileSystem>(properties, endpoint);
-        filesystems[hdfsIdentity] = filesystem;
+        filesystems.insert(hdfsIdentity, filesystem);
       });
       return filesystems[hdfsIdentity];
     };
