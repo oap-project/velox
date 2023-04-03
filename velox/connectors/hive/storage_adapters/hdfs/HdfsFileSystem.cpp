@@ -116,7 +116,7 @@ HdfsServiceEndpoint HdfsFileSystem::getServiceEndpoint(const Config* config) {
     VELOX_CHECK(
         hdfsPort.hasValue(),
         "hdfsPort is empty, configuration missing for hdfs port");
-    HdfsServiceEndpoint endpoint{*hdfsHost, atoi(hdfsPort->data())};
+    HdfsServiceEndpoint endpoint{*hdfsHost, *hdfsPort};
     return endpoint;
   }
 
@@ -134,7 +134,7 @@ HdfsServiceEndpoint HdfsFileSystem::getServiceEndpoint(const std::string_view fi
      VELOX_CHECK(
         !hdfsPort.empty(),
         "hdfsPort is empty, expect hdfs endpoint port is contained in file path");
-     HdfsServiceEndpoint endpoint{hdfsHost, atoi(hdfsPort.data())};
+     HdfsServiceEndpoint endpoint{hdfsHost, hdfsPort};
      return endpoint;
 }
 
@@ -143,24 +143,24 @@ static std::function<std::shared_ptr<FileSystem>(std::shared_ptr<const Config>, 
       static std::unordered_map<std::string, std::shared_ptr<FileSystem>> filesystems;
       static std::unordered_map<std::string, std::shared_ptr<folly::once_flag>> hdfsInitiationFlags;
       auto endpoint = HdfsFileSystem::getServiceEndpoint(filePath);
-      std::string hdfsHostPort = endpoint.host + std::to_string(endpoint.port);
-      if (filesystems.find(hdfsHostPort) != filesystems.end()) {
-        return filesystems[hdfsHostPort];
+      std::string hdfsIdentity = endpoint.identity;
+      if (filesystems.find(hdfsIdentity) != filesystems.end()) {
+        return filesystems[hdfsIdentity];
       }
       std::unique_lock<std::mutex> lk(mtx, std::defer_lock);
-      if (hdfsInitiationFlags.find(hdfsHostPort) == hdfsInitiationFlags.end()) {
+      if (hdfsInitiationFlags.find(hdfsIdentity) == hdfsInitiationFlags.end()) {
         lk.lock();
-         if (hdfsInitiationFlags.find(hdfsHostPort) == hdfsInitiationFlags.end()) {
+         if (hdfsInitiationFlags.find(hdfsIdentity) == hdfsInitiationFlags.end()) {
           std::shared_ptr<folly::once_flag> initiationFlagPtr = std::make_shared<folly::once_flag>();
-          hdfsInitiationFlags[hdfsHostPort] = initiationFlagPtr;
+          hdfsInitiationFlags[hdfsIdentity] = initiationFlagPtr;
          }
         lk.unlock();
       }
-      folly::call_once(*hdfsInitiationFlags[hdfsHostPort].get(), [&properties, endpoint, hdfsHostPort]() {
+      folly::call_once(*hdfsInitiationFlags[hdfsIdentity].get(), [&properties, endpoint, hdfsIdentity]() {
         auto filesystem = std::make_shared<HdfsFileSystem>(properties, endpoint);
-        filesystems[hdfsHostPort] = filesystem;
+        filesystems[hdfsIdentity] = filesystem;
       });
-      return filesystems[hdfsHostPort];
+      return filesystems[hdfsIdentity];
     };
 
 void HdfsFileSystem::remove(std::string_view path) {

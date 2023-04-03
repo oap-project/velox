@@ -17,8 +17,14 @@
 
 namespace facebook::velox::filesystems {
 struct HdfsServiceEndpoint {
+  HdfsServiceEndpoint(std::string host, std::string port) {
+    this->host = host;
+    this->port = atoi(port.data());
+    this->identity = host + ":" + port;
+  }
   std::string host;
   int port;
+  std::string identity;
 };
 
 /**
