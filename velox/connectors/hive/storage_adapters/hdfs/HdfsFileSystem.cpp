@@ -125,17 +125,20 @@ HdfsServiceEndpoint HdfsFileSystem::getServiceEndpoint(const Config* config) {
  * Get hdfs endpoint from file path, instead of getting a fixed one from configuraion.
 */
 HdfsServiceEndpoint HdfsFileSystem::getServiceEndpoint(const std::string_view filePath) {
-     auto index1 = filePath.find(':', kScheme.size());
-     std::string hdfsHost{filePath.data(), kScheme.size(), index1 - kScheme.size()};
+     auto index1 = filePath.find('/', kScheme.size() + 1);
+     std::string hdfsIdentity{filePath.data(), kScheme.size(), index1 - kScheme.size()};
      VELOX_CHECK(
-        !hdfsHost.empty(),
-        "hdfsHost is empty, expect hdfs endpoint host is contained in file path");
-     auto index2 = filePath.find('/', index1);
-     std::string hdfsPort{filePath.data(), index1 + 1, index2 - index1 - 1};
-     VELOX_CHECK(
-        !hdfsPort.empty(),
-        "hdfsPort is empty, expect hdfs endpoint port is contained in file path");
-     HdfsServiceEndpoint endpoint{hdfsHost, hdfsPort};
+        !hdfsIdentity.empty(),
+        "hdfsIdentity is empty, expect hdfs endpoint host[:port] is contained in file path");
+     auto index2 = hdfsIdentity.find(':', 0);
+     // In HDFS HA mode, the hdfsIdentity is a nameservice ID with no port.
+     if (index2 == std::string::npos) {
+      HdfsServiceEndpoint endpoint{hdfsIdentity, ""};
+      return endpoint;
+     }
+     std::string host{hdfsIdentity.data(), 0, index2};
+     std::string port{hdfsIdentity.data(), index2 + 1, hdfsIdentity.size() - index2 - 1};
+     HdfsServiceEndpoint endpoint{host, port};
      return endpoint;
 }
 
