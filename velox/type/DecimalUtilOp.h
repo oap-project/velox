@@ -146,7 +146,8 @@ class DecimalUtilOp {
       return {s.substr(0, pos), 0};
     } else {
       return {
-          s.substr(0, pos) + s.substr(pos + 1, s.length()), s.length() - pos - 1};
+          s.substr(0, pos) + s.substr(pos + 1, s.length()),
+          s.length() - pos - 1};
     }
   }
 
@@ -201,7 +202,7 @@ class DecimalUtilOp {
 
   template <typename TOutput>
   inline static std::optional<TOutput> rescaleVarchar(
-      const StringView inputValue,
+      const StringView& inputValue,
       const int toPrecision,
       const int toScale) {
     static_assert(
@@ -250,8 +251,9 @@ class DecimalUtilOp {
     static_assert(
         std::is_same_v<TOutput, UnscaledShortDecimal> ||
         std::is_same_v<TOutput, UnscaledLongDecimal>);
-    return rescaleVarchar<TOutput>(
-        velox::to<std::string>(inputValue), toPrecision, toScale);
+    auto str = velox::to<std::string>(inputValue);
+    auto stringView = StringView(str.c_str(), str.size());
+    return rescaleVarchar<TOutput>(stringView, toPrecision, toScale);
   }
 };
 } // namespace facebook::velox
