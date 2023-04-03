@@ -196,7 +196,7 @@ TEST_F(HdfsFileSystemTest, oneFsInstanceForOneEndpoint) {
   facebook::velox::filesystems::registerHdfsFileSystem();
   auto hdfsFileSystem1 =
       filesystems::getFileSystem(fullDestinationPath, nullptr);
-   auto hdfsFileSystem2 =
+  auto hdfsFileSystem2 =
       filesystems::getFileSystem(fullDestinationPath, nullptr);
   ASSERT_TRUE(hdfsFileSystem1 == hdfsFileSystem2);
 }

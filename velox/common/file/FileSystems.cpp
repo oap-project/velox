@@ -31,7 +31,8 @@ constexpr std::string_view kFileScheme("file:");
 
 using RegisteredFileSystems = std::vector<std::pair<
     std::function<bool(std::string_view)>,
-    std::function<std::shared_ptr<FileSystem>(std::shared_ptr<const Config>, std::string_view)>>>;
+    std::function<std::shared_ptr<
+        FileSystem>(std::shared_ptr<const Config>, std::string_view)>>>;
 
 RegisteredFileSystems& registeredFileSystems() {
   // Meyers singleton.
@@ -43,8 +44,9 @@ RegisteredFileSystems& registeredFileSystems() {
 
 void registerFileSystem(
     std::function<bool(std::string_view)> schemeMatcher,
-    std::function<std::shared_ptr<FileSystem>(std::shared_ptr<const Config>, std::string_view)>
-        fileSystemGenerator) {
+    std::function<std::shared_ptr<FileSystem>(
+        std::shared_ptr<const Config>,
+        std::string_view)> fileSystemGenerator) {
   registeredFileSystems().emplace_back(schemeMatcher, fileSystemGenerator);
 }
 
@@ -172,10 +174,11 @@ class LocalFileSystem : public FileSystem {
     };
   }
 
-  static std::function<
-      std::shared_ptr<FileSystem>(std::shared_ptr<const Config>, std::string_view)>
+  static std::function<std::shared_ptr<
+      FileSystem>(std::shared_ptr<const Config>, std::string_view)>
   fileSystemGenerator() {
-    return [](std::shared_ptr<const Config> properties, std::string_view filePath) {
+    return [](std::shared_ptr<const Config> properties,
+              std::string_view filePath) {
       // One instance of Local FileSystem is sufficient.
       // Initialize on first access and reuse after that.
       static std::shared_ptr<FileSystem> lfs;
