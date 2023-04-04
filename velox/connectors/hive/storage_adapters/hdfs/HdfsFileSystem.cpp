@@ -16,7 +16,6 @@
 #include "velox/connectors/hive/storage_adapters/hdfs/HdfsFileSystem.h"
 #include <hdfs/hdfs.h>
 #include <mutex>
-#include <unordered_map>
 #include "folly/concurrency/ConcurrentHashMap.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/connectors/hive/storage_adapters/hdfs/HdfsReadFile.h"
