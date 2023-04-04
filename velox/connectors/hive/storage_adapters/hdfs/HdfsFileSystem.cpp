@@ -124,8 +124,8 @@ HdfsServiceEndpoint HdfsFileSystem::getServiceEndpoint(const Config* config) {
 }
 
 /**
- * Get hdfs endpoint from file path, instead of getting a fixed one from
- * configuraion.
+ * Get hdfs endpoint from a given file path, instead of getting a fixed one from
+ * configuration.
  */
 HdfsServiceEndpoint HdfsFileSystem::getServiceEndpoint(
     const std::string_view filePath) {

@@ -20,7 +20,7 @@ struct HdfsServiceEndpoint {
   HdfsServiceEndpoint(std::string host, std::string port) {
     this->host = host;
     this->port = atoi(port.data());
-    this->identity = host + ":" + port;
+    this->identity = host + (port.empty() ? "" : ":" + port);
   }
   std::string host;
   int port;
