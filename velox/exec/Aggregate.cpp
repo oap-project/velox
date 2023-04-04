@@ -15,6 +15,7 @@
  */
 
 #include "velox/exec/Aggregate.h"
+#include "velox/exec/AggregateFunctionAdapter.h"
 #include "velox/exec/AggregateWindow.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/expression/SignatureBinder.h"
@@ -36,7 +37,6 @@ AggregateFunctionMap& aggregateFunctions() {
   return functions;
 }
 
-namespace {
 std::optional<const AggregateFunctionEntry*> getAggregateFunctionEntry(
     const std::string& name) {
   auto sanitizedName = sanitizeName(name);
@@ -49,19 +49,28 @@ std::optional<const AggregateFunctionEntry*> getAggregateFunctionEntry(
 
   return std::nullopt;
 }
-} // namespace
 
 bool registerAggregateFunction(
     const std::string& name,
     std::vector<std::shared_ptr<AggregateFunctionSignature>> signatures,
-    AggregateFunctionFactory factory) {
+    AggregateFunctionFactory factory,
+    bool registerCompanionFunctions) {
   auto sanitizedName = sanitizeName(name);
 
-  aggregateFunctions()[sanitizedName] = {
-      std::move(signatures), std::move(factory)};
+  aggregateFunctions()[sanitizedName] = {signatures, std::move(factory)};
 
   // Register the aggregate as a window function also.
   registerAggregateWindowFunction(sanitizedName);
+
+  // Register companion function if needed.
+  if (registerCompanionFunctions) {
+    RegisterAdapter::registerPartialFunction(name, signatures);
+    RegisterAdapter::registerMergeFunction(name, signatures);
+    RegisterAdapter::registerExtractFunction(name, signatures);
+    // TODO: register retract function only when the original UDAF supports retracting.
+    RegisterAdapter::registerRetractFunction(name, signatures);
+  }
+
   return true;
 }
 

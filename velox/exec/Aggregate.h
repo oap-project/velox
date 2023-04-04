@@ -87,7 +87,7 @@ class Aggregate {
   // the row. Only applies to accumulators that store variable size data out of
   // line. Fixed length accumulators do not use this. 0 if the row does not have
   // a size field.
-  void setOffsets(
+  virtual void setOffsets(
       int32_t offset,
       int32_t nullByte,
       uint8_t nullMask,
@@ -148,6 +148,22 @@ class Aggregate {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) = 0;
+
+  virtual void retractIntermediateResults(
+      char** group,
+      const SelectivityVector& rows,
+      const std::vector<VectorPtr>& args,
+      bool mayPushdown) {
+    VELOX_NYI();
+  }
+
+  virtual void retractRawInput(
+      char** group,
+      const SelectivityVector& rows,
+      const std::vector<VectorPtr>& args,
+      bool mayPushdown) {
+    VELOX_NYI();
+  }
 
   // Updates the single partial accumulator from raw input data for global
   // aggregation.
@@ -324,11 +340,14 @@ using AggregateFunctionFactory = std::function<std::unique_ptr<Aggregate>(
     const std::vector<TypePtr>& argTypes,
     const TypePtr& resultType)>;
 
-/// Register an aggregate function with the specified name and signatures.
+/// Register an aggregate function with the specified name and signatures. If
+/// registerCompanionFunctions is true, also register companion aggregate and
+/// scalar functions with it.
 bool registerAggregateFunction(
     const std::string& name,
     std::vector<std::shared_ptr<AggregateFunctionSignature>> signatures,
-    AggregateFunctionFactory factory);
+    AggregateFunctionFactory factory,
+    bool registerCompanionFunctions = false);
 
 /// Returns signatures of the aggregate function with the specified name.
 /// Returns empty std::optional if function with that name is not found.
@@ -347,6 +366,9 @@ struct AggregateFunctionEntry {
   std::vector<std::shared_ptr<AggregateFunctionSignature>> signatures;
   AggregateFunctionFactory factory;
 };
+
+std::optional<const AggregateFunctionEntry*> getAggregateFunctionEntry(
+    const std::string& name);
 
 using AggregateFunctionMap =
     std::unordered_map<std::string, AggregateFunctionEntry>;
