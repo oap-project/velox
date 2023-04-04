@@ -25,7 +25,7 @@ namespace facebook::velox::functions::sparksql::aggregates {
 struct DecimalSum {
   int128_t sum{0};
   int64_t overflow{0};
-  bool isEmpty{true};
+  int32_t isEmpty{1};
 
   void mergeWith(const DecimalSum& other) {
     this->overflow += other.overflow;
@@ -124,14 +124,14 @@ class DecimalSumAggregate : public exec::Aggregate {
     VELOX_CHECK_EQ((*result)->encoding(), VectorEncoding::Simple::ROW);
     auto rowVector = (*result)->as<RowVector>();
     auto sumVector = rowVector->childAt(0)->asFlatVector<TResultType>();
-    auto isEmptyVector = rowVector->childAt(1)->asFlatVector<bool>();
+    auto isEmptyVector = rowVector->childAt(1)->asFlatVector<int32_t>();
 
     rowVector->resize(numGroups);
     sumVector->resize(numGroups);
     isEmptyVector->resize(numGroups);
 
     TResultType* rawSums = sumVector->mutableRawValues();
-    bool* rawIsEmpty = isEmptyVector->mutableRawValues();
+    int32_t* rawIsEmpty = isEmptyVector->mutableRawValues();
     uint64_t* rawNulls = getRawNulls(rowVector);
 
     for (auto i = 0; i < numGroups; ++i) {
