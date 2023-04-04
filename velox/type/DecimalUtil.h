@@ -387,7 +387,7 @@ class DecimalUtil {
       new_value = value;
       sig = 1;
     } else if (value < 0) {
-      new_value = abs(value);
+      new_value = std::abs(value);
       sig = -1;
     } else {
       new_value = value;
@@ -436,7 +436,7 @@ class DecimalUtil {
       new_value = value;
       sig = 1;
     } else if (value < 0) {
-      new_value = abs(value);
+      new_value = std::abs(value);
       sig = -1;
     } else {
       new_value = value;
