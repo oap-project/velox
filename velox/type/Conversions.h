@@ -87,13 +87,11 @@ struct Converter<TypeKind::BOOLEAN> {
   }
 
   static T cast(const UnscaledLongDecimal& d, bool& nullOutput) {
-    VELOX_UNSUPPORTED(
-        "Conversion of UnscaledLongDecimal to Boolean is not supported");
+    return folly::to<T>(d.unscaledValue());
   }
 
   static T cast(const UnscaledShortDecimal& d, bool& nullOutput) {
-    VELOX_UNSUPPORTED(
-        "Conversion of UnscaledShortDecimal to Boolean is not supported");
+    return folly::to<T>(d.unscaledValue());
   }
 };
 
@@ -111,6 +109,40 @@ struct Converter<
   template <typename From>
   static T cast(const From& v, bool& nullOutput, const TypePtr& toType) {
     VELOX_NYI();
+  }
+
+  static T cast(
+      const UnscaledLongDecimal& d,
+      bool& nullOutput,
+      const TypePtr& fromType) {
+    const auto& decimalType = fromType->asLongDecimal();
+    auto scale0Decimal = DecimalUtil::
+        rescaleWithRoundUp<UnscaledLongDecimal, UnscaledLongDecimal>(
+            d,
+            decimalType.precision(),
+            decimalType.scale(),
+            decimalType.precision(),
+            0,
+            false,
+            false);
+    return cast(scale0Decimal.value().unscaledValue(), nullOutput);
+  }
+
+  static T cast(
+      const UnscaledShortDecimal& d,
+      bool& nullOutput,
+      const TypePtr& fromType) {
+    const auto& decimalType = fromType->asShortDecimal();
+    auto scale0Decimal = DecimalUtil::
+        rescaleWithRoundUp<UnscaledShortDecimal, UnscaledShortDecimal>(
+            d,
+            decimalType.precision(),
+            decimalType.scale(),
+            decimalType.precision(),
+            0,
+            false,
+            false);
+    return cast(scale0Decimal.value().unscaledValue(), nullOutput);
   }
 
   template <typename From>
@@ -318,14 +350,12 @@ struct Converter<
     }
   }
 
-  static T cast(const UnscaledLongDecimal& d, bool& nullOutput) {
-    VELOX_UNSUPPORTED(
-        "Conversion of UnscaledLongDecimal to Boolean is not supported");
-  }
-
-  static T cast(const UnscaledShortDecimal& d, bool& nullOutput) {
-    VELOX_UNSUPPORTED(
-        "Conversion of UnscaledShortDecimal to Boolean is not supported");
+  static T cast(const int128_t& v, bool& nullOutput) {
+    if constexpr (TRUNCATE) {
+      return T(v);
+    } else {
+      return static_cast<T>(v);
+    }
   }
 };
 

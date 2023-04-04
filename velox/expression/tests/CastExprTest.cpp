@@ -653,6 +653,12 @@ TEST_F(CastExprTest, toString) {
   ASSERT_EQ("cast((a) as ARRAY<VARCHAR>)", exprSet.exprs()[1]->toString());
 }
 
+TEST_F(CastExprTest, decimalToInt) {
+  // short to short, scale up.
+  auto longFlat = makeLongDecimalFlatVector({8976067200}, DECIMAL(21, 6));
+  testComplexCast("c0", longFlat, makeFlatVector<int32_t>({8976}));
+}
+
 TEST_F(CastExprTest, decimalToDecimal) {
   // short to short, scale up.
   auto shortFlat =
@@ -828,22 +834,24 @@ TEST_F(CastExprTest, bigintToDecimal) {
 
 TEST_F(CastExprTest, varcharToDecimal) {
   // varchar to short decimal
-//   auto input = makeFlatVector<StringView>({"-3", "177"});
-//   testComplexCast(
-//       "c0", input, makeShortDecimalFlatVector({-300, 17700}, DECIMAL(6, 2)));
+  //   auto input = makeFlatVector<StringView>({"-3", "177"});
+  //   testComplexCast(
+  //       "c0", input, makeShortDecimalFlatVector({-300, 17700}, DECIMAL(6,
+  //       2)));
 
-//   // varchar to long decimal
-//   auto input2 = makeFlatVector<StringView>(
-//       {"-300000001234567891234.5", "1771234.5678912345678"});
-//   testComplexCast(
-//       "c0", input2, makeLongDecimalFlatVector({-300, 17700}, DECIMAL(32, 7)));
+  //   // varchar to long decimal
+  //   auto input2 = makeFlatVector<StringView>(
+  //       {"-300000001234567891234.5", "1771234.5678912345678"});
+  //   testComplexCast(
+  //       "c0", input2, makeLongDecimalFlatVector({-300, 17700}, DECIMAL(32,
+  //       7)));
 
   auto input3 = makeFlatVector<StringView>({"9999999999.99", "9999999999.99"});
   testComplexCast(
-      "c0", input3, makeLongDecimalFlatVector(
-          {-30'000'000'000,
-           -20'000'000'000},
-          DECIMAL(12, 2)));
+      "c0",
+      input3,
+      makeLongDecimalFlatVector(
+          {-30'000'000'000, -20'000'000'000}, DECIMAL(12, 2)));
 }
 
 TEST_F(CastExprTest, castInTry) {
