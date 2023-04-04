@@ -221,7 +221,7 @@ class DecimalUtilOp {
           toPrecision,
           toScale,
           false,
-          false);
+          true);
     } else {
       bool nullOutput = true;
       int128_t decimalValue = convertStringToInt128(unscaledStr, nullOutput);
@@ -239,7 +239,7 @@ class DecimalUtilOp {
           toPrecision,
           toScale,
           false,
-          false);
+          true);
     }
   }
 
