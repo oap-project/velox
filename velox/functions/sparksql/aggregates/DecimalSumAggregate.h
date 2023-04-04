@@ -268,8 +268,9 @@ class DecimalSumAggregate : public exec::Aggregate {
         });
       } else {
         auto decodedIndex = decodedPartial_.index(0);
-        auto isEmpty = isEmptyVector->valueAt(decodedIndex);
-        if (!isEmpty) {
+        if ((!isEmptyVector->isNullAt(decodedIndex) &&
+             !isEmptyVector->valueAt(decodedIndex)) &&
+            sumVector->isNullAt(decodedIndex)) {
           rows.applyToSelected(
               [&](vector_size_t i) { setOverflowGroup(groups[i]); });
         }
@@ -280,8 +281,9 @@ class DecimalSumAggregate : public exec::Aggregate {
           // if isEmpty is false and if sum is null, then it means
           // we have had an overflow
           auto decodedIndex = decodedPartial_.index(i);
-          auto isEmpty = isEmptyVector->valueAt(decodedIndex);
-          if (!isEmpty) {
+          if ((!isEmptyVector->isNullAt(decodedIndex) &&
+               !isEmptyVector->valueAt(decodedIndex)) &&
+              sumVector->isNullAt(decodedIndex)) {
             setOverflowGroup(groups[i]);
           }
           return;
@@ -326,8 +328,9 @@ class DecimalSumAggregate : public exec::Aggregate {
         });
       } else {
         auto decodedIndex = decodedPartial_.index(0);
-        auto isEmpty = isEmptyVector->valueAt(decodedIndex);
-        if (!isEmpty) {
+        if ((!isEmptyVector->isNullAt(decodedIndex) &&
+             !isEmptyVector->valueAt(decodedIndex)) &&
+            sumVector->isNullAt(decodedIndex)) {
           setOverflowGroup(group);
         }
       }
@@ -343,8 +346,10 @@ class DecimalSumAggregate : public exec::Aggregate {
           // if isEmpty is false and if sum is null, then it means
           // we have had an overflow
           auto decodedIndex = decodedPartial_.index(i);
-          auto isEmpty = isEmptyVector->valueAt(decodedIndex);
-          if (!isEmpty) {
+          if ((!isEmptyVector->isNullAt(decodedIndex) &&
+               !isEmptyVector->valueAt(decodedIndex)) &&
+              sumVector->isNullAt(decodedIndex)) {
+            LOG(INFO) << "in in";
             setOverflowGroup(group);
           }
         }
