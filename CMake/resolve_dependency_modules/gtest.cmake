@@ -15,9 +15,9 @@ include_guard(GLOBAL)
 
 set(VELOX_GTEST_VERSION 1.13.0)
 set(VELOX_GTEST_BUILD_SHA256_CHECKSUM
-    ad7fdba11ea011c1d925b3289cf4af2c66a352e18d4c7264392fead75e919363)
+    9dc9157a9a1551ec7a7e43daea9a694a0bb5fb8bec81235d8a1e6ef64c716dcb)
 set(VELOX_GTEST_SOURCE_URL
-    "https://github.com/google/googletest/archive/refs/tags/v${VELOX_GTEST_VERSION}.tar.gz"
+    "https://github.com/google/googletest/archive/refs/tags/release-1.10.0.tar.gz"
 )
 
 resolve_dependency_url(GTEST)
