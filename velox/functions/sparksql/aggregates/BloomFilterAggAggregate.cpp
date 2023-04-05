@@ -192,28 +192,46 @@ class BloomFilterAggAggregate : public exec::Aggregate {
   void decodeArguments(
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args) {
+    int64_t estimatedNumItems = kMissingArgument;
+    int64_t numBits = kMissingArgument;
     if (args.size() > 0) {
       decodedRaw_.decode(*args[0], rows);
       if (args.size() > 1) {
         DecodedVector decodedEstimatedNumItems(*args[1], rows);
         setConstantArgument(
-            "estimatedNumItems", estimatedNumItems_, decodedEstimatedNumItems);
+            "estimatedNumItems", estimatedNumItems, decodedEstimatedNumItems);
         if (args.size() > 2) {
           DecodedVector decodedNumBits(*args[2], rows);
-          setConstantArgument("numBits", numBits_, decodedNumBits);
+          setConstantArgument("numBits", numBits, decodedNumBits);
         } else {
           VELOX_CHECK_EQ(args.size(), 3);
-          numBits_ = estimatedNumItems_ * 8;
+          numBits = estimatedNumItems * 8;
         }
       } else {
-        estimatedNumItems_ = DEFAULT_ESPECTED_NUM_ITEMS;
-        numBits_ = estimatedNumItems_ * 8;
+        estimatedNumItems = DEFAULT_ESPECTED_NUM_ITEMS;
+        numBits = estimatedNumItems * 8;
       }
     } else {
       VELOX_USER_FAIL("Function args size must be more than 0")
     }
-    estimatedNumItems_ = std::min(estimatedNumItems_, MAX_NUM_ITEMS);
-    numBits_ = std::min(numBits_, MAX_NUM_BITS);
+    estimatedNumItems = std::min(estimatedNumItems, MAX_NUM_ITEMS);
+    if (estimatedNumItems_ != kMissingArgument){
+      VELOX_USER_CHECK_EQ(
+            estimatedNumItems,
+            estimatedNumItems_,
+            "estimatedNumItems argument must be constant for all input rows");
+    }
+
+    estimatedNumItems_ = estimatedNumItems;
+    numBits = std::min(numBits, MAX_NUM_BITS);
+    if (numBits_ != kMissingArgument) {
+      VELOX_USER_CHECK_EQ(
+            numBits,
+            numBits_,
+            "numBits argument must be constant for all input rows");
+    }
+
+    numBits_ = numBits;
     capacity_ = numBits_ / 16;
   }
 
@@ -222,9 +240,6 @@ class BloomFilterAggAggregate : public exec::Aggregate {
     VELOX_USER_CHECK_GT(newVal, 0, "{} must be positive", name);
     if (val == kMissingArgument) {
       val = newVal;
-    } else {
-      VELOX_USER_CHECK_EQ(
-          newVal, val, "{} argument must be constant for all input rows", name);
     }
   }
 
