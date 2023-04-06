@@ -225,6 +225,9 @@ class BloomFilterAggAggregate : public exec::Aggregate {
     VELOX_USER_CHECK_GT(newVal, 0, "{} must be positive", name);
     if (val == kMissingArgument) {
       val = newVal;
+    } else {
+      VELOX_USER_CHECK_EQ(
+          newVal, val, "{} argument must be constant for all input rows", name);
     }
   }
 
