@@ -246,8 +246,8 @@ class BloomFilterAggAggregate : public exec::Aggregate {
   // Reusable instance of DecodedVector for decoding input vectors.
   DecodedVector decodedRaw_;
   DecodedVector decodedIntermediate_;
-  int64_t originalEstimatedNumItems_;
-  int64_t originalNumBits_;
+  int64_t originalEstimatedNumItems_ = kMissingArgument;
+  int64_t originalNumBits_ = kMissingArgument;
   int64_t estimatedNumItems_ = kMissingArgument;
   int64_t numBits_ = kMissingArgument;
   int32_t capacity_ = kMissingArgument;
