@@ -17,6 +17,7 @@
 
 #include "velox/connectors/Connector.h"
 #include "velox/connectors/hive/PartitionIdGenerator.h"
+#include "velox/dwio/parquet/writer/Writer.h"
 
 namespace facebook::velox::dwrf {
 class Writer;
@@ -186,7 +187,8 @@ class HiveDataSink : public DataSink {
       RowTypePtr inputType,
       std::shared_ptr<const HiveInsertTableHandle> insertTableHandle,
       const ConnectorQueryCtx* connectorQueryCtx,
-      CommitStrategy commitStrategy);
+      CommitStrategy commitStrategy,
+      std::string format = "dwrf");
 
   void appendData(RowVectorPtr input) override;
 
@@ -225,6 +227,7 @@ class HiveDataSink : public DataSink {
   // writers_ are both indexed by partitionId.
   std::vector<std::shared_ptr<HiveWriterInfo>> writerInfo_;
   std::vector<std::unique_ptr<dwrf::Writer>> writers_;
+  std::vector<std::unique_ptr<parquet::Writer>> parquetWriters_;
 
   // Below are structures updated when processing current input. partitionIds_
   // are indexed by the row of input_. partitionRows_, rawPartitionRows_ and
@@ -233,6 +236,7 @@ class HiveDataSink : public DataSink {
   std::vector<BufferPtr> partitionRows_;
   std::vector<vector_size_t*> rawPartitionRows_;
   std::vector<vector_size_t> partitionSizes_;
+  std::string format_;
 };
 
 } // namespace facebook::velox::connector::hive

@@ -471,14 +471,16 @@ class TableWriteNode : public PlanNode {
       const std::shared_ptr<InsertTableHandle>& insertTableHandle,
       const RowTypePtr& outputType,
       connector::CommitStrategy commitStrategy,
-      const PlanNodePtr& source)
+      const PlanNodePtr& source,
+      const std::string format = "DWRF")
       : PlanNode(id),
         sources_{source},
         columns_{columns},
         columnNames_{columnNames},
         insertTableHandle_(insertTableHandle),
         outputType_(outputType),
-        commitStrategy_(commitStrategy) {
+        commitStrategy_(commitStrategy),
+        format_(format) {
     VELOX_CHECK_EQ(columns->size(), columnNames.size());
     for (const auto& column : columns->names()) {
       VELOX_CHECK(source->outputType()->containsChild(column));
@@ -491,6 +493,10 @@ class TableWriteNode : public PlanNode {
 
   const RowTypePtr& outputType() const override {
     return outputType_;
+  }
+
+  const std::string& format() const {
+    return format_;
   }
 
   // The subset of columns in the output of the source node, potentially in
@@ -530,6 +536,7 @@ class TableWriteNode : public PlanNode {
   const std::shared_ptr<InsertTableHandle> insertTableHandle_;
   const RowTypePtr outputType_;
   const connector::CommitStrategy commitStrategy_;
+  const std::string format_;
 };
 
 class AggregationNode : public PlanNode {

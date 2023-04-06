@@ -493,6 +493,112 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
   }
 }
 
+std::shared_ptr<connector::hive::LocationHandle> makeLocationHandle(
+    std::string targetDirectory,
+    std::optional<std::string> writeDirectory = std::nullopt,
+    connector::hive::LocationHandle::TableType tableType =
+        connector::hive::LocationHandle::TableType::kNew) {
+  return std::make_shared<connector::hive::LocationHandle>(
+      targetDirectory, writeDirectory.value_or(targetDirectory), tableType);
+}
+
+std::shared_ptr<connector::hive::HiveInsertTableHandle>
+makeHiveInsertTableHandle(
+    const std::vector<std::string>& tableColumnNames,
+    const std::vector<TypePtr>& tableColumnTypes,
+    const std::vector<bool>& isPartitionColumns,
+    std::shared_ptr<connector::hive::LocationHandle> locationHandle) {
+  std::vector<std::shared_ptr<const connector::hive::HiveColumnHandle>>
+      columnHandles;
+  for (int i = 0; i < tableColumnNames.size(); ++i) {
+    if (isPartitionColumns[i]) {
+      columnHandles.push_back(
+          std::make_shared<connector::hive::HiveColumnHandle>(
+              tableColumnNames.at(i),
+              connector::hive::HiveColumnHandle::ColumnType::kPartitionKey,
+              tableColumnTypes.at(i)));
+    } else {
+      columnHandles.push_back(
+          std::make_shared<connector::hive::HiveColumnHandle>(
+              tableColumnNames.at(i),
+              connector::hive::HiveColumnHandle::ColumnType::kRegular,
+              tableColumnTypes.at(i)));
+    }
+  }
+
+  return std::make_shared<connector::hive::HiveInsertTableHandle>(
+      columnHandles, locationHandle);
+}
+
+core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
+    const ::substrait::WriteRel& writeRel) {
+  core::PlanNodePtr childNode;
+  if (writeRel.has_input()) {
+    childNode = toVeloxPlan(writeRel.input());
+  } else {
+    VELOX_FAIL("Child Rel is expected in WriteRel.");
+  }
+  const auto& inputType = childNode->outputType();
+
+  std::vector<std::string> tableColumnNames;
+  std::vector<bool> isPartitionColumns;
+  tableColumnNames.reserve(writeRel.table_schema().names_size());
+
+  if (writeRel.has_table_schema()) {
+    const auto& tableSchema = writeRel.table_schema();
+    for (const auto& name : tableSchema.names()) {
+      tableColumnNames.emplace_back(name);
+    }
+
+    isPartitionColumns = subParser_->parsePartitionColumns(tableSchema);
+  }
+
+  std::vector<std::string> writePath;
+  writePath.reserve(1);
+  for (const auto& name : writeRel.named_table().names()) {
+    writePath.emplace_back(name);
+  }
+
+  std::string format = "dwrf";
+  if (writeRel.named_table().has_advanced_extension() &&
+      subParser_->configSetInOptimization(
+          writeRel.named_table().advanced_extension(), "isPARQUET=")) {
+    format = "parquet";
+  }
+
+  // Do not hard-code connector ID and allow for connectors other than Hive.
+  static const std::string kHiveConnectorId = "test-hive";
+  // check whether the write path is file, if yes, create it as a directory
+  if (writePath[0].substr(0, 4) == "file") {
+    struct stat buffer;
+    if (stat(writePath[0].substr(5).c_str(), &buffer) == 0 &&
+        S_ISREG(buffer.st_mode)) {
+      auto command = "rm -rf " + writePath[0].substr(5) + " && mkdir -p " +
+          writePath[0].substr(5);
+
+      auto ret = system(command.c_str());
+      (void)(ret);
+    }
+  }
+
+  auto outputType = ROW({"rowCount"}, {BIGINT()});
+  return std::make_shared<core::TableWriteNode>(
+      nextPlanNodeId(),
+      inputType,
+      tableColumnNames,
+      std::make_shared<core::InsertTableHandle>(
+          kHiveConnectorId,
+          makeHiveInsertTableHandle(
+              inputType->names(),
+              inputType->children(),
+              isPartitionColumns,
+              makeLocationHandle(writePath[0]))),
+      outputType,
+      connector::CommitStrategy::kNoCommit,
+      childNode,
+      format);
+}
+
 core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
     const ::substrait::ExpandRel& expandRel) {
   core::PlanNodePtr childNode;
@@ -1103,6 +1209,9 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
   }
   if (sRel.has_window()) {
     return toVeloxPlan(sRel.window());
+  }
+  if (sRel.has_write()) {
+    return toVeloxPlan(sRel.write());
   }
   VELOX_NYI("Substrait conversion not supported for Rel.");
 }

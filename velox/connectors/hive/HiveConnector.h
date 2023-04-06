@@ -16,6 +16,7 @@
 #pragma once
 
 #include "velox/connectors/hive/FileHandle.h"
+#include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/dwio/common/CachedBufferedInput.h"
@@ -27,7 +28,6 @@
 #include "velox/expression/Expr.h"
 #include "velox/type/Filter.h"
 #include "velox/type/Subfield.h"
-#include "velox/connectors/hive/HiveConfig.h"
 
 namespace facebook::velox::connector::hive {
 
@@ -273,13 +273,14 @@ class HiveConnector final : public Connector {
       RowTypePtr inputType,
       std::shared_ptr<ConnectorInsertTableHandle> connectorInsertTableHandle,
       ConnectorQueryCtx* connectorQueryCtx,
-      CommitStrategy commitStrategy) override final {
+      CommitStrategy commitStrategy,
+      std::string format = "dwrf") override final {
     auto hiveInsertHandle = std::dynamic_pointer_cast<HiveInsertTableHandle>(
         connectorInsertTableHandle);
     VELOX_CHECK_NOT_NULL(
         hiveInsertHandle, "Hive connector expecting hive write handle!");
     return std::make_shared<HiveDataSink>(
-        inputType, hiveInsertHandle, connectorQueryCtx, commitStrategy);
+        inputType, hiveInsertHandle, connectorQueryCtx, commitStrategy, format);
   }
 
   folly::Executor* FOLLY_NULLABLE executor() const override {

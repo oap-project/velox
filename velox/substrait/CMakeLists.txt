@@ -60,7 +60,7 @@ add_library(velox_substrait_plan_converter ${SRCS})
 target_include_directories(velox_substrait_plan_converter
                            PUBLIC ${PROTO_OUTPUT_DIR})
 target_link_libraries(velox_substrait_plan_converter velox_connector
-                      velox_dwio_dwrf_common velox_functions_spark)
+                      velox_dwio_dwrf_common velox_functions_spark velox_dwio_parquet_writer)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

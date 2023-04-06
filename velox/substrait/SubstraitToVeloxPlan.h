@@ -49,6 +49,9 @@ class SubstraitVeloxPlanConverter {
       memory::MemoryPool* pool,
       bool validationMode = false)
       : pool_(pool), validationMode_(validationMode) {}
+  /// Used to convert Substrait WriteRel into Velox PlanNode.
+  core::PlanNodePtr toVeloxPlan(const ::substrait::WriteRel& sWrite);
+
   /// Used to convert Substrait ExpandRel into Velox PlanNode.
   core::PlanNodePtr toVeloxPlan(const ::substrait::ExpandRel& sExpand);
 
@@ -187,7 +190,8 @@ class SubstraitVeloxPlanConverter {
     /// existing conditions for this field.
     bool setLeftBound(bool forOrRelation = false) {
       if (forOrRelation) {
-        if (!rightBound_) leftBound_ = true;
+        if (!rightBound_)
+          leftBound_ = true;
         return !rightBound_;
       }
       if (leftBound_ || inRange_ || multiRange_) {
@@ -201,7 +205,8 @@ class SubstraitVeloxPlanConverter {
     /// existing conditions for this field.
     bool setRightBound(bool forOrRelation = false) {
       if (forOrRelation) {
-        if (!leftBound_) rightBound_ = true;
+        if (!leftBound_)
+          rightBound_ = true;
         return !leftBound_;
       }
       if (rightBound_ || inRange_ || multiRange_) {

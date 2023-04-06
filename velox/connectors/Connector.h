@@ -329,7 +329,8 @@ class Connector {
       RowTypePtr inputType,
       std::shared_ptr<ConnectorInsertTableHandle> connectorInsertTableHandle,
       ConnectorQueryCtx* connectorQueryCtx,
-      CommitStrategy commitStrategy) = 0;
+      CommitStrategy commitStrategy,
+      std::string format = "dwrf") = 0;
 
   // Returns a ScanTracker for 'id'. 'id' uniquely identifies the
   // tracker and different threads will share the same

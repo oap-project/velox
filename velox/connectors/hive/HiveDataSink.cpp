@@ -67,7 +67,8 @@ HiveDataSink::HiveDataSink(
     RowTypePtr inputType,
     std::shared_ptr<const HiveInsertTableHandle> insertTableHandle,
     const ConnectorQueryCtx* connectorQueryCtx,
-    CommitStrategy commitStrategy)
+    CommitStrategy commitStrategy,
+    std::string format)
     : inputType_(std::move(inputType)),
       insertTableHandle_(std::move(insertTableHandle)),
       connectorQueryCtx_(connectorQueryCtx),
@@ -80,14 +81,20 @@ HiveDataSink::HiveDataSink(
                                             HiveConfig::maxPartitionsPerWriters(
                                                 connectorQueryCtx_->config()),
                                             connectorQueryCtx_->memoryPool())
-                                      : nullptr) {}
+                                      : nullptr),
+      format_(format) {}
 
 void HiveDataSink::appendData(RowVectorPtr input) {
   // Write to unpartitioned table.
   if (partitionChannels_.empty()) {
     ensureSingleWriter();
 
-    writers_[0]->write(input);
+    if (format_ == "dwrf") {
+      writers_[0]->write(input);
+    } else {
+      parquetWriters_[0]->write(input);
+    }
+
     writerInfo_[0]->numWrittenRows += input->size();
     return;
   }
@@ -105,7 +112,12 @@ void HiveDataSink::appendData(RowVectorPtr input) {
 
   // All inputs belong to a single partition.
   if (numPartitions == 1) {
-    writers_[0]->write(input);
+    if (format_ == "dwrf") {
+      writers_[0]->write(input);
+    } else {
+      parquetWriters_[0]->write(input);
+    }
+
     writerInfo_[0]->numWrittenRows += input->size();
     return;
   }
@@ -121,7 +133,12 @@ void HiveDataSink::appendData(RowVectorPtr input) {
     RowVectorPtr writerInput = partitionSize == input->size()
         ? input
         : exec::wrap(partitionSize, partitionRows_[id], input);
-    writers_[id]->write(writerInput);
+    if (format_ == "dwrf") {
+      writers_[id]->write(writerInput);
+    } else {
+      parquetWriters_[id]->write(writerInput);
+    }
+
     writerInfo_[id]->numWrittenRows += partitionSize;
   }
 }
@@ -163,22 +180,40 @@ void HiveDataSink::close() {
   for (const auto& writer : writers_) {
     writer->close();
   }
+
+  for (const auto& writer : parquetWriters_) {
+    writer->close();
+  }
 }
 
 void HiveDataSink::ensureSingleWriter() {
   if (writers_.empty()) {
     appendWriter(std::nullopt);
   }
+
+  if (parquetWriters_.empty()) {
+    appendWriter(std::nullopt);
+  }
 }
 
 void HiveDataSink::ensurePartitionWriters() {
   const auto numPartitions = partitionIdGenerator_->numPartitions();
-  const auto numWriters = writers_.size();
+  auto numWriters = -1;
+  if (format_ == "dwrf") {
+    numWriters = writers_.size();
+  } else {
+    numWriters = parquetWriters_.size();
+  }
 
   VELOX_CHECK_LE(numWriters, numPartitions);
 
   if (numWriters < numPartitions) {
-    writers_.reserve(numPartitions);
+    if (format_ == "dwrf") {
+      writers_.reserve(numPartitions);
+    } else {
+      parquetWriters_.reserve(numPartitions);
+    }
+
     writerInfo_.reserve(numPartitions);
     for (auto id = numWriters; id < numPartitions; id++) {
       appendWriter(partitionIdGenerator_->partitionName(id));
@@ -188,12 +223,6 @@ void HiveDataSink::ensurePartitionWriters() {
 
 void HiveDataSink::appendWriter(
     const std::optional<std::string>& partitionName) {
-  auto config = std::make_shared<WriterConfig>();
-  // TODO: Wire up serde properties to writer configs.
-
-  facebook::velox::dwrf::WriterOptions options;
-  options.config = config;
-  options.schema = inputType_;
   // Without explicitly setting flush policy, the default memory based flush
   // policy is used.
   auto writerParameters = getWriterParameters(partitionName);
@@ -201,8 +230,25 @@ void HiveDataSink::appendWriter(
       writerParameters->writeFileName();
 
   auto sink = dwio::common::DataSink::create(writePath);
-  writers_.push_back(std::make_unique<Writer>(
-      options, std::move(sink), *connectorQueryCtx_->aggregatePool()));
+
+  if (format_ == "dwrf") {
+    auto config = std::make_shared<WriterConfig>();
+    // TODO: Wire up serde properties to writer configs.
+
+    facebook::velox::dwrf::WriterOptions options;
+    options.config = config;
+    options.schema = inputType_;
+
+    writers_.push_back(std::make_unique<Writer>(
+        options, std::move(sink), *connectorQueryCtx_->memoryPool()));
+
+  } else {
+    // parquet
+    parquetWriters_.push_back(std::make_unique<parquet::Writer>(
+        std::move(sink),
+        *connectorQueryCtx_->memoryPool(),
+        20480)); // pass the rowsInRowGroup from spark to velox.
+  }
   writerInfo_.push_back(std::make_shared<HiveWriterInfo>(*writerParameters));
 }
 

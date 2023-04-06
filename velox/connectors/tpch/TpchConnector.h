@@ -153,7 +153,8 @@ class TpchConnector final : public Connector {
       std::shared_ptr<
           ConnectorInsertTableHandle> /*connectorInsertTableHandle*/,
       ConnectorQueryCtx* /*connectorQueryCtx*/,
-      CommitStrategy /*commitStrategy*/) override final {
+      CommitStrategy /*commitStrategy*/,
+      std::string format = "dwrf") override final {
     VELOX_NYI("TpchConnector does not support data sink.");
   }
 };

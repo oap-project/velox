@@ -77,5 +77,6 @@ class TableWriter : public Operator {
   bool finished_ = false;
   bool closed_ = false;
   vector_size_t numWrittenRows_ = 0;
+  std::string format_ = "DWRF";
 };
 } // namespace facebook::velox::exec

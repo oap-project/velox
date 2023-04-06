@@ -151,6 +151,40 @@ bool SubstraitToVeloxPlanValidator::validateExpression(
   }
 }
 
+/// Used to validate whether the computing of this Write is supported.
+bool SubstraitToVeloxPlanValidator::validate(
+    const ::substrait::WriteRel& writeRel) {
+  if (writeRel.has_input() && !validate(writeRel.input())) {
+    std::cout << "Validation failed for input type validation in WriteRel."
+              << std::endl;
+    return false;
+  }
+
+  std::vector<std::string> writePath;
+  writePath.reserve(1);
+
+  // validate input datatype
+  if (writeRel.has_named_table()) {
+    for (const auto& name : writeRel.named_table().names()) {
+      writePath.emplace_back(name);
+    }
+
+    const auto& extension = writeRel.named_table().advanced_extension();
+    std::vector<TypePtr> types;
+    if (!validateInputTypes(extension, types)) {
+      std::cout << "Validation failed for input types in WriteRel."
+                << std::endl;
+      return false;
+    }
+  } else {
+    std::cout << "Validation failed for without uri path in WriteRel."
+              << std::endl;
+    return false;
+  }
+
+  return true;
+}
+
 bool SubstraitToVeloxPlanValidator::validate(
     const ::substrait::FetchRel& fetchRel) {
   const auto& extension = fetchRel.advanced_extension();
@@ -913,6 +947,10 @@ bool SubstraitToVeloxPlanValidator::validate(const ::substrait::Rel& sRel) {
   if (sRel.has_window()) {
     return validate(sRel.window());
   }
+  if (sRel.has_write()) {
+    return validate(sRel.write());
+  }
+
   return false;
 }
 

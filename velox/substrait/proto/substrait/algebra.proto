@@ -403,7 +403,20 @@ message Rel {
     MergeJoinRel merge_join = 14;
     ExpandRel expand = 15;
     WindowRel window = 16;
+    GenerateRel generate = 17;
+    WriteRel write = 18;
   }
+}
+
+message GenerateRel {
+  RelCommon common = 1;
+  Rel input = 2;
+  
+  Expression generator = 3;
+  repeated Expression child_output = 4;
+  bool outer = 5;
+
+  substrait.extensions.AdvancedExtension advanced_extension = 10;
 }
 
 // A base object for writing (e.g., a table or a view).

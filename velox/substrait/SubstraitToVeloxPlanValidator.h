@@ -29,6 +29,9 @@ class SubstraitToVeloxPlanValidator {
       core::ExecCtx* execCtx)
       : pool_(pool), execCtx_(execCtx) {}
 
+  /// Used to validate whether the computing of this Write is supported.
+  bool validate(const ::substrait::WriteRel& writeRel);
+
   /// Used to validate whether the computing of this Limit is supported.
   bool validate(const ::substrait::FetchRel& fetchRel);
 
@@ -103,8 +106,8 @@ class SubstraitToVeloxPlanValidator {
 
   /// Validate Substrait Cast expression.
   bool validateCast(
-    const ::substrait::Expression::Cast& castExpr,
-    const RowTypePtr& inputType);  
+      const ::substrait::Expression::Cast& castExpr,
+      const RowTypePtr& inputType);
 
   /// Validate Substrait expression.
   bool validateExpression(

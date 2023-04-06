@@ -33,7 +33,8 @@ TableWriter::TableWriter(
       driverCtx_(driverCtx),
       insertTableHandle_(
           tableWriteNode->insertTableHandle()->connectorInsertTableHandle()),
-      commitStrategy_(tableWriteNode->commitStrategy()) {
+      commitStrategy_(tableWriteNode->commitStrategy()),
+      format_(tableWriteNode->format()) {
   const auto& connectorId = tableWriteNode->insertTableHandle()->connectorId();
   connector_ = connector::getConnector(connectorId);
   connectorQueryCtx_ =
@@ -58,7 +59,8 @@ void TableWriter::createDataSink() {
       mappedType_,
       insertTableHandle_,
       connectorQueryCtx_.get(),
-      commitStrategy_);
+      commitStrategy_,
+      format_);
 }
 
 void TableWriter::addInput(RowVectorPtr input) {
