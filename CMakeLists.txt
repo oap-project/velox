@@ -171,10 +171,15 @@ if(VELOX_ENABLE_S3)
 endif()
 
 if(VELOX_ENABLE_HDFS)
-  find_library(
-    LIBHDFS3
-    NAMES libhdfs3.so libhdfs3.dylib
-    HINTS "${CMAKE_SOURCE_DIR}/hawq/depends/libhdfs3/_build/src/" REQUIRED)
+  find_package(libhdfs3)
+  if(libhdfs3_FOUND AND TARGET HDFS::hdfs3)
+    set(LIBHDFS3 HDFS::hdfs3)
+  else()
+    find_library(
+      LIBHDFS3
+      NAMES libhdfs3.a libhdfs3.so libhdfs3.dylib
+      HINTS "${CMAKE_SOURCE_DIR}/hawq/depends/libhdfs3/_build/src/" REQUIRED)
+  endif()
   add_definitions(-DVELOX_ENABLE_HDFS3)
 endif()
 
@@ -470,7 +475,7 @@ if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
   endif()
 endif()
 find_package(BISON 3.0.4 REQUIRED)
-find_package(FLEX 2.5.13 REQUIRED)
+find_package(FLEX 2.6.0 REQUIRED) # for cxx17
 
 include_directories(SYSTEM velox)
 include_directories(SYSTEM velox/external)
@@ -479,14 +484,11 @@ include_directories(SYSTEM velox/external/duckdb/tpch/dbgen/include)
 
 # these were previously vendored in third-party/
 if(NOT VELOX_DISABLE_GOOGLETEST)
-  set(gtest_SOURCE BUNDLED)
-  resolve_dependency(gtest)
-  set(VELOX_GTEST_INCUDE_DIR
-      "${gtest_SOURCE_DIR}/googletest/include"
-      PARENT_SCOPE)
+  set_source(GTest)
+  resolve_dependency(GTest)
 endif()
 
-set(xsimd_SOURCE BUNDLED)
+set_source(xsimd)
 resolve_dependency(xsimd)
 
 include(CTest) # include after project() but before add_subdirectory()
