@@ -192,46 +192,31 @@ class BloomFilterAggAggregate : public exec::Aggregate {
   void decodeArguments(
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args) {
-    int64_t estimatedNumItems = kMissingArgument;
-    int64_t numBits = kMissingArgument;
     if (args.size() > 0) {
       decodedRaw_.decode(*args[0], rows);
       if (args.size() > 1) {
         DecodedVector decodedEstimatedNumItems(*args[1], rows);
         setConstantArgument(
-            "estimatedNumItems", estimatedNumItems, decodedEstimatedNumItems);
+            "originalEstimatedNumItems",
+            originalEstimatedNumItems_,
+            decodedEstimatedNumItems);
         if (args.size() > 2) {
           DecodedVector decodedNumBits(*args[2], rows);
-          setConstantArgument("numBits", numBits, decodedNumBits);
+          setConstantArgument(
+            "originalNumBits", originalNumBits_, decodedNumBits);
         } else {
           VELOX_CHECK_EQ(args.size(), 3);
-          numBits = estimatedNumItems * 8;
+          originalNumBits_ = originalEstimatedNumItems_ * 8;
         }
       } else {
-        estimatedNumItems = DEFAULT_ESPECTED_NUM_ITEMS;
-        numBits = estimatedNumItems * 8;
+        originalEstimatedNumItems_ = DEFAULT_ESPECTED_NUM_ITEMS;
+        originalNumBits_ = originalEstimatedNumItems_ * 8;
       }
     } else {
       VELOX_USER_FAIL("Function args size must be more than 0")
     }
-    estimatedNumItems = std::min(estimatedNumItems, MAX_NUM_ITEMS);
-    if (estimatedNumItems_ != kMissingArgument){
-      VELOX_USER_CHECK_EQ(
-            estimatedNumItems,
-            estimatedNumItems_,
-            "estimatedNumItems argument must be constant for all input rows");
-    }
-
-    estimatedNumItems_ = estimatedNumItems;
-    numBits = std::min(numBits, MAX_NUM_BITS);
-    if (numBits_ != kMissingArgument) {
-      VELOX_USER_CHECK_EQ(
-            numBits,
-            numBits_,
-            "numBits argument must be constant for all input rows");
-    }
-
-    numBits_ = numBits;
+    estimatedNumItems_ = std::min(originalEstimatedNumItems_, MAX_NUM_ITEMS);
+    numBits_ = std::min(originalNumBits_, MAX_NUM_BITS);
     capacity_ = numBits_ / 16;
   }
 
@@ -258,6 +243,8 @@ class BloomFilterAggAggregate : public exec::Aggregate {
   // Reusable instance of DecodedVector for decoding input vectors.
   DecodedVector decodedRaw_;
   DecodedVector decodedIntermediate_;
+  int64_t originalEstimatedNumItems_;
+  int64_t originalNumBits_;
   int64_t estimatedNumItems_ = kMissingArgument;
   int64_t numBits_ = kMissingArgument;
   int32_t capacity_ = kMissingArgument;
@@ -269,14 +256,14 @@ bool registerBloomFilterAggAggregate(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
           .argumentType("bigint")
-          .argumentType("bigint")
-          .argumentType("bigint")
+          .constantArgumentType("bigint")
+          .constantArgumentType("bigint")
           .intermediateType("varbinary")
           .returnType("varbinary")
           .build(),
       exec::AggregateFunctionSignatureBuilder()
           .argumentType("bigint")
-          .argumentType("bigint")
+          .constantArgumentType("bigint")
           .intermediateType("varbinary")
           .returnType("varbinary")
           .build(),
