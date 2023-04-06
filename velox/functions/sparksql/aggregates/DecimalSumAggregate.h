@@ -349,7 +349,6 @@ class DecimalSumAggregate : public exec::Aggregate {
           if ((!isEmptyVector->isNullAt(decodedIndex) &&
                !isEmptyVector->valueAt(decodedIndex)) &&
               sumVector->isNullAt(decodedIndex)) {
-            LOG(INFO) << "in in";
             setOverflowGroup(group);
           }
         }
