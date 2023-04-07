@@ -49,7 +49,7 @@ HiveConfig::insertExistingPartitionsBehavior(const Config* config) {
 
 // static
 uint32_t HiveConfig::maxPartitionsPerWriters(const Config* config) {
-  return config->get<uint32_t>(kMaxPartitionsPerWriters, 100);
+  return config->get<uint32_t>(kMaxPartitionsPerWriters, 300);
 }
 
 bool HiveConfig::isCaseSensitive(const Config* config) {
