@@ -168,16 +168,16 @@ bool SubstraitToVeloxPlanValidator::validate(
 }
 
 bool SubstraitToVeloxPlanValidator::validate(
-    const ::substrait::ExpandRel& sExpand) {
-  if (sExpand.has_input() && !validate(sExpand.input())) {
+    const ::substrait::ExpandRel& expandRel) {
+  if (expandRel.has_input() && !validate(expandRel.input())) {
     return false;
   }
   // Get and validate the input types from extension.
-  if (!sExpand.has_advanced_extension()) {
+  if (!expandRel.has_advanced_extension()) {
     std::cout << "Input types are expected in ExpandRel." << std::endl;
     return false;
   }
-  const auto& extension = sExpand.advanced_extension();
+  const auto& extension = expandRel.advanced_extension();
   std::vector<TypePtr> types;
   if (!validateInputTypes(extension, types)) {
     std::cout << "Validation failed for input types in ExpandRel." << std::endl;
@@ -193,7 +193,7 @@ bool SubstraitToVeloxPlanValidator::validate(
   auto rowType = std::make_shared<RowType>(std::move(names), std::move(types));
 
   // Validate the expand agg expressions.
-  const auto& aggExprs = sExpand.aggregate_expressions();
+  const auto& aggExprs = expandRel.aggregate_expressions();
   std::vector<std::shared_ptr<const core::ITypedExpr>> expressions;
   expressions.reserve(aggExprs.size());
 
@@ -211,7 +211,7 @@ bool SubstraitToVeloxPlanValidator::validate(
   }
 
   // Validate groupings.
-  for (const auto& grouping : sExpand.groupings()) {
+  for (const auto& grouping : expandRel.groupings()) {
     for (const auto& groupingExpr : grouping.groupsets_expressions()) {
       const auto& typeCase = groupingExpr.rex_type_case();
       switch (typeCase) {
@@ -224,7 +224,7 @@ bool SubstraitToVeloxPlanValidator::validate(
     }
   }
   // GroupIdNode constructor check
-  if (sExpand.groupings_size() < 2) {
+  if (expandRel.groupings_size() < 2) {
     LOG(INFO) << "GroupIdNode requires two or more grouping sets.";
     return false;
   }
@@ -247,17 +247,17 @@ bool validateBoundType(::substrait::Expression_WindowFunction_Bound boundType) {
 }
 
 bool SubstraitToVeloxPlanValidator::validate(
-    const ::substrait::WindowRel& sWindow) {
-  if (sWindow.has_input() && !validate(sWindow.input())) {
+    const ::substrait::WindowRel& windowRel) {
+  if (windowRel.has_input() && !validate(windowRel.input())) {
     return false;
   }
 
   // Get and validate the input types from extension.
-  if (!sWindow.has_advanced_extension()) {
+  if (!windowRel.has_advanced_extension()) {
     std::cout << "Input types are expected in WindowRel." << std::endl;
     return false;
   }
-  const auto& extension = sWindow.advanced_extension();
+  const auto& extension = windowRel.advanced_extension();
   std::vector<TypePtr> types;
   if (!validateInputTypes(extension, types)) {
     std::cout << "Validation failed for input types in WindowRel." << std::endl;
@@ -274,8 +274,8 @@ bool SubstraitToVeloxPlanValidator::validate(
 
   // Validate WindowFunction
   std::vector<std::string> funcSpecs;
-  funcSpecs.reserve(sWindow.measures().size());
-  for (const auto& smea : sWindow.measures()) {
+  funcSpecs.reserve(windowRel.measures().size());
+  for (const auto& smea : windowRel.measures()) {
     try {
       const auto& windowFunction = smea.measure();
       funcSpecs.emplace_back(
@@ -318,7 +318,7 @@ bool SubstraitToVeloxPlanValidator::validate(
   }
 
   // Validate groupby expression
-  const auto& groupByExprs = sWindow.partition_expressions();
+  const auto& groupByExprs = windowRel.partition_expressions();
   std::vector<std::shared_ptr<const core::ITypedExpr>> expressions;
   expressions.reserve(groupByExprs.size());
   try {
@@ -345,7 +345,7 @@ bool SubstraitToVeloxPlanValidator::validate(
   }
 
   // Validate Sort expression
-  const auto& sorts = sWindow.sorts();
+  const auto& sorts = windowRel.sorts();
   for (const auto& sort : sorts) {
     switch (sort.direction()) {
       case ::substrait::SortField_SortDirection_SORT_DIRECTION_ASC_NULLS_FIRST:
@@ -379,16 +379,16 @@ bool SubstraitToVeloxPlanValidator::validate(
 }
 
 bool SubstraitToVeloxPlanValidator::validate(
-    const ::substrait::SortRel& sSort) {
-  if (sSort.has_input() && !validate(sSort.input())) {
+    const ::substrait::SortRel& sortRel) {
+  if (sortRel.has_input() && !validate(sortRel.input())) {
     return false;
   }
   // Get and validate the input types from extension.
-  if (!sSort.has_advanced_extension()) {
+  if (!sortRel.has_advanced_extension()) {
     std::cout << "Input types are expected in SortRel." << std::endl;
     return false;
   }
-  const auto& extension = sSort.advanced_extension();
+  const auto& extension = sortRel.advanced_extension();
   std::vector<TypePtr> types;
   if (!validateInputTypes(extension, types)) {
     std::cout << "Validation failed for input types in SortRel." << std::endl;
@@ -403,7 +403,7 @@ bool SubstraitToVeloxPlanValidator::validate(
   }
   auto rowType = std::make_shared<RowType>(std::move(names), std::move(types));
 
-  const auto& sorts = sSort.sorts();
+  const auto& sorts = sortRel.sorts();
   for (const auto& sort : sorts) {
     switch (sort.direction()) {
       case ::substrait::SortField_SortDirection_SORT_DIRECTION_ASC_NULLS_FIRST:
@@ -437,17 +437,17 @@ bool SubstraitToVeloxPlanValidator::validate(
 }
 
 bool SubstraitToVeloxPlanValidator::validate(
-    const ::substrait::ProjectRel& sProject) {
-  if (sProject.has_input() && !validate(sProject.input())) {
+    const ::substrait::ProjectRel& projectRel) {
+  if (projectRel.has_input() && !validate(projectRel.input())) {
     return false;
   }
 
   // Get and validate the input types from extension.
-  if (!sProject.has_advanced_extension()) {
+  if (!projectRel.has_advanced_extension()) {
     std::cout << "Input types are expected in ProjectRel." << std::endl;
     return false;
   }
-  const auto& extension = sProject.advanced_extension();
+  const auto& extension = projectRel.advanced_extension();
   std::vector<TypePtr> types;
   if (!validateInputTypes(extension, types)) {
     std::cout << "Validation failed for input types in ProjectRel."
@@ -473,7 +473,7 @@ bool SubstraitToVeloxPlanValidator::validate(
   auto rowType = std::make_shared<RowType>(std::move(names), std::move(types));
 
   // Validate the project expressions.
-  const auto& projectExprs = sProject.expressions();
+  const auto& projectExprs = projectRel.expressions();
   std::vector<std::shared_ptr<const core::ITypedExpr>> expressions;
   expressions.reserve(projectExprs.size());
   try {
@@ -495,17 +495,17 @@ bool SubstraitToVeloxPlanValidator::validate(
 }
 
 bool SubstraitToVeloxPlanValidator::validate(
-    const ::substrait::FilterRel& sFilter) {
-  if (sFilter.has_input() && !validate(sFilter.input())) {
+    const ::substrait::FilterRel& filterRel) {
+  if (filterRel.has_input() && !validate(filterRel.input())) {
     return false;
   }
 
   // Get and validate the input types from extension.
-  if (!sFilter.has_advanced_extension()) {
+  if (!filterRel.has_advanced_extension()) {
     std::cout << "Input types are expected in FilterRel." << std::endl;
     return false;
   }
-  const auto& extension = sFilter.advanced_extension();
+  const auto& extension = filterRel.advanced_extension();
   std::vector<TypePtr> types;
   if (!validateInputTypes(extension, types)) {
     std::cout << "Validation failed for input types in FilterRel." << std::endl;
@@ -525,7 +525,7 @@ bool SubstraitToVeloxPlanValidator::validate(
   expressions.reserve(1);
   try {
     expressions.emplace_back(
-        exprConverter_->toVeloxExpr(sFilter.condition(), rowType));
+        exprConverter_->toVeloxExpr(filterRel.condition(), rowType));
     // Try to compile the expressions. If there is any unregistered function
     // or mismatched type, exception will be thrown.
     exec::ExprSet exprSet(std::move(expressions), execCtx_);
@@ -538,18 +538,18 @@ bool SubstraitToVeloxPlanValidator::validate(
 }
 
 bool SubstraitToVeloxPlanValidator::validate(
-    const ::substrait::JoinRel& sJoin) {
-  if (sJoin.has_left() && !validate(sJoin.left())) {
+    const ::substrait::JoinRel& joinRel) {
+  if (joinRel.has_left() && !validate(joinRel.left())) {
     return false;
   }
-  if (sJoin.has_right() && !validate(sJoin.right())) {
+  if (joinRel.has_right() && !validate(joinRel.right())) {
     return false;
   }
 
-  if (sJoin.has_advanced_extension() &&
+  if (joinRel.has_advanced_extension() &&
       subParser_->configSetInOptimization(
-          sJoin.advanced_extension(), "isSMJ=")) {
-    switch (sJoin.type()) {
+          joinRel.advanced_extension(), "isSMJ=")) {
+    switch (joinRel.type()) {
       case ::substrait::JoinRel_JoinType_JOIN_TYPE_INNER:
       case ::substrait::JoinRel_JoinType_JOIN_TYPE_LEFT:
         break;
@@ -559,7 +559,7 @@ bool SubstraitToVeloxPlanValidator::validate(
         return false;
     }
   }
-  switch (sJoin.type()) {
+  switch (joinRel.type()) {
     case ::substrait::JoinRel_JoinType_JOIN_TYPE_INNER:
     case ::substrait::JoinRel_JoinType_JOIN_TYPE_OUTER:
     case ::substrait::JoinRel_JoinType_JOIN_TYPE_LEFT:
@@ -573,12 +573,12 @@ bool SubstraitToVeloxPlanValidator::validate(
   }
 
   // Validate input types.
-  if (!sJoin.has_advanced_extension()) {
+  if (!joinRel.has_advanced_extension()) {
     std::cout << "Input types are expected in JoinRel." << std::endl;
     return false;
   }
 
-  const auto& extension = sJoin.advanced_extension();
+  const auto& extension = joinRel.advanced_extension();
   std::vector<TypePtr> types;
   if (!validateInputTypes(extension, types)) {
     std::cout << "Validation failed for input types in JoinRel" << std::endl;
@@ -593,12 +593,12 @@ bool SubstraitToVeloxPlanValidator::validate(
   }
   auto rowType = std::make_shared<RowType>(std::move(names), std::move(types));
 
-  if (sJoin.has_expression()) {
+  if (joinRel.has_expression()) {
     std::vector<const ::substrait::Expression::FieldReference*> leftExprs,
         rightExprs;
     try {
       planConverter_->extractJoinKeys(
-          sJoin.expression(), leftExprs, rightExprs);
+          joinRel.expression(), leftExprs, rightExprs);
     } catch (const VeloxException& err) {
       std::cout << "Validation failed for expression in JoinRel due to:"
                 << err.message() << std::endl;
@@ -606,10 +606,10 @@ bool SubstraitToVeloxPlanValidator::validate(
     }
   }
 
-  if (sJoin.has_post_join_filter()) {
+  if (joinRel.has_post_join_filter()) {
     try {
       auto expression =
-          exprConverter_->toVeloxExpr(sJoin.post_join_filter(), rowType);
+          exprConverter_->toVeloxExpr(joinRel.post_join_filter(), rowType);
       exec::ExprSet exprSet({std::move(expression)}, execCtx_);
     } catch (const VeloxException& err) {
       std::cout << "Validation failed for expression in ProjectRel due to:"
@@ -620,39 +620,82 @@ bool SubstraitToVeloxPlanValidator::validate(
   return true;
 }
 
+TypePtr SubstraitToVeloxPlanValidator::getDecimalType(const std::string& decimalType) {
+  // Decimal info is in the format of dec<precision,scale>.
+  auto precisionStart = decimalType.find_first_of('<');
+  auto tokenIndex = decimalType.find_first_of(',');
+  auto scaleStart = decimalType.find_first_of('>');
+  auto precision = stoi(decimalType.substr(
+      precisionStart + 1, (tokenIndex - precisionStart - 1)));
+  auto scale =
+      stoi(decimalType.substr(tokenIndex + 1, (scaleStart - tokenIndex - 1)));
+
+  if (precision <= 18) {
+    return SHORT_DECIMAL(precision, scale);
+  } else {
+    return LONG_DECIMAL(precision, scale);
+  }
+}
+
+TypePtr SubstraitToVeloxPlanValidator::getRowType(const std::string& structType) {
+  // Struct info is in the format of struct<T1,T2, ...,Tn>.
+  // TODO: nested struct is not supported.
+  auto structStart = structType.find_first_of('<');
+  auto structEnd = structType.find_last_of('>');
+  VELOX_CHECK(structEnd - structStart > 1, "More information is needed to create RowType");
+  std::string childrenTypes = structType.substr(structStart + 1, structEnd - structStart - 1);
+
+  // Split the types with delimiter.
+  std::string delimiter = ",";
+  std::size_t pos;
+  std::vector<TypePtr> types;
+  std::vector<std::string> names;
+  while ((pos = childrenTypes.find(delimiter)) != std::string::npos) {
+    const auto& typeStr = childrenTypes.substr(0, pos);
+    std::string decDelimiter = ">";
+    if (typeStr.find("dec") != std::string::npos) {
+      std::size_t endPos = childrenTypes.find(decDelimiter);
+      VELOX_CHECK(endPos >= pos + 1, "Decimal scale is expected.");
+      const auto& decimalStr = typeStr + childrenTypes.substr(pos, endPos - pos) + decDelimiter;
+      types.emplace_back(getDecimalType(decimalStr));
+      names.emplace_back("");
+      childrenTypes.erase(0, endPos + delimiter.length() + decDelimiter.length());
+      continue;
+    }
+
+    types.emplace_back(toVeloxType(subParser_->parseType(typeStr)));
+    names.emplace_back("");
+    childrenTypes.erase(0, pos + delimiter.length());
+  }
+  types.emplace_back(toVeloxType(subParser_->parseType(childrenTypes)));
+  names.emplace_back("");
+  return std::make_shared<RowType>(std::move(names), std::move(types));
+}
+
 bool SubstraitToVeloxPlanValidator::validateAggRelFunctionType(
-    const ::substrait::AggregateRel& sAgg) {
-  if (sAgg.measures_size() == 0) {
+    const ::substrait::AggregateRel& aggRel) {
+  if (aggRel.measures_size() == 0) {
     return true;
   }
 
-  core::AggregationNode::Step step = planConverter_->toAggregationStep(sAgg);
-  for (const auto& smea : sAgg.measures()) {
+  for (const auto& smea : aggRel.measures()) {
     const auto& aggFunction = smea.measure();
     auto funcSpec =
         planConverter_->findFuncSpec(aggFunction.function_reference());
-    auto funcName = subParser_->getSubFunctionName(funcSpec);
     std::vector<TypePtr> types;
+    bool isDecimal = false;
     try {
       std::vector<std::string> funcTypes;
       subParser_->getSubFunctionTypes(funcSpec, funcTypes);
       types.reserve(funcTypes.size());
       for (auto& type : funcTypes) {
-        if (type.find("dec") != std::string::npos) {
-          // dec info is as dec<precision,scale>
-          auto precisionStart = type.find_first_of('<');
-          auto tokenIndex = type.find_first_of(',');
-          auto scaleStart = type.find_first_of('>');
-          auto precision = stoi(type.substr(
-              precisionStart + 1, (tokenIndex - precisionStart - 1)));
-          auto scale =
-              stoi(type.substr(tokenIndex + 1, (scaleStart - tokenIndex - 1)));
-
-          if (precision <= 18) {
-            types.emplace_back(SHORT_DECIMAL(precision, scale));
-          } else {
-            types.emplace_back(LONG_DECIMAL(precision, scale));
-          }
+        if (!isDecimal && type.find("dec") != std::string::npos) {
+          isDecimal = true;
+        }
+        if (type.find("struct") != std::string::npos) {
+          types.emplace_back(getRowType(type));
+        } else if (type.find("dec") != std::string::npos) {
+          types.emplace_back(getDecimalType(type));
         } else {
           types.emplace_back(toVeloxType(subParser_->parseType(type)));
         }
@@ -663,12 +706,14 @@ bool SubstraitToVeloxPlanValidator::validateAggRelFunctionType(
           << err.message() << std::endl;
       return false;
     }
+    auto funcName = subParser_->mapToVeloxFunction(
+        subParser_->getSubFunctionName(funcSpec), isDecimal);
     if (auto signatures = exec::getAggregateFunctionSignatures(funcName)) {
       for (const auto& signature : signatures.value()) {
         exec::SignatureBinder binder(*signature, types);
         if (binder.tryBind()) {
           auto resolveType = binder.tryResolveType(
-              exec::isPartialOutput(step) ? signature->intermediateType()
+              exec::isPartialOutput(planConverter_->toAggregationStep(aggRel)) ? signature->intermediateType()
                                           : signature->returnType());
           if (resolveType == nullptr) {
             std::cout
@@ -695,15 +740,15 @@ bool SubstraitToVeloxPlanValidator::validateAggRelFunctionType(
 }
 
 bool SubstraitToVeloxPlanValidator::validate(
-    const ::substrait::AggregateRel& sAgg) {
-  if (sAgg.has_input() && !validate(sAgg.input())) {
+    const ::substrait::AggregateRel& aggRel) {
+  if (aggRel.has_input() && !validate(aggRel.input())) {
     return false;
   }
 
   // Validate input types.
-  if (sAgg.has_advanced_extension()) {
+  if (aggRel.has_advanced_extension()) {
     std::vector<TypePtr> types;
-    const auto& extension = sAgg.advanced_extension();
+    const auto& extension = aggRel.advanced_extension();
     if (!validateInputTypes(extension, types)) {
       std::cout << "Validation failed for input types in AggregateRel."
                 << std::endl;
@@ -712,7 +757,7 @@ bool SubstraitToVeloxPlanValidator::validate(
   }
 
   // Validate groupings.
-  for (const auto& grouping : sAgg.groupings()) {
+  for (const auto& grouping : aggRel.groupings()) {
     for (const auto& groupingExpr : grouping.grouping_expressions()) {
       const auto& typeCase = groupingExpr.rex_type_case();
       switch (typeCase) {
@@ -727,14 +772,14 @@ bool SubstraitToVeloxPlanValidator::validate(
 
   // Validate aggregate functions.
   std::vector<std::string> funcSpecs;
-  funcSpecs.reserve(sAgg.measures().size());
-  for (const auto& smea : sAgg.measures()) {
+  funcSpecs.reserve(aggRel.measures().size());
+  for (const auto& smea : aggRel.measures()) {
     try {
       // Validate the filter expression
       if (smea.has_filter()) {
-        ::substrait::Expression substraitAggMask = smea.filter();
-        if (substraitAggMask.ByteSizeLong() > 0) {
-          auto typeCase = substraitAggMask.rex_type_case();
+        ::substrait::Expression aggRelMask = smea.filter();
+        if (aggRelMask.ByteSizeLong() > 0) {
+          auto typeCase = aggRelMask.rex_type_case();
           switch (typeCase) {
             case ::substrait::Expression::RexTypeCase::kSelection:
               break;
@@ -779,20 +824,34 @@ bool SubstraitToVeloxPlanValidator::validate(
 
   std::unordered_set<std::string> supportedFuncs = {
       "sum",
+      "sum_merge",
       "count",
+      "count_merge",
       "avg",
+      "avg_merge",
       "min",
+      "min_merge",
       "max",
+      "max_merge",
       "stddev_samp",
+      "stddev_samp_merge",
       "stddev_pop",
+      "stddev_pop_merge",
       "bloom_filter_agg",
       "var_samp",
+      "var_samp_merge",
       "var_pop",
+      "var_pop_merge",
       "bitwise_and_agg",
+      "bitwise_and_agg_merge",
       "bitwise_or_agg",
+      "bitwise_or_agg_merge",
       "corr",
+      "corr_merge",
       "covar_pop",
-      "covar_samp"};
+      "covar_pop_merge",
+      "covar_samp",
+      "covar_samp_merge"};
   for (const auto& funcSpec : funcSpecs) {
     auto funcName = subParser_->getSubFunctionName(funcSpec);
     if (supportedFuncs.find(funcName) == supportedFuncs.end()) {
@@ -802,14 +861,14 @@ bool SubstraitToVeloxPlanValidator::validate(
     }
   }
 
-  if (!validateAggRelFunctionType(sAgg)) {
+  if (!validateAggRelFunctionType(aggRel)) {
     return false;
   }
 
   // Validate both groupby and aggregates input are empty, which is corner case.
-  if (sAgg.measures_size() == 0) {
+  if (aggRel.measures_size() == 0) {
     bool hasExpr = false;
-    for (const auto& grouping : sAgg.groupings()) {
+    for (const auto& grouping : aggRel.groupings()) {
       for (const auto& groupingExpr : grouping.grouping_expressions()) {
         hasExpr = true;
         break;
@@ -829,9 +888,9 @@ bool SubstraitToVeloxPlanValidator::validate(
 }
 
 bool SubstraitToVeloxPlanValidator::validate(
-    const ::substrait::ReadRel& sRead) {
+    const ::substrait::ReadRel& readRel) {
   try {
-    planConverter_->toVeloxPlan(sRead);
+    planConverter_->toVeloxPlan(readRel);
   } catch (const VeloxException& err) {
     std::cout << "ReadRel validation failed due to:" << err.message()
               << std::endl;
@@ -839,13 +898,13 @@ bool SubstraitToVeloxPlanValidator::validate(
   }
 
   // Validate filter in ReadRel.
-  if (sRead.has_filter()) {
+  if (readRel.has_filter()) {
     std::vector<std::shared_ptr<const core::ITypedExpr>> expressions;
     expressions.reserve(1);
 
     std::vector<TypePtr> veloxTypeList;
-    if (sRead.has_base_schema()) {
-      const auto& baseSchema = sRead.base_schema();
+    if (readRel.has_base_schema()) {
+      const auto& baseSchema = readRel.base_schema();
       auto substraitTypeList = subParser_->parseNamedStruct(baseSchema);
       veloxTypeList.reserve(substraitTypeList.size());
       for (const auto& substraitType : substraitTypeList) {
@@ -863,7 +922,7 @@ bool SubstraitToVeloxPlanValidator::validate(
 
     try {
       expressions.emplace_back(
-          exprConverter_->toVeloxExpr(sRead.filter(), rowType));
+          exprConverter_->toVeloxExpr(readRel.filter(), rowType));
       // Try to compile the expressions. If there is any unregistered function
       // or mismatched type, exception will be thrown.
       exec::ExprSet exprSet(std::move(expressions), execCtx_);
@@ -873,8 +932,8 @@ bool SubstraitToVeloxPlanValidator::validate(
       return false;
     }
   }
-  if (sRead.has_base_schema()) {
-    const auto& baseSchema = sRead.base_schema();
+  if (readRel.has_base_schema()) {
+    const auto& baseSchema = readRel.base_schema();
     if (!validateColNames(baseSchema)) {
       std::cout
           << "Validation failed for column name contains illegal charactor."
@@ -885,58 +944,58 @@ bool SubstraitToVeloxPlanValidator::validate(
   return true;
 }
 
-bool SubstraitToVeloxPlanValidator::validate(const ::substrait::Rel& sRel) {
-  if (sRel.has_aggregate()) {
-    return validate(sRel.aggregate());
+bool SubstraitToVeloxPlanValidator::validate(const ::substrait::Rel& rel) {
+  if (rel.has_aggregate()) {
+    return validate(rel.aggregate());
   }
-  if (sRel.has_project()) {
-    return validate(sRel.project());
+  if (rel.has_project()) {
+    return validate(rel.project());
   }
-  if (sRel.has_filter()) {
-    return validate(sRel.filter());
+  if (rel.has_filter()) {
+    return validate(rel.filter());
   }
-  if (sRel.has_join()) {
-    return validate(sRel.join());
+  if (rel.has_join()) {
+    return validate(rel.join());
   }
-  if (sRel.has_read()) {
-    return validate(sRel.read());
+  if (rel.has_read()) {
+    return validate(rel.read());
   }
-  if (sRel.has_sort()) {
-    return validate(sRel.sort());
+  if (rel.has_sort()) {
+    return validate(rel.sort());
   }
-  if (sRel.has_expand()) {
-    return validate(sRel.expand());
+  if (rel.has_expand()) {
+    return validate(rel.expand());
   }
-  if (sRel.has_fetch()) {
-    return validate(sRel.fetch());
+  if (rel.has_fetch()) {
+    return validate(rel.fetch());
   }
-  if (sRel.has_window()) {
-    return validate(sRel.window());
+  if (rel.has_window()) {
+    return validate(rel.window());
   }
   return false;
 }
 
 bool SubstraitToVeloxPlanValidator::validate(
-    const ::substrait::RelRoot& sRoot) {
-  if (sRoot.has_input()) {
-    const auto& sRel = sRoot.input();
-    return validate(sRel);
+    const ::substrait::RelRoot& relRoot) {
+  if (relRoot.has_input()) {
+    const auto& rel = relRoot.input();
+    return validate(rel);
   }
   return false;
 }
 
-bool SubstraitToVeloxPlanValidator::validate(const ::substrait::Plan& sPlan) {
+bool SubstraitToVeloxPlanValidator::validate(const ::substrait::Plan& plan) {
   // Create plan converter and expression converter to help the validation.
-  planConverter_->constructFunctionMap(sPlan);
+  planConverter_->constructFunctionMap(plan);
   exprConverter_ = std::make_shared<SubstraitVeloxExprConverter>(
       pool_, planConverter_->getFunctionMap());
 
-  for (const auto& sRel : sPlan.relations()) {
-    if (sRel.has_root()) {
-      return validate(sRel.root());
+  for (const auto& rel : plan.relations()) {
+    if (rel.has_root()) {
+      return validate(rel.root());
     }
-    if (sRel.has_rel()) {
-      return validate(sRel.rel());
+    if (rel.has_rel()) {
+      return validate(rel.rel());
     }
   }
   return false;

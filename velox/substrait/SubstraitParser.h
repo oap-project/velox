@@ -127,6 +127,7 @@ class SubstraitParser {
       {"starts_with", "startswith"},
       {"datediff", "date_diff"},
       {"modulus", "mod"} /*Presto functions.*/};
+
   // The map is uesd for mapping substrait type.
   // Key: type in function name.
   // Value: substrait type name.

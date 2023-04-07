@@ -184,7 +184,8 @@ bool registerBitwise(const std::string& name) {
                 name,
                 inputType->kindName());
         }
-      });
+      },
+      true);
   return true;
 }
 

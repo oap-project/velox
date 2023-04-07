@@ -195,7 +195,7 @@ SubstraitVeloxExprConverter::toVeloxExpr(
       const auto& dRef = substraitField.direct_reference();
       VELOX_CHECK(dRef.has_struct_field(), "Struct field expected.");
       int32_t colIdx = subParser_->parseReferenceSegment(dRef);
-      std::optional<int32_t> childIdx;
+      std::optional<int32_t> childIdx = std::nullopt;
       if (dRef.struct_field().has_child()) {
         childIdx =
             subParser_->parseReferenceSegment(dRef.struct_field().child());

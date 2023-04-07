@@ -35,6 +35,9 @@ HashAggregation::HashAggregation(
               : "Aggregation"),
       outputBatchSize_{driverCtx->queryConfig().preferredOutputBatchSize()},
       isPartialOutput_(isPartialOutput(aggregationNode->step())),
+      isIntermediate_(
+          aggregationNode->step() ==
+          core::AggregationNode::Step::kIntermediate),
       isDistinct_(aggregationNode->aggregates().empty()),
       isGlobal_(aggregationNode->groupingKeys().empty()),
       memoryTracker_(operatorCtx_->pool()->getMemoryUsageTracker()),
@@ -192,7 +195,7 @@ void HashAggregation::addInput(RowVectorPtr input) {
   // NOTE: we should not trigger partial output flush in case of global
   // aggregation as the final aggregator will handle it the same way as the
   // partial aggregator. Hence, we have to use more memory anyway.
-  if (isPartialOutput_ && !isGlobal_) {
+  if (isPartialOutput_ && !isGlobal_ && !isIntermediate_) {
     uint64_t kDefaultFlushMemory = 1L << 24;
     if (groupingSet_->allocatedBytes() > kDefaultFlushMemory &&
         numInputVectors_ % 15 == 0) {

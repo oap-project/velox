@@ -579,6 +579,7 @@ bool registerDecimalAvgAggregate(const std::string& name) {
                 name,
                 inputType->kindName());
         }
-      });
+      },
+      true);
 }
 } // namespace facebook::velox::functions::sparksql::aggregates

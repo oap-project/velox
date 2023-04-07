@@ -358,7 +358,8 @@ bool registerAverageAggregate(const std::string& name) {
               "Input type for final aggregation must be (sum:double, count:bigint) struct");
           return std::make_unique<AverageAggregate<int64_t>>(resultType);
         }
-      });
+      },
+      true);
   return true;
 }
 

@@ -39,7 +39,6 @@ struct AggregateFunctionAdapter {
         int32_t nullByte,
         uint8_t nullMask,
         int32_t rowSizeOffset) override {
-      Aggregate::setOffsets(offset, nullByte, nullMask, rowSizeOffset);
       fn_->setOffsets(offset, nullByte, nullMask, rowSizeOffset);
     }
 
@@ -113,12 +112,15 @@ struct AggregateFunctionAdapter {
         int32_t nullByte,
         uint8_t nullMask,
         int32_t rowSizeOffset) override {
-      Aggregate::setOffsets(offset, nullByte, nullMask, rowSizeOffset);
       fn_->setOffsets(offset, nullByte, nullMask, rowSizeOffset);
     }
 
     int32_t accumulatorFixedWidthSize() const override {
       return fn_->accumulatorFixedWidthSize();
+    }
+
+    int32_t accumulatorAlignmentSize() const override {
+      return fn_->accumulatorAlignmentSize();
     }
 
     void initializeNewGroups(
@@ -371,6 +373,35 @@ class RegisterAdapter {
 
       std::vector<TypeSignature> usedTypes = {signature->intermediateType()};
       auto variables = getUsedTypeVariables(usedTypes, signature->variables());
+      std::vector<bool> constantArguments = {false};
+
+      signatures.push_back(std::make_shared<AggregateFunctionSignature>(
+          variables,
+          signature->intermediateType(),
+          signature->intermediateType(),
+          std::vector<TypeSignature>{signature->intermediateType()},
+          std::move(constantArguments),
+          signature->variableArity()));
+    }
+    return signatures;
+  }
+
+  static std::vector<AggregateFunctionSignaturePtr> countMergeFunctionSignatures(
+      const std::vector<AggregateFunctionSignaturePtr>& aggregateSignatures) {
+    std::unordered_set<TypeSignature> distinctIntermediateTypes;
+    std::vector<AggregateFunctionSignaturePtr> signatures;
+    for (const auto& signature : aggregateSignatures) {
+      if (signature->constantArguments().size() == 0) {
+        // For count_merge, the input cannot be empty.
+        continue;
+      }
+      if (distinctIntermediateTypes.count(signature->intermediateType()) > 0) {
+        continue;
+      }
+      distinctIntermediateTypes.insert(signature->intermediateType());
+
+      std::vector<TypeSignature> usedTypes = {signature->intermediateType()};
+      auto variables = getUsedTypeVariables(usedTypes, signature->variables());
 
       signatures.push_back(std::make_shared<AggregateFunctionSignature>(
           variables,
@@ -386,7 +417,12 @@ class RegisterAdapter {
   static bool registerMergeFunction(
       const std::string& name,
       const std::vector<AggregateFunctionSignaturePtr>& originalSignatures) {
-    auto signatures = mergeFunctionSignatures(originalSignatures);
+    std::vector<AggregateFunctionSignaturePtr> signatures;
+    if (name == "count") {
+      signatures = countMergeFunctionSignatures(originalSignatures);
+    } else {
+      signatures = mergeFunctionSignatures(originalSignatures);
+    }
     exec::registerAggregateFunction(
         name + "_merge",
         std::move(signatures),

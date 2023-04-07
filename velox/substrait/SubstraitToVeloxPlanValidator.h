@@ -33,37 +33,37 @@ class SubstraitToVeloxPlanValidator {
   bool validate(const ::substrait::FetchRel& fetchRel);
 
   /// Used to validate whether the computing of this Sort is supported.
-  bool validate(const ::substrait::ExpandRel& sExpand);
+  bool validate(const ::substrait::ExpandRel& expandRel);
 
   /// Used to validate whether the computing of this Sort is supported.
-  bool validate(const ::substrait::SortRel& sSort);
+  bool validate(const ::substrait::SortRel& sortRel);
 
   /// Used to validate whether the computing of this Window is supported.
-  bool validate(const ::substrait::WindowRel& sWindow);
+  bool validate(const ::substrait::WindowRel& windowRel);
 
   /// Used to validate whether the computing of this Aggregation is supported.
-  bool validate(const ::substrait::AggregateRel& sAgg);
+  bool validate(const ::substrait::AggregateRel& aggRel);
 
   /// Used to validate whether the computing of this Project is supported.
-  bool validate(const ::substrait::ProjectRel& sProject);
+  bool validate(const ::substrait::ProjectRel& projectRel);
 
   /// Used to validate whether the computing of this Filter is supported.
-  bool validate(const ::substrait::FilterRel& sFilter);
+  bool validate(const ::substrait::FilterRel& filterRel);
 
   /// Used to validate Join.
-  bool validate(const ::substrait::JoinRel& sJoin);
+  bool validate(const ::substrait::JoinRel& joinRel);
 
   /// Used to validate whether the computing of this Read is supported.
-  bool validate(const ::substrait::ReadRel& sRead);
+  bool validate(const ::substrait::ReadRel& readRel);
 
   /// Used to validate whether the computing of this Rel is supported.
-  bool validate(const ::substrait::Rel& sRel);
+  bool validate(const ::substrait::Rel& rel);
 
   /// Used to validate whether the computing of this RelRoot is supported.
-  bool validate(const ::substrait::RelRoot& sRoot);
+  bool validate(const ::substrait::RelRoot& relRoot);
 
   /// Used to validate whether the computing of this Plan is supported.
-  bool validate(const ::substrait::Plan& sPlan);
+  bool validate(const ::substrait::Plan& plan);
 
  private:
   /// A memory pool used for function validation.
@@ -89,7 +89,8 @@ class SubstraitToVeloxPlanValidator {
       const ::substrait::extensions::AdvancedExtension& extension,
       std::vector<TypePtr>& types);
 
-  bool validateAggRelFunctionType(const ::substrait::AggregateRel& sAgg);
+  bool validateAggRelFunctionType(
+      const ::substrait::AggregateRel& substraitAgg);
 
   /// Validate the round scalar function.
   bool validateRound(
@@ -115,6 +116,12 @@ class SubstraitToVeloxPlanValidator {
   bool validateLiteral(
       const ::substrait::Expression_Literal& literal,
       const RowTypePtr& inputType);
+
+  /// Create RowType based on the type information in string.
+  TypePtr getRowType(const std::string& structType);
+
+  /// Create DecimalType based on the type information in string.
+  TypePtr getDecimalType(const std::string& decimalType);
 };
 
 } // namespace facebook::velox::substrait

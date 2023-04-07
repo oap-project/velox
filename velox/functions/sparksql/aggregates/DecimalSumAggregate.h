@@ -45,8 +45,10 @@ class DecimalSumAggregate : public exec::Aggregate {
     return sizeof(DecimalSum);
   }
 
+  /// Use UnscaledLongDecimal instead of int128_t because some CPUs don't
+  /// support misaligned access to int128_t type.
   int32_t accumulatorAlignmentSize() const override {
-    return static_cast<int32_t>(sizeof(int128_t));
+    return static_cast<int32_t>(sizeof(UnscaledLongDecimal));
   }
 
   void initializeNewGroups(
@@ -459,7 +461,8 @@ bool registerDecimalSumAggregate(const std::string& name) {
                 name,
                 inputType->kindName());
         }
-      });
+      },
+      true);
 }
 
 } // namespace facebook::velox::functions::sparksql::aggregates
