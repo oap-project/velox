@@ -283,15 +283,28 @@ class DecimalAverageAggregate : public exec::Aggregate {
         clearNull(rawNulls, i);
         auto* accumulator = decimalAccumulator(group);
         rawCounts[i] = accumulator->count;
-        rawSums[i] = (TResultType)accumulator->sum;
+        if constexpr (std::is_same_v<TResultType, UnscaledShortDecimal>) {
+          rawSums[i] = TResultType((int64_t)accumulator->sum);
+        } else {
+          rawSums[i] = TResultType(accumulator->sum);
+        }
       }
     }
   }
 
   TResultType computeFinalValue(LongDecimalWithOverflowState* accumulator) {
-    if (accumulator->overflow > 0) {
-      VELOX_FAIL("Avg sum overflow!");
+    int128_t sum = accumulator->sum;
+    if ((accumulator->overflow == 1 && accumulator->sum < 0) ||
+        (accumulator->overflow == -1 && accumulator->sum > 0)) {
+      sum = static_cast<int128_t>(
+              DecimalUtil::kOverflowMultiplier * accumulator->overflow +
+                      accumulator->sum);
+    } else {
+      VELOX_CHECK(
+              accumulator->overflow == 0,
+              "overflow: decimal avg struct overflow not eq 0");
     }
+
     auto [resultPrecision, resultScale] =
         getDecimalPrecisionScale(*this->resultType().get());
     auto sumType = this->inputType().get();
@@ -307,7 +320,7 @@ class DecimalAverageAggregate : public exec::Aggregate {
 
     if (sumType->kind() == TypeKind::SHORT_DECIMAL) {
       // sumType is SHORT_DECIMAL, we can safely convert sum to int64_t
-      auto longSum = (int64_t)accumulator->sum;
+      auto longSum = (int64_t)sum;
       DecimalUtil::divideWithRoundUp<
           UnscaledLongDecimal,
           UnscaledShortDecimal,
@@ -324,7 +337,7 @@ class DecimalAverageAggregate : public exec::Aggregate {
           UnscaledLongDecimal,
           UnscaledLongDecimal>(
           avg,
-          UnscaledLongDecimal(accumulator->sum),
+          UnscaledLongDecimal(sum),
           countDecimal,
           false,
           sumRescale,
