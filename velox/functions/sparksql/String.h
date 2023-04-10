@@ -267,15 +267,16 @@ struct SubstringIndexFunction {
     // If the specified count of delimiter is not met,
     // the result is as same as the original string.
     if (index == std::string::npos) {
-      result.setNoCopy(strView);
+      result.setNoCopy(StringView(strView.data(), strView.size()));
       return;
     }
 
     if (count > 0) {
-      result.setNoCopy(StringView(strView, index));
+      result.setNoCopy(StringView(strView.data(), index));
     } else {
       auto resultSize = strView.length() - index - delimLen;
-      result.setNoCopy(StringView(strView + index + delimLen, resultSize));
+      result.setNoCopy(
+          StringView(strView.data() + index + delimLen, resultSize));
     }
   }
 };
