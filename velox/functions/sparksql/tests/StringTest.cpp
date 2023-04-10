@@ -119,6 +119,11 @@ class StringTest : public SparkFunctionBaseTest {
       const std::optional<std::string>& pattern) {
     return evaluateOnce<bool>("contains(c0, c1)", str, pattern);
   }
+
+  std::optional<std::string> substring_index(const std::optional<std::string>& str,
+   const std::optional<std::string>& delim, int32_t count) {
+    return evaluateOnce<std::string>("substring_index(c0, c1, c2)", str, delim, count);
+   }
 };
 
 TEST_F(StringTest, Ascii) {
@@ -282,6 +287,21 @@ TEST_F(StringTest, endsWith) {
   EXPECT_EQ(endsWith("-- hello there!", "hello there"), false);
   EXPECT_EQ(endsWith("-- hello there!", std::nullopt), std::nullopt);
   EXPECT_EQ(endsWith(std::nullopt, "abc"), std::nullopt);
+}
+
+TEST_F(StringTest, substring_index) {
+  // Zero count
+  EXPECT_EQ(substring_index("abcd.ef.gh", ".", 0), "");
+  // Positive count
+  EXPECT_EQ(substring_index("abcd.ef.gh", ".", 1), "abcd");
+  EXPECT_EQ(substring_index("abcd.ef.gh", ".", 2), "abcd.ef");
+  EXPECT_EQ(substring_index("abcd.ef.gh", ".", 3), "abcd.ef.gh");
+  EXPECT_EQ(substring_index("abcd.ef.gh", "abcd", 1), "");
+  // Negative count
+  EXPECT_EQ(substring_index("abcd.ef.gh", ".", -1), "gh");
+  EXPECT_EQ(substring_index("abcd.ef.gh", ".", -2), "ef.gh");
+  EXPECT_EQ(substring_index("abcd.ef.gh", "ef", -1), ".gh");
+  EXPECT_EQ(substring_index("abcd.ef.gh", "gh", -1), "");
 }
 
 TEST_F(StringTest, trim) {
