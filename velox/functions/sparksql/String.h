@@ -264,7 +264,7 @@ struct SubstringIndexFunction {
       }
     }
 
-    // If the specified count of delimiter is not met,
+    // If the specified count of delimiter is not satisfied,
     // the result is as same as the original string.
     if (index == std::string::npos) {
       result.setNoCopy(StringView(strView.data(), strView.size()));
