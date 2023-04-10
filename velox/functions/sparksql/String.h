@@ -213,11 +213,12 @@ struct EndsWithFunction {
 
 /// substring_index function
 /// substring_index(string, string, int) -> string
-/// substring_index(str, delim, count) - Returns the substring from str before count
-/// occurrences of the delimiter delim. If count is positive, everything to the left
-/// of the final delimiter (counting from the left) is returned. If count is negative,
-/// everything to the right of the final delimiter (counting from the right) is returned.
-/// The function substring_index performs a case-sensitive match when searching for delim.
+/// substring_index(str, delim, count) - Returns the substring from str before
+/// count occurrences of the delimiter delim. If count is positive, everything
+/// to the left of the final delimiter (counting from the left) is returned. If
+/// count is negative, everything to the right of the final delimiter (counting
+/// from the right) is returned. The function substring_index performs a
+/// case-sensitive match when searching for delim.
 template <typename T>
 struct SubstringIndexFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
@@ -235,49 +236,48 @@ struct SubstringIndexFunction {
     auto delimView = std::string_view(delim);
 
     auto strLen = strView.length();
-  auto delimLen = delimView.length();
-  std::size_t index;
-  if (count > 0) {
-    int n = 0;
-    index = 0;
-    while (n++ < count) {
-      index = strView.find(delimView, index);
-      if (index == std::string::npos) {
-        break;
+    auto delimLen = delimView.length();
+    std::size_t index;
+    if (count > 0) {
+      int n = 0;
+      index = 0;
+      while (n++ < count) {
+        index = strView.find(delimView, index);
+        if (index == std::string::npos) {
+          break;
+        }
+        if (n < count) {
+          index++;
+        }
       }
-      if (n < count) {
-        index++;
+    } else {
+      int n = 0;
+      index = strLen - 1;
+      while (n++ < -count) {
+        index = strView.rfind(delimView, index);
+        if (index == std::string::npos) {
+          break;
+        }
+        if (n < -count) {
+          index--;
+        }
       }
     }
-  } else {
-    int n = 0;
-    index = strLen - 1;
-    while (n++ < -count) {
-      index = strView.rfind(delimView, index);
-      if (index == std::string::npos) {
-        break;
-      }
-      if (n < -count) {
-        index--;
-      }
+
+    // If the specified count of delimiter is not met,
+    // the result is as same as the original string.
+    if (index == std::string::npos) {
+      result.setNoCopy(strView);
+      return;
+    }
+
+    if (count > 0) {
+      result.setNoCopy(StringView(strView, index));
+    } else {
+      auto resultSize = strView.length() - index - delimLen;
+      result.setNoCopy(StringView(strView + index + delimLen, resultSize));
     }
   }
-
-  // If the specified count of delimiter is not met,
-  // the result is as same as the original string.
-  if (index == std::string::npos) {
-    result.setNoCopy(strView);
-    return;
-  }
-
-  if (count > 0) {
-    result.setNoCopy(StringView(strView, index));
-  } else {
-    auto resultSize = strView.length() - index - delimLen;
-    result.setNoCopy(StringView(strView + index + delimLen, resultSize));
-  }
-  }
-
 };
 
 /// ltrim(trimStr, srcStr) -> varchar

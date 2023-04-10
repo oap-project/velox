@@ -120,10 +120,13 @@ class StringTest : public SparkFunctionBaseTest {
     return evaluateOnce<bool>("contains(c0, c1)", str, pattern);
   }
 
-  std::optional<std::string> substring_index(const std::optional<std::string>& str,
-   const std::optional<std::string>& delim, int32_t count) {
-    return evaluateOnce<std::string>("substring_index(c0, c1, c2)", str, delim, count);
-   }
+  std::optional<std::string> substring_index(
+      const std::optional<std::string>& str,
+      const std::optional<std::string>& delim,
+      int32_t count) {
+    return evaluateOnce<std::string>(
+        "substring_index(c0, c1, c2)", str, delim, count);
+  }
 };
 
 TEST_F(StringTest, Ascii) {
