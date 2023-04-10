@@ -293,18 +293,24 @@ TEST_F(StringTest, endsWith) {
 }
 
 TEST_F(StringTest, substring_index) {
-  // Zero count
-  EXPECT_EQ(substring_index("abcd.ef.gh", ".", 0), "");
-  // Positive count
-  EXPECT_EQ(substring_index("abcd.ef.gh", ".", 1), "abcd");
-  EXPECT_EQ(substring_index("abcd.ef.gh", ".", 2), "abcd.ef");
-  EXPECT_EQ(substring_index("abcd.ef.gh", ".", 3), "abcd.ef.gh");
-  EXPECT_EQ(substring_index("abcd.ef.gh", "abcd", 1), "");
-  // Negative count
-  EXPECT_EQ(substring_index("abcd.ef.gh", ".", -1), "gh");
-  EXPECT_EQ(substring_index("abcd.ef.gh", ".", -2), "ef.gh");
-  EXPECT_EQ(substring_index("abcd.ef.gh", "ef", -1), ".gh");
-  EXPECT_EQ(substring_index("abcd.ef.gh", "gh", -1), "");
+  // Zero count.
+  EXPECT_EQ(substring_index("Abcd.ef.gH", ".", 0), "");
+  // Positive count.
+  EXPECT_EQ(substring_index("Abcd.ef.gH", ".", 1), "Abcd");
+  EXPECT_EQ(substring_index("Abcd.ef.gH", ".", 2), "Abcd.ef");
+  EXPECT_EQ(substring_index("Abcd.ef.gH", ".", 3), "Abcd.ef.gH");
+  EXPECT_EQ(substring_index("Abcd.ef.gH", "Abcd", 1), "");
+  // Negative count.
+  EXPECT_EQ(substring_index("Abcd.ef.gH", ".", -1), "gH");
+  EXPECT_EQ(substring_index("Abcd.ef.gH", ".", -2), "ef.gH");
+  EXPECT_EQ(substring_index("Abcd.ef.gH", "ef", -1), ".gH");
+  EXPECT_EQ(substring_index("Abcd.ef.gH", "gH", -1), "");
+  // Test for case sensitivity.
+  EXPECT_EQ(substring_index("Ab|AB|ab", "ab", 1), "Ab|AB|");
+  EXPECT_EQ(substring_index("Ab|AB|ab", "ab", 2), "Ab|AB|ab");
+  // Test for string with escape character.
+  EXPECT_EQ(substring_index("Abc\\ABc\\ab", "\\", 1), "Abc");
+  EXPECT_EQ(substring_index("Abc\\ABc\\ab", "\\", 2), "Abc\\ABc");
 }
 
 TEST_F(StringTest, trim) {
