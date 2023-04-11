@@ -52,6 +52,11 @@ void registerArithmeticFunctions(const std::string& prefix) {
       {prefix + "floor"});
   registerFunction<sparksql::FloorFunction, int64_t, double>(
       {prefix + "floor"});
+
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_add, prefix + "decimal_add");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_sub, prefix + "decimal_subtract");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_mul, prefix + "decimal_multiply");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_div, prefix + "decimal_divide");
 }
 
 } // namespace facebook::velox::functions::sparksql
