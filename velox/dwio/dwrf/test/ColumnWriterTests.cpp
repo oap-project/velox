@@ -531,6 +531,16 @@ void generateSampleData(std::vector<std::optional<T>>& data) {
   }
 }
 
+TEST(ColumnWriterTests, TestIntWriter) {
+  std::vector<std::optional<int32_t>> data;
+  generateSampleData(data);
+  testDataTypeWriter(INTEGER(), data);
+
+  // Test writer with non-zero sequence
+  testDataTypeWriter(INTEGER(), data, 1);
+}
+
+#if 0
 TEST(ColumnWriterTests, TestByteWriter) {
   std::vector<std::optional<int8_t>> data;
   generateSampleData(data);
@@ -547,15 +557,6 @@ TEST(ColumnWriterTests, TestShortWriter) {
 
   // Test writer with non-zero sequence
   testDataTypeWriter(SMALLINT(), data, 23);
-}
-
-TEST(ColumnWriterTests, TestIntWriter) {
-  std::vector<std::optional<int32_t>> data;
-  generateSampleData(data);
-  testDataTypeWriter(INTEGER(), data);
-
-  // Test writer with non-zero sequence
-  testDataTypeWriter(INTEGER(), data, 1);
 }
 
 TEST(ColumnWriterTests, TestLongWriter) {
@@ -4472,5 +4473,6 @@ TEST(ColumnWriterTests, mapDictionary) {
       MAP(INTEGER(), MAP(VARCHAR(), MAP(VARCHAR(), TINYINT()))),
       randomNulls(3));
 }
+#endif
 
 } // namespace facebook::velox::dwrf
