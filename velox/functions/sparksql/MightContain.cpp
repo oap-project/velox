@@ -56,13 +56,7 @@ class BloomFilterMightContainFunction final : public exec::VectorFunction {
       return;
     }
 
-    rows.applyToSelected([&](int row) {
-      BloomFilter output{StlAllocator<uint64_t>(&allocator)};
-      output.merge(serialized->valueAt<StringView>(0).str().c_str());
-      auto contain = output.mayContain(
-          folly::hasher<int64_t>()(value->valueAt<int64_t>(row)));
-      result.set(row, contain);
-    });
+    VELOX_FAIL("serialized bloom filter should be constant");
   }
 };
 } // namespace
@@ -70,7 +64,7 @@ class BloomFilterMightContainFunction final : public exec::VectorFunction {
 std::vector<std::shared_ptr<exec::FunctionSignature>> mightContainSignatures() {
   return {exec::FunctionSignatureBuilder()
               .returnType("boolean")
-              .argumentType("varbinary")
+              .constantArgumentType("varbinary")
               .argumentType("bigint")
               .build()};
 }
