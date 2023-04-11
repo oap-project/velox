@@ -246,8 +246,9 @@ class AbsFunction final : public exec::VectorFunction {
       VectorPtr& resultRef) const final {
     VELOX_CHECK_EQ(args.size(), 1);
     auto inputType = args[0]->type();
-    VELOX_CHECK(inputType->isShortDecimal() || inputType->isLongDecimal(),
-      "ShortDecimal or LongDecimal type is required.");
+    VELOX_CHECK(
+        inputType->isShortDecimal() || inputType->isLongDecimal(),
+        "ShortDecimal or LongDecimal type is required.");
 
     exec::DecodedArgs decodedArgs(rows, args, context);
     auto decimalVector = decodedArgs.at(0);
@@ -388,8 +389,7 @@ std::shared_ptr<exec::VectorFunction> makeAbs(
     case TypeKind::LONG_DECIMAL:
       return std::make_shared<AbsFunction<UnscaledLongDecimal>>();
     default:
-      VELOX_FAIL(
-          "Not support this type {} in abs", type->kindName())
+      VELOX_FAIL("Not support this type {} in abs", type->kindName())
   }
 }
 

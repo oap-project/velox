@@ -101,7 +101,8 @@ class ReaderBase {
 
   static std::shared_ptr<const RowType> createRowType(
       std::vector<std::shared_ptr<const ParquetTypeWithId::TypeWithId>>
-          children, bool caseSensitive = true);
+          children,
+      bool caseSensitive = true);
 
   memory::MemoryPool& pool_;
   const uint64_t directorySizeGuess_;

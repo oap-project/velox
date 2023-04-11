@@ -229,7 +229,8 @@ struct CorrResultAccessor {
   }
 
   static double result(const CorrAccumulator& accumulator) {
-    // Need to modify the calculation order to maintain the same accuracy as spark
+    // Need to modify the calculation order to maintain the same accuracy as
+    // spark
     return accumulator.c2() / std::sqrt(accumulator.m2X() * accumulator.m2Y());
   }
 };

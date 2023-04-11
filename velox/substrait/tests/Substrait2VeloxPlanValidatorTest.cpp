@@ -35,7 +35,6 @@ namespace vestrait = facebook::velox::substrait;
 class Substrait2VeloxPlanConversionTest
     : public exec::test::HiveConnectorTestBase {
  protected:
-
   std::shared_ptr<vestrait::SubstraitVeloxPlanConverter> planConverter_ =
       std::make_shared<vestrait::SubstraitVeloxPlanConverter>(
           memoryPool_.get());

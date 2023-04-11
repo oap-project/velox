@@ -54,7 +54,8 @@ std::unique_ptr<Subfield::PathElement> Tokenizer::computeNext() {
     return nullptr;
   }
 
-  // No need to tokenizing the path by dot because Spark treats dot as regular character.
+  // No need to tokenizing the path by dot because Spark treats dot as regular
+  // character.
   /*
   if (tryMatch(DOT)) {
     std::unique_ptr<Subfield::PathElement> token = matchPathSegment();

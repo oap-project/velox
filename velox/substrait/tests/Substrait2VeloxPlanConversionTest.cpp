@@ -324,5 +324,4 @@ TEST_F(Substrait2VeloxPlanConversionTest, filterUpper) {
   facebook::velox::substrait::SubstraitVeloxPlanConverter planConverter(
       pool_.get());
   auto planNode = planConverter.toVeloxPlan(substraitPlan);
-  
 }

@@ -347,9 +347,9 @@ struct SubstrFunction {
     if (start < 0) {
       start = numCharacters + start + 1;
     }
-    
-    // Following vanilla spark semantics. When the start is 0 after adjusing start,
-    // Keep the origin input. 
+
+    // Following vanilla spark semantics. When the start is 0 after adjusing
+    // start, Keep the origin input.
     if (start <= 0) {
       start = 1;
       length = numCharacters;

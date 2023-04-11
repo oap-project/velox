@@ -155,22 +155,19 @@ struct YearFunction : public InitSessionTimezone<T>,
   }
 
   template <typename TInput>
-  FOLLY_ALWAYS_INLINE
-  void call(
+  FOLLY_ALWAYS_INLINE void call(
       TInput& result,
       const arg_type<Timestamp>& timestamp) {
     result = getYear(getDateTime(timestamp, this->timeZone_));
   }
 
   template <typename TInput>
-  FOLLY_ALWAYS_INLINE
-  void call(TInput& result, const arg_type<Date>& date) {
+  FOLLY_ALWAYS_INLINE void call(TInput& result, const arg_type<Date>& date) {
     result = getYear(getDateTime(date));
   }
 
   template <typename TInput>
-  FOLLY_ALWAYS_INLINE
-  void call(
+  FOLLY_ALWAYS_INLINE void call(
       TInput& result,
       const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
     auto timestamp = this->toTimestamp(timestampWithTimezone);

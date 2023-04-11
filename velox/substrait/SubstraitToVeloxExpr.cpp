@@ -378,7 +378,7 @@ SubstraitVeloxExprConverter::toVeloxExpr(
             veloxType, variant::longDecimal(std::nullopt, veloxType));
       } else {
         return std::make_shared<core::ConstantTypedExpr>(
-          veloxType, variant::null(veloxType->kind()));
+            veloxType, variant::null(veloxType->kind()));
       }
     }
     case ::substrait::Expression_Literal::LiteralTypeCase::kDate:

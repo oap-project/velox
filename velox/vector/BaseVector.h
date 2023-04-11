@@ -674,7 +674,8 @@ class BaseVector {
   // from a not-unknown 'right'.
   static bool compatibleKind(TypeKind left, TypeKind right) {
     // Vectors of VARCHAR and VARBINARY are compatible with each other.
-    bool varcharAndBinary = (left == TypeKind::VARCHAR && right == TypeKind::VARBINARY) ||
+    bool varcharAndBinary =
+        (left == TypeKind::VARCHAR && right == TypeKind::VARBINARY) ||
         (left == TypeKind::VARBINARY && right == TypeKind::VARCHAR);
     return left == right || right == TypeKind::UNKNOWN || varcharAndBinary;
   }

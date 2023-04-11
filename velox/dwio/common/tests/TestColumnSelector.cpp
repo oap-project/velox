@@ -15,10 +15,10 @@
  */
 
 #include <gtest/gtest.h>
+#include "velox/common/base/VeloxException.h"
 #include "velox/dwio/common/ColumnSelector.h"
 #include "velox/dwio/type/fbhive/HiveTypeParser.h"
 #include "velox/type/Type.h"
-#include "velox/common/base/VeloxException.h"
 
 using namespace facebook::velox::dwio::common;
 using facebook::velox::RowType;
@@ -644,9 +644,6 @@ TEST(TestColumnSelector, testCaseInsensitiveDuplicateColFilters) {
                              "extra:string>"));
 
   EXPECT_THROW(
-      ColumnSelector cs(
-          schema,
-          std::vector<std::string>{"id"}, nullptr, false),
+      ColumnSelector cs(schema, std::vector<std::string>{"id"}, nullptr, false),
       facebook::velox::VeloxException);
 }
-

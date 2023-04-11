@@ -16,6 +16,7 @@
 #pragma once
 
 #include "velox/connectors/hive/FileHandle.h"
+#include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/dwio/common/CachedBufferedInput.h"
@@ -27,7 +28,6 @@
 #include "velox/expression/Expr.h"
 #include "velox/type/Filter.h"
 #include "velox/type/Subfield.h"
-#include "velox/connectors/hive/HiveConfig.h"
 
 namespace facebook::velox::connector::hive {
 

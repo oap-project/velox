@@ -176,7 +176,7 @@ struct UnscaledLongDecimal {
     memcpy(&ans.unscaledValue_, serializedData, sizeof(int128_t));
     return ans;
   }
-  
+
   UnscaledLongDecimal plus(const UnscaledLongDecimal& a, bool* overflow) {
     int128_t result;
     *overflow =
@@ -187,7 +187,7 @@ struct UnscaledLongDecimal {
     }
     return UnscaledLongDecimal(result);
   }
-  
+
   UnscaledLongDecimal minus(const UnscaledLongDecimal& a, bool* overflow) {
     int128_t result;
     *overflow =

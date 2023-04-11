@@ -445,16 +445,17 @@ class DecimalAverageAggregate : public exec::Aggregate {
   inline static std::pair<uint8_t, uint8_t> adjustPrecisionScale(
       const uint8_t precision,
       const uint8_t scale) {
-      VELOX_CHECK(scale >= 0);
-      VELOX_CHECK(precision >= scale);
-      if (precision <= 38) {
-        return {precision, scale};
-      } else {
-        uint8_t intDigits = precision - scale;
-        uint8_t minScaleValue = std::min(scale, (uint8_t)6);
-        uint8_t adjustedScale = std::max((uint8_t)(38 - intDigits), minScaleValue);
-        return {38, adjustedScale};
-      }
+    VELOX_CHECK(scale >= 0);
+    VELOX_CHECK(precision >= scale);
+    if (precision <= 38) {
+      return {precision, scale};
+    } else {
+      uint8_t intDigits = precision - scale;
+      uint8_t minScaleValue = std::min(scale, (uint8_t)6);
+      uint8_t adjustedScale =
+          std::max((uint8_t)(38 - intDigits), minScaleValue);
+      return {38, adjustedScale};
+    }
   }
 
   DecodedVector decodedRaw_;

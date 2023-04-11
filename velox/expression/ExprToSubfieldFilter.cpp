@@ -163,7 +163,8 @@ std::unique_ptr<common::Filter> makeLessThanOrEqualFilter(
     case TypeKind::DATE:
       return lessThanOrEqual(singleValue<Date>(upper).days());
     case TypeKind::SHORT_DECIMAL:
-      return lessThanOrEqual(singleValue<UnscaledShortDecimal>(upper).unscaledValue());
+      return lessThanOrEqual(
+          singleValue<UnscaledShortDecimal>(upper).unscaledValue());
     default:
       return nullptr;
   }
@@ -225,7 +226,8 @@ std::unique_ptr<common::Filter> makeGreaterThanOrEqualFilter(
     case TypeKind::DATE:
       return greaterThanOrEqual(singleValue<Date>(lower).days());
     case TypeKind::SHORT_DECIMAL:
-      return greaterThanOrEqual(singleValue<UnscaledShortDecimal>(lower).unscaledValue());
+      return greaterThanOrEqual(
+          singleValue<UnscaledShortDecimal>(lower).unscaledValue());
     default:
       return nullptr;
   }
@@ -256,7 +258,8 @@ std::unique_ptr<common::Filter> makeGreaterThanFilter(
     case TypeKind::DATE:
       return greaterThan(singleValue<Date>(lower).days());
     case TypeKind::SHORT_DECIMAL:
-      return greaterThan(singleValue<UnscaledShortDecimal>(lower).unscaledValue());
+      return greaterThan(
+          singleValue<UnscaledShortDecimal>(lower).unscaledValue());
     default:
       return nullptr;
   }

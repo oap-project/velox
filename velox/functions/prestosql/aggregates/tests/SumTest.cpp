@@ -214,7 +214,8 @@ TEST_F(SumTest, sumTinyint) {
 }
 
 TEST_F(SumTest, sumBigIntOverflow) {
-  auto data = makeRowVector({makeFlatVector<int64_t>({-9223372036854775806L, -100, 3400})});
+  auto data = makeRowVector(
+      {makeFlatVector<int64_t>({-9223372036854775806L, -100, 3400})});
   createDuckDbTable({data});
 
   testAggregations(

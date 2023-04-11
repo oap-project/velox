@@ -196,12 +196,14 @@ void HashAggregation::addInput(RowVectorPtr input) {
     uint64_t kDefaultFlushMemory = 1L << 24;
     if (groupingSet_->allocatedBytes() > kDefaultFlushMemory &&
         numInputVectors_ % 15 == 0) {
-      double ratio = (double)(groupingSet_->numDistincts()) / (double)numInputRows_;
+      double ratio =
+          (double)(groupingSet_->numDistincts()) / (double)numInputRows_;
       // Indicator of high cardinality.
       if (ratio > 0.9) {
         partialFull_ = true;
       }
-    } else if (groupingSet_->allocatedBytes() > maxPartialAggregationMemoryUsage_) {
+    } else if (
+        groupingSet_->allocatedBytes() > maxPartialAggregationMemoryUsage_) {
       partialFull_ = true;
     }
   }

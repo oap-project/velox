@@ -46,8 +46,8 @@ struct PModIntFunction {
 template <typename T>
 struct PModFloatFunction {
   template <typename TInput>
-  FOLLY_ALWAYS_INLINE bool call(TInput& result, const TInput a, const TInput n)
-  {
+  FOLLY_ALWAYS_INLINE bool
+  call(TInput& result, const TInput a, const TInput n) {
     if (UNLIKELY(n == (TInput)0)) {
       return false;
     }
