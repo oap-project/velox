@@ -25,7 +25,7 @@ namespace facebook::velox::functions::sparksql::aggregates {
 struct DecimalSum {
   int128_t sum{0};
   int64_t overflow{0};
-  int32_t isEmpty{1};
+  bool isEmpty{true};
 
   void mergeWith(const DecimalSum& other) {
     this->overflow += other.overflow;
@@ -124,14 +124,16 @@ class DecimalSumAggregate : public exec::Aggregate {
     VELOX_CHECK_EQ((*result)->encoding(), VectorEncoding::Simple::ROW);
     auto rowVector = (*result)->as<RowVector>();
     auto sumVector = rowVector->childAt(0)->asFlatVector<TResultType>();
-    auto isEmptyVector = rowVector->childAt(1)->asFlatVector<int32_t>();
+    auto isEmptyVector = rowVector->childAt(1)->asFlatVector<bool>();
 
     rowVector->resize(numGroups);
     sumVector->resize(numGroups);
     isEmptyVector->resize(numGroups);
 
     TResultType* rawSums = sumVector->mutableRawValues();
-    int32_t* rawIsEmpty = isEmptyVector->mutableRawValues();
+    // Bool uses compact representation, use mutableRawValues<uint64_t> and
+    // bits::setBit instead.
+    auto* rawIsEmpty = isEmptyVector->mutableRawValues<uint64_t>();
     uint64_t* rawNulls = getRawNulls(rowVector);
 
     for (auto i = 0; i < numGroups; ++i) {
@@ -143,12 +145,12 @@ class DecimalSumAggregate : public exec::Aggregate {
         auto* decimalSum = accumulator(group);
         try {
           rawSums[i] = computeFinalValue(decimalSum, sumVector->type());
-          rawIsEmpty[i] = decimalSum->isEmpty;
+          bits::setBit(rawIsEmpty, i, decimalSum->isEmpty);
         } catch (const VeloxException& err) {
           if (err.message().find("overflow") != std::string::npos) {
             // find overflow in computation
             sumVector->setNull(i, true);
-            rawIsEmpty[i] = false;
+            bits::setBit(rawIsEmpty, i, false);
           } else {
             VELOX_FAIL("compute sum failed");
           }
