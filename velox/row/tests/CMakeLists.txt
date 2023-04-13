@@ -13,7 +13,7 @@
 # limitations under the License.
 
 add_executable(
-  velox_row_test UnsafeRowSerializerTest.cpp UnsafeRowDeserializerTest.cpp
+  velox_row_test UnsafeRowSerializerTest.cpp UnsafeRowDeserializerTest.cpp UnsafeRowBatchDeserializerTest.cpp
                  UnsafeRowFuzzTests.cpp)
 
 add_test(velox_row_test velox_row_test)
