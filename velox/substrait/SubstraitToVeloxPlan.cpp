@@ -504,10 +504,58 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
 
   const auto& inputType = childNode->outputType();
 
-  std::vector<std::vector<core::FieldAccessTypedExprPtr>> groupingSetExprs;
-  groupingSetExprs.reserve(expandRel.groupings_size());
+  std::vector<std::vector<core::TypedExprPtr>> projectSetExprs;
+  projectSetExprs.reserve(expandRel.projections_size());
+  
+  for (const auto& projections : expandRel.projections()) {
+    std::vector<core::TypedExprPtr> projectExprs;
+    projectExprs.reserve(projections.projectionsets_expressions_size());
 
-  for (const auto& grouping : expandRel.groupings()) {
+    for (const auto& projectExpr : projections.projectionsets_expressions()) {
+      if (projectExpr.has_selection()) {
+        auto expression =
+          exprConverter_->toVeloxExpr(projectExpr.selection(), inputType);
+        projectExprs.emplace_back(expression);
+      } else if (projectExpr.has_literal()) {
+        auto expression =
+          exprConverter_->toVeloxExpr(projectExpr.literal());
+        projectExprs.emplace_back(expression);
+      } else {
+        VELOX_FAIL("The project in Expand Operator only support field or literal.");
+      }
+    }
+    projectSetExprs.emplace_back(projectExprs);
+  }
+
+  auto projectSize = expandRel.projections()[0].projectionsets_expressions_size();
+  std::vector<std::string> names;
+  names.reserve(projectSize);
+  for (int idx = 0; idx < projectSize; idx++) {
+    names.push_back(subParser_->makeNodeName(planNodeId_, idx));
+  }
+
+  return std::make_shared<core::ExpandNode>(
+      nextPlanNodeId(),
+      projectSetExprs,
+      std::move(names),
+      childNode);
+}
+
+core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
+    const ::substrait::GroupIdRel& groupIdRel) {
+  core::PlanNodePtr childNode;
+  if (groupIdRel.has_input()) {
+    childNode = toVeloxPlan(groupIdRel.input());
+  } else {
+    VELOX_FAIL("Child Rel is expected in GroupIdRel.");
+  }
+
+  const auto& inputType = childNode->outputType();
+
+  std::vector<std::vector<core::FieldAccessTypedExprPtr>> groupingSetExprs;
+  groupingSetExprs.reserve(groupIdRel.groupings_size());
+
+  for (const auto& grouping : groupIdRel.groupings()) {
     std::vector<core::FieldAccessTypedExprPtr> groupingExprs;
     groupingExprs.reserve(grouping.groupsets_expressions_size());
 
@@ -518,7 +566,7 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
           dynamic_cast<const core::FieldAccessTypedExpr*>(expression.get());
       VELOX_CHECK(
           expr_field != nullptr,
-          " the group set key in Expand Operator only support field")
+          " the group set key in GroupId Operator only support field")
 
       groupingExprs.emplace_back(
           std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
@@ -544,13 +592,13 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
 
   std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> aggExprs;
 
-  for (const auto& aggExpr : expandRel.aggregate_expressions()) {
+  for (const auto& aggExpr : groupIdRel.aggregate_expressions()) {
     auto expression = exprConverter_->toVeloxExpr(aggExpr, inputType);
     auto expr_field =
         dynamic_cast<const core::FieldAccessTypedExpr*>(expression.get());
     VELOX_CHECK(
         expr_field != nullptr,
-        " the agg key in Expand Operator only support field");
+        " the agg key in GroupId Operator only support field");
     auto filed =
         std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(expression);
     aggExprs.emplace_back(filed);
@@ -561,7 +609,7 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
       groupingSetExprs,
       std::move(groupingKeyInfos),
       aggExprs,
-      std::move(expandRel.group_name()),
+      std::move(groupIdRel.group_name()),
       childNode);
 }
 
@@ -1103,6 +1151,9 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
   }
   if (sRel.has_window()) {
     return toVeloxPlan(sRel.window());
+  }
+  if (sRel.has_group_id()) {
+    return toVeloxPlan(sRel.group_id());
   }
   VELOX_NYI("Substrait conversion not supported for Rel.");
 }

@@ -25,6 +25,7 @@ add_library(
   Driver.cpp
   EnforceSingleRow.cpp
   Exchange.cpp
+  Expand.cpp
   FilterProject.cpp
   GroupId.cpp
   GroupingSet.cpp

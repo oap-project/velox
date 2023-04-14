@@ -173,11 +173,83 @@ bool SubstraitToVeloxPlanValidator::validate(
     return false;
   }
   // Get and validate the input types from extension.
-  if (!expandRel.has_advanced_extension()) {
-    std::cout << "Input types are expected in ExpandRel." << std::endl;
+  if (!sExpand.has_advanced_extension()) {
+    LOG(INFO) << "Input types are expected in ExpandRel.";
     return false;
   }
   const auto& extension = expandRel.advanced_extension();
+  std::vector<TypePtr> types;
+  if (!validateInputTypes(extension, types)) {
+    LOG(INFO) << "Validation failed for input types in ExpandRel.";
+    return false;
+  }
+
+  int32_t inputPlanNodeId = 0;
+  std::vector<std::string> names;
+  names.reserve(types.size());
+  for (auto colIdx = 0; colIdx < types.size(); colIdx++) {
+    names.emplace_back(subParser_->makeNodeName(inputPlanNodeId, colIdx));
+  }
+  auto rowType = std::make_shared<RowType>(std::move(names), std::move(types));
+  int32_t projectSize = 0;
+  // Validate projections.
+  for (const auto& projections : sExpand.projections()) {
+    std::vector<std::shared_ptr<const core::ITypedExpr>> expressions;
+    auto projectExprs = projections.projectionsets_expressions();
+    expressions.reserve(projectExprs.size());
+    if (projectSize == 0) {
+      projectSize = projectExprs.size();
+    } else if (projectSize != projectExprs.size()) {
+      LOG(INFO) << "Project expressions size should be constant.";
+      return false;
+    }
+
+    try {
+      for (const auto& projectExpr : projectExprs) {
+        const auto& typeCase = projectExpr.rex_type_case();
+        switch (typeCase) {
+          case ::substrait::Expression::RexTypeCase::kSelection:
+          case ::substrait::Expression::RexTypeCase::kLiteral:
+            break;
+          default:
+            std::cout <<
+              "Only field or literal is supported in groupings." << std::endl;
+            return false;
+        }
+        expressions.emplace_back(
+          exprConverter_->toVeloxExpr(projectExpr,
+          rowType));
+      }
+      // Try to compile the expressions. If there is any unregistered function
+      // or mismatched type, exception will be thrown.
+      exec::ExprSet exprSet(std::move(expressions), execCtx_);
+    } catch (const VeloxException& err) {
+      LOG(INFO) << "Validation failed for expressions in ExpandRel due to:"
+                << err.message();
+      return false;
+    }
+    
+  }
+
+  if (sExpand.projections_size() < 2) {
+    LOG(INFO) << "SparkExpandNode requires two or more projection sets." << std::to_string(sExpand.projections_size());
+    return false;
+  }
+
+  return true;
+}
+
+bool SubstraitToVeloxPlanValidator::validate(
+    const ::substrait::GroupIdRel& sGroupId) {
+  if (sGroupId.has_input() && !validate(sGroupId.input())) {
+    return false;
+  }
+  // Get and validate the input types from extension.
+  if (!sGroupId.has_advanced_extension()) {
+    std::cout << "Input types are expected in ExpandRel." << std::endl;
+    return false;
+  }
+  const auto& extension = sGroupId.advanced_extension();
   std::vector<TypePtr> types;
   if (!validateInputTypes(extension, types)) {
     std::cout << "Validation failed for input types in ExpandRel." << std::endl;
@@ -193,7 +265,7 @@ bool SubstraitToVeloxPlanValidator::validate(
   auto rowType = std::make_shared<RowType>(std::move(names), std::move(types));
 
   // Validate the expand agg expressions.
-  const auto& aggExprs = expandRel.aggregate_expressions();
+  const auto& aggExprs = sGroupId.aggregate_expressions();
   std::vector<std::shared_ptr<const core::ITypedExpr>> expressions;
   expressions.reserve(aggExprs.size());
 
@@ -211,7 +283,7 @@ bool SubstraitToVeloxPlanValidator::validate(
   }
 
   // Validate groupings.
-  for (const auto& grouping : expandRel.groupings()) {
+  for (const auto& grouping : sGroupId.groupings()) {
     for (const auto& groupingExpr : grouping.groupsets_expressions()) {
       const auto& typeCase = groupingExpr.rex_type_case();
       switch (typeCase) {
@@ -224,7 +296,7 @@ bool SubstraitToVeloxPlanValidator::validate(
     }
   }
   // GroupIdNode constructor check
-  if (expandRel.groupings_size() < 2) {
+  if (sGroupId.groupings_size() < 2) {
     LOG(INFO) << "GroupIdNode requires two or more grouping sets.";
     return false;
   }
@@ -971,6 +1043,9 @@ bool SubstraitToVeloxPlanValidator::validate(const ::substrait::Rel& rel) {
   }
   if (rel.has_window()) {
     return validate(rel.window());
+  }
+  if (sRel.has_group_id()) {
+    return validate(sRel.group_id());
   }
   return false;
 }

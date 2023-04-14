@@ -355,7 +355,7 @@ message ExchangeRel {
   }
 }
 
-message ExpandRel {
+message GroupIdRel {
   RelCommon common = 1;
   Rel input = 2;
 
@@ -369,6 +369,19 @@ message ExpandRel {
   }
 
   string group_name = 5;
+
+  substrait.extensions.AdvancedExtension advanced_extension = 10;
+}
+
+message ExpandRel {
+  RelCommon common = 1;
+  Rel input = 2;
+
+  repeated ProjectionSets projections = 3;
+
+  message ProjectionSets {
+    repeated Expression projectionSets_expressions = 1;
+  }
 
   substrait.extensions.AdvancedExtension advanced_extension = 10;
 }
@@ -401,8 +414,9 @@ message Rel {
     //Physical relations
     HashJoinRel hash_join = 13;
     MergeJoinRel merge_join = 14;
-    ExpandRel expand = 15;
+    GroupIdRel group_id = 15;
     WindowRel window = 16;
+    ExpandRel expand = 18;
   }
 }
 
