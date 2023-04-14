@@ -59,11 +59,11 @@ if(VELOX_ENABLE_ARROW)
                                       ${THRIFT_INCLUDE_DIR})
   set_property(TARGET thrift PROPERTY IMPORTED_LOCATION ${THRIFT_LIB})
 
-  set(VELOX_ARROW_BUILD_VERSION 8.0.0)
+  set(VELOX_ARROW_BUILD_VERSION 11.0.0)
   set(VELOX_ARROW_BUILD_SHA256_CHECKSUM
-      ad9a05705117c989c116bae9ac70492fe015050e1b80fb0e38fde4b5d863aaa3)
+      4c720f943eeb00924081a2d06c5c6d9b743411cba0a1f82f661d37f5634badea)
   set(VELOX_ARROW_SOURCE_URL
-      "https://dlcdn.apache.org/arrow/arrow-${VELOX_ARROW_BUILD_VERSION}/apache-arrow-${VELOX_ARROW_BUILD_VERSION}.tar.gz"
+      "https://github.com/oap-project/arrow/archive/refs/tags/v${VELOX_ARROW_BUILD_VERSION}-gluten-1.0.0.tar.gz"
   )
 
   resolve_dependency_url(ARROW)
@@ -71,7 +71,7 @@ if(VELOX_ENABLE_ARROW)
   ExternalProject_Add(
     arrow_ep
     PREFIX ${ARROW_PREFIX}
-    URL "https://github.com/oap-project/arrow/archive/refs/tags/v11.0.0-gluten-1.0.0.tar.gz"
+    URL ${VELOX_ARROW_SOURCE_URL}
     SOURCE_SUBDIR cpp
     CMAKE_ARGS ${ARROW_CMAKE_ARGS}
     BUILD_BYPRODUCTS ${ARROW_LIBDIR}/libarrow.a ${ARROW_LIBDIR}/libparquet.a
