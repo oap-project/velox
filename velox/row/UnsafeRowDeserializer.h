@@ -1037,7 +1037,8 @@ struct UnsafeRowDynamicVectorDeserializer {
   static VectorPtr convertPrimitiveIteratorsToVectors(
       std::vector<DataIteratorPtr>::iterator dataIterators,
       memory::MemoryPool* pool,
-      size_t numIteratorsToProcess,int32_t numFields = 1,
+      size_t numIteratorsToProcess,
+      int32_t numFields = 1,
       int fieldsIdx = 0) {
     TypePtr type = (*dataIterators)->type();
     assert(type->isPrimitiveType());

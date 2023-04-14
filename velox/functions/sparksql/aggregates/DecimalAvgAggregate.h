@@ -297,12 +297,12 @@ class DecimalAverageAggregate : public exec::Aggregate {
     if ((accumulator->overflow == 1 && accumulator->sum < 0) ||
         (accumulator->overflow == -1 && accumulator->sum > 0)) {
       sum = static_cast<int128_t>(
-              DecimalUtil::kOverflowMultiplier * accumulator->overflow +
-                      accumulator->sum);
+          DecimalUtil::kOverflowMultiplier * accumulator->overflow +
+          accumulator->sum);
     } else {
       VELOX_CHECK(
-              accumulator->overflow == 0,
-              "overflow: decimal avg struct overflow not eq 0");
+          accumulator->overflow == 0,
+          "overflow: decimal avg struct overflow not eq 0");
     }
 
     auto [resultPrecision, resultScale] =
@@ -336,12 +336,7 @@ class DecimalAverageAggregate : public exec::Aggregate {
           UnscaledLongDecimal,
           UnscaledLongDecimal,
           UnscaledLongDecimal>(
-          avg,
-          UnscaledLongDecimal(sum),
-          countDecimal,
-          false,
-          sumRescale,
-          0);
+          avg, UnscaledLongDecimal(sum), countDecimal, false, sumRescale, 0);
     }
     auto castedAvg =
         DecimalUtil::rescaleWithRoundUp<UnscaledLongDecimal, TResultType>(

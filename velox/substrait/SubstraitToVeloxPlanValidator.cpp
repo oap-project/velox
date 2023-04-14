@@ -95,11 +95,44 @@ bool SubstraitToVeloxPlanValidator::validateRound(
 bool SubstraitToVeloxPlanValidator::validateScalarFunction(
     const ::substrait::Expression::ScalarFunction& scalarFunction,
     const RowTypePtr& inputType) {
-  const auto& veloxFunction = subParser_->findVeloxFunction(
+  const auto& function = subParser_->findSubstraitFuncSpec(
       planConverter_->getFunctionMap(), scalarFunction.function_reference());
-  if (veloxFunction == "round") {
+  const auto& name = subParser_->getSubFunctionName(function);
+  std::vector<std::string> types;
+  subParser_->getSubFunctionTypes(function, types);
+  if (name == "round") {
     return validateRound(scalarFunction, inputType);
   }
+  if (name == "char_length") {
+    VELOX_CHECK(types.size() == 1);
+    if (types[0] == "vbin") {
+      VLOG(1) << "Binary type is not supported in " << name << ".";
+      return false;
+    }
+  }
+  std::unordered_set<std::string> functions = {
+      "regexp_replace",
+      "split",
+      "split_part",
+      "factorial",
+      "concat_ws",
+      "rand",
+      "json_array_length",
+      "from_unixtime",
+      "to_unix_timestamp",
+      "unix_timestamp",
+      "repeat",
+      "translate",
+      "add_months",
+      "date_format",
+      "trunc",
+      "sequence",
+      "posexplode"};
+  if (functions.find(name) != functions.end()) {
+    VLOG(1) << "Function is not supported: " << name << ".";
+    return false;
+  }
+
   return true;
 }
 
@@ -326,6 +359,17 @@ bool SubstraitToVeloxPlanValidator::validate(
     } catch (const VeloxException& err) {
       std::cout << "Validation failed for window function due to: "
                 << err.message() << std::endl;
+      return false;
+    }
+  }
+
+  // Validate supported aggregate functions.
+  std::unordered_set<std::string> unsupportedFuncs = {"collect_list"};
+  for (const auto& funcSpec : funcSpecs) {
+    auto funcName = subParser_->getSubFunctionName(funcSpec);
+    if (unsupportedFuncs.find(funcName) != unsupportedFuncs.end()) {
+      std::cout << "Validation failed due to " << funcName
+                << " was not supported in WindowRel." << std::endl;
       return false;
     }
   }
