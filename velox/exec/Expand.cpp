@@ -32,22 +32,21 @@ Expand::Expand(
   projectMappings_.reserve(numProjectSets);
   constantMappings_.reserve(numProjectSets);
   auto numProjects = expandNode->names().size();
-  core::ConstantTypedExpr constPlaceholder(INTEGER(), 0);
   for (const auto& projectSet : expandNode->projectSets()) {
     std::vector<column_index_t> projectMapping;
     projectMapping.reserve(numProjects);
-    std::vector<core::ConstantTypedExpr> constantMapping;
+    std::vector<ConstantTypedExprPtr> constantMapping;
     constantMapping.reserve(numProjects);
     for (const auto& project : projectSet) {
       if (auto field =
         std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(project)) {
         projectMapping.push_back(inputType->getChildIdx(field->name()));
-        constantMapping.push_back(constPlaceholder);
+        constantMapping.push_back(nullptr);
       } else if (
         auto constant =
           std::dynamic_pointer_cast<const core::ConstantTypedExpr>(project)) {
         projectMapping.push_back(kUnMapedProject);
-        constantMapping.push_back(*constant);
+        constantMapping.push_back(constant);
       } else {
         VELOX_FAIL("Unexpted expression for Expand");
       }
@@ -88,15 +87,15 @@ RowVectorPtr Expand::getOutput() {
   for (auto i = 0; i < numGroupingKeys; ++i) {
     if (projectMapping[i] == kUnMapedProject) {
       auto constantExpr = constantMapping[i];
-      if (constantExpr.value().isNull()) {
+      if (constantExpr->value().isNull()) {
         // Add null column.
         outputColumns[i] = BaseVector::createNullConstant(
           outputType_->childAt(i), numInput, pool());
       } else {
         // Add constant column: gid, gpos, etc.
         outputColumns[i] = BaseVector::createConstant(
-          constantExpr.type(),
-          constantExpr.value(),
+          constantExpr->type(),
+          constantExpr->value(),
           numInput,
           pool());
       }

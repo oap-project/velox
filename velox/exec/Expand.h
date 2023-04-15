@@ -19,6 +19,8 @@
 
 namespace facebook::velox::exec {
 
+using ConstantTypedExprPtr = std::shared_ptr<const core::ConstantTypedExpr>;
+
 class Expand : public Operator {
  public:
   Expand(
@@ -48,7 +50,7 @@ class Expand : public Operator {
 
   std::vector<std::vector<column_index_t>> projectMappings_;
 
-  std::vector<std::vector<core::ConstantTypedExpr>> constantMappings_;
+  std::vector<std::vector<ConstantTypedExprPtr>> constantMappings_;
 
   /// 'getOutput()' returns 'input_' for one grouping set at a time.
   /// 'groupingSetIndex_' contains the index of the grouping set to output in
