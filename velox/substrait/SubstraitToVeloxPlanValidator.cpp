@@ -228,12 +228,6 @@ bool SubstraitToVeloxPlanValidator::validate(
                 << err.message();
       return false;
     }
-    
-  }
-
-  if (sExpand.projections_size() < 2) {
-    LOG(INFO) << "SparkExpandNode requires two or more projection sets." << std::to_string(sExpand.projections_size());
-    return false;
   }
 
   return true;
