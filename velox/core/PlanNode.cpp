@@ -321,12 +321,7 @@ ExpandNode::ExpandNode(
           projectSets,
           names)),
       projectSets_(std::move(projectSets)),
-      names_(std::move(names)) {
-  VELOX_CHECK_GE(
-      projectSets_.size(),
-      2,
-      "ExpandNode requires two or more project sets.");
-}
+      names_(std::move(names)) {}
 
 void ExpandNode::addDetails(std::stringstream& stream) const {
   for (auto i = 0; i < projectSets_.size(); ++i) {
