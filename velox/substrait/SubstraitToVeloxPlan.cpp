@@ -505,13 +505,14 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
   const auto& inputType = childNode->outputType();
 
   std::vector<std::vector<core::TypedExprPtr>> projectSetExprs;
-  projectSetExprs.reserve(expandRel.projections_size());
+  projectSetExprs.reserve(expandRel.fields_size());
   
-  for (const auto& projections : expandRel.projections()) {
+  for (const auto& projections : expandRel.fields()) {
     std::vector<core::TypedExprPtr> projectExprs;
-    projectExprs.reserve(projections.projectionsets_expressions_size());
+    projectExprs.reserve(projections.switching_field().duplicates_size());
 
-    for (const auto& projectExpr : projections.projectionsets_expressions()) {
+    for (
+      const auto& projectExpr : projections.switching_field().duplicates()) {
       if (projectExpr.has_selection()) {
         auto expression =
           exprConverter_->toVeloxExpr(projectExpr.selection(), inputType);
@@ -527,7 +528,7 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
     projectSetExprs.emplace_back(projectExprs);
   }
 
-  auto projectSize = expandRel.projections()[0].projectionsets_expressions_size();
+  auto projectSize = expandRel.fields()[0].switching_field().duplicates_size();
   std::vector<std::string> names;
   names.reserve(projectSize);
   for (int idx = 0; idx < projectSize; idx++) {
@@ -538,78 +539,6 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
       nextPlanNodeId(),
       projectSetExprs,
       std::move(names),
-      childNode);
-}
-
-core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
-    const ::substrait::GroupIdRel& groupIdRel) {
-  core::PlanNodePtr childNode;
-  if (groupIdRel.has_input()) {
-    childNode = toVeloxPlan(groupIdRel.input());
-  } else {
-    VELOX_FAIL("Child Rel is expected in GroupIdRel.");
-  }
-
-  const auto& inputType = childNode->outputType();
-
-  std::vector<std::vector<core::FieldAccessTypedExprPtr>> groupingSetExprs;
-  groupingSetExprs.reserve(groupIdRel.groupings_size());
-
-  for (const auto& grouping : groupIdRel.groupings()) {
-    std::vector<core::FieldAccessTypedExprPtr> groupingExprs;
-    groupingExprs.reserve(grouping.groupsets_expressions_size());
-
-    for (const auto& groupingExpr : grouping.groupsets_expressions()) {
-      auto expression =
-          exprConverter_->toVeloxExpr(groupingExpr.selection(), inputType);
-      auto expr_field =
-          dynamic_cast<const core::FieldAccessTypedExpr*>(expression.get());
-      VELOX_CHECK(
-          expr_field != nullptr,
-          " the group set key in GroupId Operator only support field")
-
-      groupingExprs.emplace_back(
-          std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
-              expression));
-    }
-    groupingSetExprs.emplace_back(groupingExprs);
-  }
-
-  std::vector<core::GroupIdNode::GroupingKeyInfo> groupingKeyInfos;
-  std::set<std::string> names;
-  auto index = 0;
-  for (const auto& groupingSet : groupingSetExprs) {
-    for (const auto& groupingKey : groupingSet) {
-      if (names.find(groupingKey->name()) == names.end()) {
-        core::GroupIdNode::GroupingKeyInfo keyInfos;
-        keyInfos.output = groupingKey->name();
-        keyInfos.input = groupingKey;
-        groupingKeyInfos.push_back(keyInfos);
-      }
-      names.insert(groupingKey->name());
-    }
-  }
-
-  std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> aggExprs;
-
-  for (const auto& aggExpr : groupIdRel.aggregate_expressions()) {
-    auto expression = exprConverter_->toVeloxExpr(aggExpr, inputType);
-    auto expr_field =
-        dynamic_cast<const core::FieldAccessTypedExpr*>(expression.get());
-    VELOX_CHECK(
-        expr_field != nullptr,
-        " the agg key in GroupId Operator only support field");
-    auto filed =
-        std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(expression);
-    aggExprs.emplace_back(filed);
-  }
-
-  return std::make_shared<core::GroupIdNode>(
-      nextPlanNodeId(),
-      groupingSetExprs,
-      std::move(groupingKeyInfos),
-      aggExprs,
-      std::move(groupIdRel.group_name()),
       childNode);
 }
 
@@ -1151,9 +1080,6 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
   }
   if (sRel.has_window()) {
     return toVeloxPlan(sRel.window());
-  }
-  if (sRel.has_group_id()) {
-    return toVeloxPlan(sRel.group_id());
   }
   VELOX_NYI("Substrait conversion not supported for Rel.");
 }
