@@ -49,7 +49,6 @@ class SubstraitVeloxPlanConverter {
       memory::MemoryPool* pool,
       bool validationMode = false)
       : pool_(pool), validationMode_(validationMode) {}
-
   /// Used to convert Substrait ExpandRel into Velox PlanNode.
   core::PlanNodePtr toVeloxPlan(const ::substrait::ExpandRel& sExpand);
 

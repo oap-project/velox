@@ -169,11 +169,9 @@ bool SubstraitToVeloxPlanValidator::validate(
 
 bool SubstraitToVeloxPlanValidator::validate(
     const ::substrait::ExpandRel& expandRel) {
-  
   if (expandRel.has_input() && !validate(expandRel.input())) {
     return false;
   }
-  
   RowTypePtr rowType = nullptr;
   // Get and validate the input types from extension.
   if (expandRel.has_advanced_extension()) {
