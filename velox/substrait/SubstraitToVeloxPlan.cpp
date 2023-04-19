@@ -1722,6 +1722,12 @@ void SubstraitVeloxPlanConverter::setFilterMap(
       }
       setColInfoMap<double>(functionName, colIdxVal, val, reverse, colInfoMap);
       break;
+    case TypeKind::BOOLEAN:
+       if (substraitLit) {
+         val = variant(substraitLit.value().boolean());
+       }
+      setColInfoMap<bool>(functionName, colIdxVal, val, reverse, colInfoMap);
+      break;
     case TypeKind::VARCHAR:
       if (substraitLit) {
         val = variant(substraitLit.value().string());
