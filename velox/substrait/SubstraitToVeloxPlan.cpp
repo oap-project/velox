@@ -2137,6 +2137,10 @@ connector::hive::SubfieldFilters SubstraitVeloxPlanConverter::mapToFilters(
         constructSubfieldFilters<TypeKind::DOUBLE, common::Filter>(
             colIdx, inputNameList[colIdx], colInfoMap[colIdx], filters);
         break;
+      case TypeKind::BOOLEAN:
+        constructSubfieldFilters<TypeKind::BOOLEAN, common::BigintRange>(
+            colIdx, inputNameList[colIdx], colInfoMap[colIdx], filters);
+        break;
       case TypeKind::VARCHAR:
         constructSubfieldFilters<TypeKind::VARCHAR, common::Filter>(
             colIdx, inputNameList[colIdx], colInfoMap[colIdx], filters);

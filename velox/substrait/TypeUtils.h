@@ -68,6 +68,13 @@ struct RangeTraits<TypeKind::DOUBLE> {
 };
 
 template <>
+struct RangeTraits<TypeKind::BOOLEAN> {
+  using RangeType = common::BigintRange;
+  using MultiRangeType = common::BigintMultiRange;
+  using NativeType = bool;
+};
+
+template <>
 struct RangeTraits<TypeKind::VARCHAR> {
   using RangeType = common::BytesRange;
   using MultiRangeType = common::MultiRange;
