@@ -19,6 +19,7 @@
 #include "velox/core/Expressions.h"
 #include "velox/core/QueryConfig.h"
 #include "velox/vector/arrow/Bridge.h"
+#include "velox/vector/ComplexVectorStream.h"
 
 /// These definition should be included by user from either
 ///   1. <arrow/c/abi.h> or
@@ -261,6 +262,43 @@ class ValuesNode : public PlanNode {
   const RowTypePtr outputType_;
   const bool parallelizable_;
   const size_t repeatTimes_;
+};
+
+class ValueStreamNode : public PlanNode {
+ public:
+  ValueStreamNode(
+      const PlanNodeId& id,
+      const RowTypePtr& outputType,
+      std::shared_ptr<RowVectorStream> valueStream)
+      : PlanNode(id),
+        outputType_(outputType),
+        valueStream_(std::move(valueStream)) {
+    VELOX_CHECK_NOT_NULL(valueStream_);
+  }
+
+  const RowTypePtr& outputType() const override {
+    return outputType_;
+  }
+
+  const std::vector<PlanNodePtr>& sources() const override;
+
+  const std::shared_ptr<RowVectorStream>& rowVectorStream() const {
+    return valueStream_;
+  }
+
+  std::string_view name() const override {
+    return "ValueStream";
+  }
+
+  folly::dynamic serialize() const override {
+    VELOX_UNSUPPORTED("ValueStream plan node is not serializable");
+  }
+
+ private:
+  void addDetails(std::stringstream& stream) const override;
+
+  const RowTypePtr outputType_;
+  std::shared_ptr<RowVectorStream> valueStream_;
 };
 
 class ArrowStreamNode : public PlanNode {

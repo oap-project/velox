@@ -582,6 +582,14 @@ void ArrowStreamNode::addDetails(std::stringstream& stream) const {
   // Nothing to add.
 }
 
+const std::vector<PlanNodePtr>& ValueStreamNode::sources() const {
+  return kEmptySources;
+}
+
+void ValueStreamNode::addDetails(std::stringstream& stream) const {
+  // Nothing to add.
+}
+
 const std::vector<PlanNodePtr>& ExchangeNode::sources() const {
   return kEmptySources;
 }
