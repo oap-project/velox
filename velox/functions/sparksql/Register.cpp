@@ -173,8 +173,8 @@ void registerFunctions(const std::string& prefix) {
   exec::registerStatefulVectorFunction(
       prefix + "abs", absSignatures(), makeAbs);
   // Register bloom filter function
-  exec::registerVectorFunction(
-      prefix + "might_contain", mightContainSignatures(), makeMightContain());
+  exec::registerStatefulVectorFunction(
+      prefix + "might_contain", mightContainSignatures(), makeMightContain);
   // Register date functions.
   registerFunction<YearFunction, int32_t, Timestamp>({prefix + "year"});
   registerFunction<YearFunction, int32_t, Date>({prefix + "year"});

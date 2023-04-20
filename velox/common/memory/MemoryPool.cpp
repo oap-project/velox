@@ -351,7 +351,7 @@ void MemoryPoolImpl::allocateNonContiguous(
               release(allocBytes);
             }
           },
-          minSizeClass)) {
+          256)) {
     VELOX_CHECK(out.empty());
     VELOX_MEM_ALLOC_ERROR(fmt::format(
         "{} failed with {} pages from {}", __FUNCTION__, numPages, toString()));
