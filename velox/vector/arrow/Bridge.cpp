@@ -243,7 +243,7 @@ const char* exportArrowFormatStr(
     case TypeKind::TIMESTAMP:
       // TODO: need to figure out how we'll map this since in Velox we currently
       // store timestamps as two int64s (epoch in sec and nanos).
-      return "ttn"; // time64 [nanoseconds]
+      return "tsn:"; // timestamp [nanoseconds]
     case TypeKind::DATE:
       return "tdD"; // date32[days]
     // Complex/nested types.
@@ -326,6 +326,12 @@ void gatherFromBuffer(
       auto decimalSrc = buf.as<UnscaledShortDecimal>();
       int128_t value = decimalSrc[i].unscaledValue();
       memcpy(dst + (j++) * sizeof(int128_t), &value, sizeof(int128_t));
+    });
+  } else if (type.kind() == TypeKind::TIMESTAMP) {
+    rows.apply([&](vector_size_t i) {
+      auto tsSrc = buf.as<Timestamp>();
+      int64_t value = tsSrc[i].toMicros();
+      memcpy(dst + (j++) * sizeof(int64_t), &value, sizeof(int64_t));
     });
   } else {
     auto typeSize = type.cppSizeInBytes();
@@ -431,6 +437,7 @@ void exportFlat(
     case TypeKind::DOUBLE:
     case TypeKind::SHORT_DECIMAL:
     case TypeKind::LONG_DECIMAL:
+    case TypeKind::TIMESTAMP:
       exportValues(vec, rows, out, pool, holder);
       break;
     case TypeKind::VARCHAR:

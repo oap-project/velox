@@ -115,31 +115,27 @@ struct Timestamp {
   void toTimezone(int16_t tzID);
 
   bool operator==(const Timestamp& b) const {
-    return seconds_ == b.seconds_ && nanos_ == b.nanos_;
+    return toNanos() == b.toNanos();
   }
 
   bool operator!=(const Timestamp& b) const {
-    return seconds_ != b.seconds_ || nanos_ != b.nanos_;
+    return toNanos() != b.toNanos();
   }
 
   bool operator<(const Timestamp& b) const {
-    return seconds_ < b.seconds_ ||
-        (seconds_ == b.seconds_ && nanos_ < b.nanos_);
+    return toNanos() < b.toNanos();
   }
 
   bool operator<=(const Timestamp& b) const {
-    return seconds_ < b.seconds_ ||
-        (seconds_ == b.seconds_ && nanos_ <= b.nanos_);
+    return toNanos() <= b.toNanos();
   }
 
   bool operator>(const Timestamp& b) const {
-    return seconds_ > b.seconds_ ||
-        (seconds_ == b.seconds_ && nanos_ > b.nanos_);
+    return toNanos() > b.toNanos();
   }
 
   bool operator>=(const Timestamp& b) const {
-    return seconds_ > b.seconds_ ||
-        (seconds_ == b.seconds_ && nanos_ >= b.nanos_);
+    return toNanos() >= b.toNanos();
   }
 
   // Needed for serialization of FlatVector<Timestamp>
