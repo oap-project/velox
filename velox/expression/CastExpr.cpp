@@ -236,8 +236,8 @@ void CastExpr::applyCastWithTry(
     const BaseVector& input,
     FlatVector<To>* resultFlatVector) {
   const auto& queryConfig = context.execCtx()->queryCtx()->queryConfig();
-  // auto isCastIntByTruncate = queryConfig.isCastIntByTruncate();
-  auto isCastIntByTruncate = true;
+  auto isCastIntByTruncate = queryConfig.isCastIntByTruncate();
+
   auto* inputSimpleVector = input.as<SimpleVector<From>>();
 
   if (!isCastIntByTruncate) {
