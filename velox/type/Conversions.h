@@ -175,6 +175,9 @@ struct Converter<
       }
       if (negative) {
         for (; index < len; index++) {
+          if (v[index] == '.') {
+            break;
+          }
           if (!std::isdigit(v[index])) {
             return -1;
           }
@@ -186,6 +189,9 @@ struct Converter<
         }
       } else {
         for (; index < len; index++) {
+          if (v[index] == '.') {
+            break;
+          }
           if (!std::isdigit(v[index])) {
             return -1;
           }
