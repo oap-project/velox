@@ -663,10 +663,7 @@ class UnsafeRowComplexBatchDeserializerTests
           return StringView::makeInline("str" + std::to_string(row + index));
         });
     return makeRowVector(
-        {intVector,
-         stringVector,
-         intArrayVector,
-         stringArrayVector});
+        {intVector, stringVector, intArrayVector, stringArrayVector});
   }
 
   std::shared_ptr<memory::MemoryPool> pool_ = memory::getDefaultMemoryPool();
