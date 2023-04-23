@@ -126,6 +126,7 @@ class SubstraitParser {
       {"ends_with", "endswith"},
       {"starts_with", "startswith"},
       {"datediff", "date_diff"},
+      {"named_struct", "row_constructor"},
       {"modulus", "mod"} /*Presto functions.*/};
 
   // The map is uesd for mapping substrait type.
