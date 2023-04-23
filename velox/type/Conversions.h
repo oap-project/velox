@@ -190,7 +190,7 @@ struct Converter<
         }
       } else {
         for (; index < len; index++) {
-          if (v[index] == '.') {
+          if (v[index] == '.' && allowDecimal) {
             break;
           }
           if (!std::isdigit(v[index])) {
