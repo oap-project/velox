@@ -77,6 +77,7 @@ class CastExprTest : public functions::test::CastBaseTest {
       bool nullOnFailure = false) {
     auto rowVector = makeRowVector({data});
     auto rowType = asRowType(rowVector->type());
+
     auto castExpr = makeCastExpr(
         makeTypedExpr(fromExpression, rowType),
         expected->type(),
@@ -656,7 +657,8 @@ TEST_F(CastExprTest, toString) {
 TEST_F(CastExprTest, decimalToInt) {
   // short to short, scale up.
   auto longFlat = makeLongDecimalFlatVector({8976067200}, DECIMAL(21, 6));
-  testComplexCast("c0", longFlat, makeFlatVector<int32_t>({8976}));
+  testComplexCast(
+      "c0", longFlat, makeFlatVector<int32_t>(std::vector<int32_t>{8976}));
 }
 
 TEST_F(CastExprTest, decimalToDecimal) {
