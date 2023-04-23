@@ -224,36 +224,6 @@ TEST_F(DecimalArithmeticTest, subtract) {
       "Decimal overflow: 1 - -99999999999999999999999999999999999999");
 }
 
-TEST_F(DecimalArithmeticTest, sparkMultiply) {
-  //   auto shortFlat = makeShortDecimalFlatVector({1000, 2000}, DECIMAL(17,
-  //   3));
-  //   // Multiply short and short, returning long.
-  //   testDecimalExpr<TypeKind::LONG_DECIMAL>(
-  //       makeLongDecimalFlatVector({1000000, 4000000}, DECIMAL(35, 6)),
-  //       "multiply(c0, c1)",
-  //       {shortFlat, shortFlat});
-
-  //   auto longFlat = makeLongDecimalFlatVector({1000, 2000}, DECIMAL(21, 3));
-  //   auto longFlat1 = makeLongDecimalFlatVector({1000, 2000}, DECIMAL(21, 2));
-  //   // Multiply short and short, returning long.
-  //   testDecimalExpr<TypeKind::LONG_DECIMAL>(
-  //       makeLongDecimalFlatVector({1000000, 4000000}, DECIMAL(38, 5)),
-  //       "multiply(c0, c1)",
-  //       {longFlat, longFlat1});
-
-  //   testDecimalExpr<TypeKind::LONG_DECIMAL>(
-  //       makeLongDecimalFlatVector({1000, 4000}, DECIMAL(38, 7)),
-  //       "multiply(c0, c1)",
-  //       {makeLongDecimalFlatVector({1000, 2000}, DECIMAL(20, 5)),
-  //        makeLongDecimalFlatVector({1000, 2000}, DECIMAL(20, 5))});
-
-  testDecimalExpr<TypeKind::LONG_DECIMAL>(
-      makeLongDecimalFlatVector({1000}, DECIMAL(38, 7)),
-      "multiply(c0, c1)",
-      {makeShortDecimalFlatVector({1}, DECIMAL(10, 0)),
-       makeLongDecimalFlatVector({1123210000000000000}, DECIMAL(38, 18))});
-}
-
 TEST_F(DecimalArithmeticTest, multiply) {
   auto shortFlat = makeShortDecimalFlatVector({1000, 2000}, DECIMAL(17, 3));
   // Multiply short and short, returning long.
