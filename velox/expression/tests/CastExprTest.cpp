@@ -44,6 +44,13 @@ class CastExprTest : public functions::test::CastBaseTest {
     });
   }
 
+  void setCastIntAllowDecimalAndByTruncate(bool value) {
+    queryCtx_->setConfigOverridesUnsafe({
+        {core::QueryConfig::kCastIntAllowDecimal, std::to_string(value)},
+        {core::QueryConfig::kCastIntByTruncate, std::to_string(value)}
+    });
+  }
+
   void setCastMatchStructByName(bool value) {
     queryCtx_->setConfigOverridesUnsafe({
         {core::QueryConfig::kCastMatchStructByName, std::to_string(value)},
@@ -538,6 +545,23 @@ TEST_F(CastExprTest, errorHandling) {
 
   testCast<std::string, int8_t>(
       "tinyint", {"1", "2", "3", "100", "-100.5"}, {1, 2, 3, 100, -100}, true);
+}
+
+TEST_F(CastExprTest, allowDecimal) {
+  // Allow decimal.
+  setCastIntAllowDecimalAndByTruncate(true);
+  testCast<std::string, int32_t>(
+      "int",
+      {"-.",
+       "0.0",
+       "125.5",
+       "-128.3"},
+      {0,
+       0,
+       125,
+       -128},
+      false,
+      true);
 }
 
 constexpr vector_size_t kVectorSize = 1'000;
