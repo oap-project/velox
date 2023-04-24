@@ -59,6 +59,33 @@ class DecimalUtilOp {
     return num_occupied + maxBitsRequiredIncreaseAfterScaling(aRescale);
   }
 
+  // If we have a number with 'numLz' leading zeros, and we scale it up by
+  // 10^scale_by,
+  // this function returns the minimum number of leading zeros the result can
+  // have.
+  inline static int32_t minLeadingZerosAfterScaling(int32_t numLz, int32_t scaleBy) {
+    int32_t result = numLz - maxBitsRequiredIncreaseAfterScaling(scaleBy);
+    return result;
+  }
+
+  template <typename A, typename B>
+  inline static int32_t
+  minLeadingZeros(const A& a, const B& b, uint8_t aScale, uint8_t bScale) {
+    auto x_value_abs = std::abs(a.unscaledValue());
+
+    auto y_value_abs = std::abs(b.unscaledValue());
+    ;
+
+    int32_t x_lz = a.countLeadingZeros();
+    int32_t y_lz = b.countLeadingZeros();
+    if (aScale < bScale) {
+      x_lz = minLeadingZerosAfterScaling(x_lz, bScale - aScale);
+    } else if (aScale > bScale) {
+      y_lz = minLeadingZerosAfterScaling(y_lz, aScale - bScale);
+    }
+    return std::min(x_lz, y_lz);
+  }
+
   template <typename R, typename A, typename B>
   inline static R divideWithRoundUp(
       R& r,

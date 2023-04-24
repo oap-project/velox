@@ -191,11 +191,11 @@ class Addition {
       uint8_t aRescale,
       uint8_t bRescale,
       uint8_t /* aPrecision */,
-      uint8_t /* aScale */,
+      uint8_t aScale,
       uint8_t /* bPrecision */,
-      uint8_t /* bScale */,
-      uint8_t /* rPrecision */,
-      uint8_t /* rScale */,
+      uint8_t bScale,
+      uint8_t rPrecision,
+      uint8_t rScale,
       bool* overflow)
 #if defined(__has_feature)
 #if __has_feature(__address_sanitizer__)
@@ -203,22 +203,34 @@ class Addition {
 #endif
 #endif
   {
-    int128_t aRescaled;
-    int128_t bRescaled;
-    if (__builtin_mul_overflow(
-            a.unscaledValue(),
-            DecimalUtil::kPowersOfTen[aRescale],
-            &aRescaled) ||
-        __builtin_mul_overflow(
-            b.unscaledValue(),
-            DecimalUtil::kPowersOfTen[bRescale],
-            &bRescaled)) {
-      VELOX_ARITHMETIC_ERROR(
-          "Decimal overflow: {} + {}", a.unscaledValue(), b.unscaledValue());
-    }
-    auto res = R(aRescaled).plus(R(bRescaled), overflow);
-    if (!*overflow) {
-      r = res;
+    if (rPrecision < DecimalType<TypeKind::LONG_DECIMAL>::kMaxPrecision) {
+      int128_t aRescaled =
+          a.unscaledValue() * DecimalUtil::kPowersOfTen[aRescale];
+      int128_t bRescaled =
+          b.unscaledValue() * DecimalUtil::kPowersOfTen[bRescale];
+      r = R(aRescaled + bRescaled);
+    } else {
+      int32_t minLz =
+          DecimalUtilOp::minLeadingZeros<A, B>(a, b, aScale, bScale);
+      if (minLz >= 3) {
+        // If both numbers have at least MIN_LZ leading zeros, we can add them
+        // directly without the risk of overflow. We want the result to have at
+        // least 2 leading zeros, which ensures that it fits into the maximum
+        // decimal because 2^126 - 1 < 10^38 - 1. If both x and y have at least
+        // 3 leading zeros, then we are guaranteed that the result will have at
+        // lest 2 leading zeros.
+        int128_t aRescaled =
+            a.unscaledValue() * DecimalUtil::kPowersOfTen[aRescale];
+        int128_t bRescaled =
+            b.unscaledValue() * DecimalUtil::kPowersOfTen[bRescale];
+        auto higherScale = std::max(aScale, bScale);
+        int128_t sum = aRescaled + bRescaled;
+        r = checkAndReduceScale<R>(R(sum), higherScale - rScale);
+      } else {
+        // slower-version : add whole/fraction parts separately, and then,
+        // combine.
+        r = addLarge<R, A, B>(a, b, aScale, bScale, rScale);
+      }
     }
   }
 
@@ -232,12 +244,10 @@ class Addition {
       const uint8_t aScale,
       const uint8_t bPrecision,
       const uint8_t bScale) {
-    return {
-        std::min(
-            38,
-            std::max(aPrecision - aScale, bPrecision - bScale) +
-                std::max(aScale, bScale) + 1),
-        std::max(aScale, bScale)};
+    auto precision = std::max(aPrecision - aScale, bPrecision - bScale) +
+        std::max(aScale, bScale) + 1;
+    auto scale = std::max(aScale, bScale);
+    return adjustPrecisionScale(precision, scale);
   }
 
   inline static std::pair<uint8_t, uint8_t> adjustPrecisionScale(
@@ -253,6 +263,150 @@ class Addition {
       return {38, std::max(rScale - delta, minScale)};
     }
   }
+
+  template <typename R, typename A, typename B>
+  inline static R addLarge(
+      const A& a,
+      const B& b,
+      uint8_t aScale,
+      uint8_t bScale,
+      int32_t rScale) {
+    if (a.unscaledValue() >= 0 && b.unscaledValue() >= 0) {
+      // both positive or 0
+      return addLargePositive<R, A, B>(a, b, aScale, bScale, rScale);
+    } else if (a.unscaledValue() <= 0 && b.unscaledValue() <= 0) {
+      // both negative or 0
+      return R(-addLargePositive<R, A, B>(
+                    A(-a.unscaledValue()),
+                    B(-b.unscaledValue()),
+                    aScale,
+                    bScale,
+                    rScale)
+                    .unscaledValue());
+    } else {
+      // one positive and the other negative
+      return addLargeNegative<R, A, B>(a, b, aScale, bScale, rScale);
+    }
+  }
+
+  template <typename A>
+  inline static void
+  getWholeAndFraction(const A& value, uint32_t scale, A& whole, A& fraction) {
+    whole = A(value.unscaledValue() / DecimalUtil::kPowersOfTen[scale]);
+    fraction =
+        A(value.unscaledValue() -
+          whole.unscaledValue() * DecimalUtil::kPowersOfTen[scale]);
+  }
+
+  template <typename A>
+  inline static int128_t checkAndIncreaseScale(const A& in, int16_t delta) {
+    return (delta <= 0) ? in.unscaledValue()
+                        : in.unscaledValue() * DecimalUtil::kPowersOfTen[delta];
+  }
+
+  template <typename A>
+  inline static A checkAndReduceScale(const A& in, int32_t delta) {
+    if (delta <= 0) {
+      return in;
+    } else {
+      A r;
+      bool overflow;
+      DecimalUtilOp::divideWithRoundUp<A, A, A>(
+          r, in, A(DecimalUtil::kPowersOfTen[delta]), false, 0, 0, &overflow);
+      VELOX_DCHECK(!overflow);
+      return r;
+    }
+  }
+
+  /// Both x_value and y_value must be >= 0
+  template <typename R, typename A, typename B>
+  inline static R addLargePositive(
+      const A& a,
+      const B& b,
+      uint8_t aScale,
+      uint8_t bScale,
+      uint8_t rScale) {
+    VELOX_DCHECK_GE(a.unscaledValue(), 0);
+    VELOX_DCHECK_GE(b.unscaledValue(), 0);
+
+    // separate out whole/fractions.
+    A aLeft, aRight;
+    B bLeft, bRight;
+    getWholeAndFraction<A>(a, aScale, aLeft, aRight);
+    getWholeAndFraction<B>(b, bScale, bLeft, bRight);
+
+    // Adjust fractional parts to higher scale.
+    auto higher_scale = std::max(aScale, bScale);
+    int128_t aRightScaled =
+        checkAndIncreaseScale<A>(aRight, higher_scale - aScale);
+    int128_t bRightScaled =
+        checkAndIncreaseScale<B>(bRight, higher_scale - bScale);
+
+    R right;
+    int64_t carry_to_left;
+    auto multiplier = DecimalUtil::kPowersOfTen[higher_scale];
+    if (aRightScaled >= multiplier - bRightScaled) {
+      right = R(aRightScaled - (multiplier - bRightScaled));
+      std::cout << "carry to 1" << std::endl;
+      carry_to_left = 1;
+    } else {
+      right = R(aRightScaled + bRightScaled);
+      carry_to_left = 0;
+    }
+    right = checkAndReduceScale<R>(R(right), higher_scale - rScale);
+
+    auto left = R(aLeft) + R(bLeft) + R(carry_to_left);
+    return R(left.unscaledValue() * DecimalUtil::kPowersOfTen[rScale]) +
+        R(right);
+  }
+
+  /// x_value and y_value cannot be 0, and one must be positive and the other
+  /// negative.
+  template <typename R, typename A, typename B>
+  inline static R addLargeNegative(
+      const A& a,
+      const B& b,
+      uint8_t aScale,
+      uint8_t bScale,
+      int32_t rScale) {
+    VELOX_DCHECK_NE(a.unscaledValue(), 0);
+    VELOX_DCHECK_NE(b.unscaledValue(), 0);
+    VELOX_DCHECK(
+        (a.unscaledValue() < 0 && b.unscaledValue() > 0) ||
+        (a.unscaledValue() > 0 && b.unscaledValue() < 0));
+
+    // separate out whole/fractions.
+    A aLeft, aRight;
+    B bLeft, bRight;
+    getWholeAndFraction<A>(a, aScale, aLeft, aRight);
+    getWholeAndFraction<B>(b, bScale, bLeft, bRight);
+
+    // Adjust fractional parts to higher scale.
+    auto higher_scale = std::max(aScale, bScale);
+    int128_t aRightScaled =
+        checkAndIncreaseScale<A>(aRight, higher_scale - aScale);
+    int128_t bRightScaled =
+        checkAndIncreaseScale<B>(bRight, higher_scale - bScale);
+
+    // Overflow not possible because one is +ve and the other is -ve.
+    int128_t left = static_cast<int128_t>(aLeft.unscaledValue()) +
+        static_cast<int128_t>(bLeft.unscaledValue());
+    auto right = aRightScaled + bRightScaled;
+
+    // If the whole and fractional parts have different signs, then we need to
+    // make the fractional part have the same sign as the whole part. If either
+    // left or right is zero, then nothing needs to be done.
+    if (left < 0 && right > 0) {
+      left += 1;
+      right -= DecimalUtil::kPowersOfTen[higher_scale];
+    } else if (left > 0 && right < 0) {
+      left -= 1;
+      right += DecimalUtil::kPowersOfTen[higher_scale];
+    }
+    right =
+        checkAndReduceScale(R(right), higher_scale - rScale).unscaledValue();
+    return R((left * DecimalUtil::kPowersOfTen[rScale]) + right);
+  }
 };
 
 class Subtraction {
@@ -264,36 +418,26 @@ class Subtraction {
       const B& b,
       uint8_t aRescale,
       uint8_t bRescale,
-      uint8_t /* aPrecision */,
-      uint8_t /* aScale */,
-      uint8_t /* bPrecision */,
-      uint8_t /* bScale */,
-      uint8_t /* rPrecision */,
-      uint8_t /* rScale */,
-      bool* overflow)
-#if defined(__has_feature)
-#if __has_feature(__address_sanitizer__)
-      __attribute__((__no_sanitize__("signed-integer-overflow")))
-#endif
-#endif
-  {
-    int128_t aRescaled;
-    int128_t bRescaled;
-    if (__builtin_mul_overflow(
-            a.unscaledValue(),
-            DecimalUtil::kPowersOfTen[aRescale],
-            &aRescaled) ||
-        __builtin_mul_overflow(
-            b.unscaledValue(),
-            DecimalUtil::kPowersOfTen[bRescale],
-            &bRescaled)) {
-      *overflow = true;
-      return;
-    }
-    auto res = R(aRescaled).minus(R(bRescaled), overflow);
-    if (!*overflow) {
-      r = res;
-    }
+      uint8_t aPrecision,
+      uint8_t aScale,
+      uint8_t bPrecision,
+      uint8_t bScale,
+      uint8_t rPrecision,
+      uint8_t rScale,
+      bool* overflow) {
+    Addition::apply<R, A, B>(
+        r,
+        a,
+        B(-b.unscaledValue()),
+        aRescale,
+        bRescale,
+        aPrecision,
+        aScale,
+        bPrecision,
+        bScale,
+        rPrecision,
+        rScale,
+        overflow);
   }
 
   inline static uint8_t
