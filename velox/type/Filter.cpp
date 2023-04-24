@@ -91,6 +91,7 @@ std::string Filter::toString() const {
       break;
     case FilterKind::kHugeintRange:
       strKind = "HugeintRange";
+      break;
     case FilterKind::kShortDecimalRange:
       strKind = "ShortDecimalRange";
       break;
