@@ -41,6 +41,7 @@ set_property(TARGET velox_functions_spark PROPERTY JOB_POOL_COMPILE
 
 if(${VELOX_ENABLE_AGGREGATES})
   add_subdirectory(aggregates)
+  add_subdirectory(windows)
 endif()
 
 if(${VELOX_BUILD_TESTING})
