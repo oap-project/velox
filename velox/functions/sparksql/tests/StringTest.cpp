@@ -127,6 +127,19 @@ class StringTest : public SparkFunctionBaseTest {
     return evaluateOnce<std::string, std::string, std::string, int32_t>(
         "substring_index(c0, c1, c2)", str, delim, count);
   }
+  std::optional<std::string> substring(
+      std::optional<std::string> str,
+      std::optional<int32_t> start) {
+    return evaluateOnce<std::string>("substring(c0, c1)", str, start);
+  }
+
+  std::optional<std::string> substring(
+      std::optional<std::string> str,
+      std::optional<int32_t> start,
+      std::optional<int32_t> length) {
+    return evaluateOnce<std::string>(
+        "substring(c0, c1, c2)", str, start, length);
+  }
 };
 
 TEST_F(StringTest, Ascii) {
