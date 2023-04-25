@@ -506,23 +506,22 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
 
   std::vector<std::vector<core::TypedExprPtr>> projectSetExprs;
   projectSetExprs.reserve(expandRel.fields_size());
-  
+
   for (const auto& projections : expandRel.fields()) {
     std::vector<core::TypedExprPtr> projectExprs;
     projectExprs.reserve(projections.switching_field().duplicates_size());
 
-    for (
-      const auto& projectExpr : projections.switching_field().duplicates()) {
+    for (const auto& projectExpr : projections.switching_field().duplicates()) {
       if (projectExpr.has_selection()) {
         auto expression =
-          exprConverter_->toVeloxExpr(projectExpr.selection(), inputType);
+            exprConverter_->toVeloxExpr(projectExpr.selection(), inputType);
         projectExprs.emplace_back(expression);
       } else if (projectExpr.has_literal()) {
-        auto expression =
-          exprConverter_->toVeloxExpr(projectExpr.literal());
+        auto expression = exprConverter_->toVeloxExpr(projectExpr.literal());
         projectExprs.emplace_back(expression);
       } else {
-        VELOX_FAIL("The project in Expand Operator only support field or literal.");
+        VELOX_FAIL(
+            "The project in Expand Operator only support field or literal.");
       }
     }
     projectSetExprs.emplace_back(projectExprs);
@@ -536,10 +535,7 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
   }
 
   return std::make_shared<core::ExpandNode>(
-      nextPlanNodeId(),
-      projectSetExprs,
-      std::move(names),
-      childNode);
+      nextPlanNodeId(), projectSetExprs, std::move(names), childNode);
 }
 
 const core::WindowNode::Frame createWindowFrame(
@@ -1723,9 +1719,9 @@ void SubstraitVeloxPlanConverter::setFilterMap(
       setColInfoMap<double>(functionName, colIdxVal, val, reverse, colInfoMap);
       break;
     case TypeKind::BOOLEAN:
-       if (substraitLit) {
-         val = variant(substraitLit.value().boolean());
-       }
+      if (substraitLit) {
+        val = variant(substraitLit.value().boolean());
+      }
       setColInfoMap<bool>(functionName, colIdxVal, val, reverse, colInfoMap);
       break;
     case TypeKind::VARCHAR:
