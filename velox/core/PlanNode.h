@@ -479,6 +479,7 @@ class TableWriteNode : public PlanNode {
         insertTableHandle_(insertTableHandle),
         outputType_(outputType),
         commitStrategy_(commitStrategy) {
+    std::cout << "[zuo] TableWriteNode::TableWriteNode" << std::endl;
     VELOX_CHECK_EQ(columns->size(), columnNames.size());
     for (const auto& column : columns->names()) {
       VELOX_CHECK(source->outputType()->containsChild(column));

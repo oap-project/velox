@@ -34,6 +34,7 @@ TableWriter::TableWriter(
       insertTableHandle_(
           tableWriteNode->insertTableHandle()->connectorInsertTableHandle()),
       commitStrategy_(tableWriteNode->commitStrategy()) {
+  std::cout << "[zuo] TableWriter::TableWriter" << std::endl;
   const auto& connectorId = tableWriteNode->insertTableHandle()->connectorId();
   connector_ = connector::getConnector(connectorId);
   connectorQueryCtx_ =
@@ -54,6 +55,7 @@ TableWriter::TableWriter(
 }
 
 void TableWriter::createDataSink() {
+  std::cout << "[zuo] TableWriter::createDataSink" << std::endl;
   dataSink_ = connector_->createDataSink(
       mappedType_,
       insertTableHandle_,

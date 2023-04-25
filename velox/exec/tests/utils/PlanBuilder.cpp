@@ -285,6 +285,7 @@ PlanBuilder& PlanBuilder::tableWrite(
     const std::shared_ptr<core::InsertTableHandle>& insertHandle,
     CommitStrategy commitStrategy,
     const std::string& rowCountColumnName) {
+  std::cout << "[zuo] PlanBuilder::tableWrite" << std::endl;
   auto outputType = ROW({rowCountColumnName}, {BIGINT()});
   planNode_ = std::make_shared<core::TableWriteNode>(
       nextPlanNodeId(),
