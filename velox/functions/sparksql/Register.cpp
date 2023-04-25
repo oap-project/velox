@@ -88,10 +88,14 @@ void registerFunctions(const std::string& prefix) {
       {prefix + "lpad"});
   registerFunction<RPadFunction, Varchar, Varchar, int32_t, Varchar>(
       {prefix + "rpad"});
-  registerFunction<SubstrFunction, Varchar, Varchar, int32_t>(
+  registerFunction<sparksql::SubstrFunction, Varchar, Varchar, int32_t>(
       {prefix + "substring"});
-  registerFunction<SubstrFunction, Varchar, Varchar, int32_t, int32_t>(
-      {prefix + "substring"});
+  registerFunction<
+      sparksql::SubstrFunction,
+      Varchar,
+      Varchar,
+      int32_t,
+      int32_t>({prefix + "substring"});
   exec::registerStatefulVectorFunction("instr", instrSignatures(), makeInstr);
   exec::registerStatefulVectorFunction(
       "length", lengthSignatures(), makeLength);

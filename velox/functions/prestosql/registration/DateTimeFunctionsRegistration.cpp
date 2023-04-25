@@ -28,9 +28,9 @@ void registerSimpleFunctions(const std::string& prefix) {
       {prefix + "to_unixtime"});
   registerFunction<FromUnixtimeFunction, Timestamp, double>(
       {prefix + "from_unixtime"});
-  registerFunction<YearFunction, int32_t, Timestamp>({prefix + "year"});
-  registerFunction<YearFunction, int32_t, Date>({prefix + "year"});
-  registerFunction<YearFunction, int32_t, TimestampWithTimezone>(
+  registerFunction<YearFunction, int64_t, Timestamp>({prefix + "year"});
+  registerFunction<YearFunction, int64_t, Date>({prefix + "year"});
+  registerFunction<YearFunction, int64_t, TimestampWithTimezone>(
       {prefix + "year"});
   registerFunction<WeekFunction, int64_t, Timestamp>(
       {prefix + "week", prefix + "week_of_year"});

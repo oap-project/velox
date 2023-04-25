@@ -398,5 +398,40 @@ TEST_F(StringTest, rtrim) {
       "\u6574\u6570 \u6570\u636E!");
 }
 
+TEST_F(StringTest, substring) {
+  EXPECT_EQ(substring("example", 0, 2), "ex");
+  EXPECT_EQ(substring("example", 1, -1), "");
+  EXPECT_EQ(substring("example", 1, 0), "");
+  EXPECT_EQ(substring("example", 1, 2), "ex");
+  EXPECT_EQ(substring("example", 1, 7), "example");
+  EXPECT_EQ(substring("example", 1, 100), "example");
+  EXPECT_EQ(substring("example", 2, 2), "xa");
+  EXPECT_EQ(substring("example", 8, 2), "");
+  EXPECT_EQ(substring("example", -2, 2), "le");
+  EXPECT_EQ(substring("example", -7, 2), "ex");
+  EXPECT_EQ(substring("example", -8, 2), "e");
+  EXPECT_EQ(substring("example", -9, 2), "");
+  EXPECT_EQ(substring("example", -7, 7), "example");
+  EXPECT_EQ(substring("example", -9, 9), "example");
+  EXPECT_EQ(substring("example", 4, 2147483645), "mple");
+  EXPECT_EQ(substring("example", 2147483645, 4), "");
+  EXPECT_EQ(substring("example", -2147483648, 1), "");
+  EXPECT_EQ(substring("da\u6570\u636Eta", 2, 4), "a\u6570\u636Et");
+  EXPECT_EQ(substring("da\u6570\u636Eta", -3, 2), "\u636Et");
+
+  EXPECT_EQ(substring("example", 0), "example");
+  EXPECT_EQ(substring("example", 1), "example");
+  EXPECT_EQ(substring("example", 2), "xample");
+  EXPECT_EQ(substring("example", 8), "");
+  EXPECT_EQ(substring("example", 2147483647), "");
+  EXPECT_EQ(substring("example", -2), "le");
+  EXPECT_EQ(substring("example", -7), "example");
+  EXPECT_EQ(substring("example", -8), "example");
+  EXPECT_EQ(substring("example", -9), "example");
+  EXPECT_EQ(substring("example", -2147483647), "example");
+  EXPECT_EQ(substring("da\u6570\u636Eta", 3), "\u6570\u636Eta");
+  EXPECT_EQ(substring("da\u6570\u636Eta", -3), "\u636Eta");
+}
+
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test
