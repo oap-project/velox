@@ -903,6 +903,8 @@ bool SubstraitToVeloxPlanValidator::validate(
       "bitwise_and_agg_merge",
       "bitwise_or_agg",
       "bitwise_or_agg_merge",
+      "bit_xor",
+      "bit_xor_merge",
       "corr",
       "corr_merge",
       "covar_pop",
