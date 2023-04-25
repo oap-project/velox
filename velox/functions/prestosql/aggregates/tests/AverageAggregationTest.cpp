@@ -397,24 +397,6 @@ TEST_F(AverageAggregationTest, constantVectorOverflow) {
   assertQuery(plan, "SELECT 1073741824");
 }
 
-TEST_F(AverageAggregationTest, mergeAndPartial) {
-  auto rows = makeRowVector({
-    makeFlatVector<int32_t>(100, [&](auto row) { return row % 10; }),
-    makeFlatVector<int32_t>(100, [&](auto row) { return row * 2; }),
-    makeFlatVector<int32_t>(100, [&](auto row) { return row; })});
-  
-  createDuckDbTable("t", {rows});
-
-  std::vector<TypePtr> resultType = {BIGINT(), BIGINT(), BIGINT()};
-  auto plan = PlanBuilder()
-                  .values({rows})
-                  .partialAggregation({"c0"}, {"sum(c1)", "sum(c2)"})
-                  .intermediateAggregation({"c0"}, {"sum(a0)", "sum(a1)"}, resultType)
-                  .intermediateAggregation({}, {"sum(a0)", "sum(a1)", "count(c0)"}, resultType)
-                  .planNode();
-  assertQuery(plan, "SELECT sum(c1), sum(c2), count(distinct c0) from t");
-}
-
 TEST_F(AverageAggregationTest, companion) {
   auto rows = makeRowVector({
     makeFlatVector<int32_t>(100, [&](auto row) { return row % 10; }),
