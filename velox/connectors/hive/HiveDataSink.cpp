@@ -80,7 +80,10 @@ HiveDataSink::HiveDataSink(
                                             HiveConfig::maxPartitionsPerWriters(
                                                 connectorQueryCtx_->config()),
                                             connectorQueryCtx_->memoryPool())
-                                      : nullptr) {}
+                                      : nullptr) {
+  std::cout << "[zuo] partitionChannels_.size=" << partitionChannels_.size() << std::endl;
+  std::cout << "[zuo] HiveDataSink() inputType=" << inputType_.toString() << std::endl;
+}
 
 void HiveDataSink::appendData(RowVectorPtr input) {
   // Write to unpartitioned table.
@@ -188,6 +191,7 @@ void HiveDataSink::ensurePartitionWriters() {
 
 void HiveDataSink::appendWriter(
     const std::optional<std::string>& partitionName) {
+  std::cout << "[zuo] appendWriter, partitionName=" << partitionName.value_or("null") << std::endl;
   auto config = std::make_shared<WriterConfig>();
   // TODO: Wire up serde properties to writer configs.
 
