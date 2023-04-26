@@ -24,3 +24,20 @@ jobs:
           git submodule sync --recursive && git submodule update --init --recursive
           ./scripts/setup-ubuntu.sh 
           make release EXTRA_CMAKE_FLAGS="-DVELOX_ENABLE_ARROW=ON"
+
+  formatting-check:
+    name: Formatting Check
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        path:
+          - check: 'velox'
+            exclude: 'external'
+    steps:
+      - uses: actions/checkout@v2
+      - name: Run clang-format style check for C/C++ programs.
+        uses: jidicula/clang-format-action@v3.5.1
+        with:
+          clang-format-version: '12'
+          check-path: ${{ matrix.path['check'] }}
+          exclude-regex: ${{ matrix.path['exclude'] }}

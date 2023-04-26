@@ -687,7 +687,7 @@ PlanBuilder& PlanBuilder::expand(
         if (planNode_->outputType()->containsChild(projectionSets[j][i])) {
           names.push_back(projectionSets[j][i]);
           types.push_back(
-            field(planNode_->outputType(), projectionSets[j][i])->type());
+              field(planNode_->outputType(), projectionSets[j][i])->type());
         } else {
           names.push_back(groupIdPrefix + std::to_string(grouIdColCount++));
           types.push_back(BIGINT());
@@ -702,15 +702,13 @@ PlanBuilder& PlanBuilder::expand(
     projectExprs.reserve(projectionSet.size());
     for (int i = 0; i < projectionSet.size(); ++i) {
       if (projectionSet[i] == "") {
-        projectExprs.push_back(
-          std::make_shared<core::ConstantTypedExpr>(
+        projectExprs.push_back(std::make_shared<core::ConstantTypedExpr>(
             types[i], variant::null(types[i]->kind())));
       } else if (planNode_->outputType()->containsChild(projectionSet[i])) {
         projectExprs.push_back(
-          field(planNode_->outputType(), projectionSet[i]));
+            field(planNode_->outputType(), projectionSet[i]));
       } else {
-        projectExprs.push_back(
-          std::make_shared<core::ConstantTypedExpr>(
+        projectExprs.push_back(std::make_shared<core::ConstantTypedExpr>(
             BIGINT(), variant(std::stol(projectionSet[i]))));
       }
     }
@@ -718,10 +716,7 @@ PlanBuilder& PlanBuilder::expand(
   }
 
   planNode_ = std::make_shared<core::ExpandNode>(
-      nextPlanNodeId(),
-      projectSetExprs,
-      std::move(names),
-      planNode_);
+      nextPlanNodeId(), projectSetExprs, std::move(names), planNode_);
 
   return *this;
 }

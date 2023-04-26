@@ -245,7 +245,7 @@ void registerNtile(const std::string& name) {
           const std::vector<exec::WindowFunctionArg>& args,
           const TypePtr& /*resultType*/,
           velox::memory::MemoryPool* pool,
-          HashStringAllocator *
+          HashStringAllocator*
           /*stringAllocator*/) -> std::unique_ptr<exec::WindowFunction> {
         return std::make_unique<NtileFunction>(args, pool);
       });

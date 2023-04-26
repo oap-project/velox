@@ -386,7 +386,8 @@ class RegisterAdapter {
     return signatures;
   }
 
-  static std::vector<AggregateFunctionSignaturePtr> countMergeFunctionSignatures(
+  static std::vector<AggregateFunctionSignaturePtr>
+  countMergeFunctionSignatures(
       const std::vector<AggregateFunctionSignaturePtr>& aggregateSignatures) {
     std::unordered_set<TypeSignature> distinctIntermediateTypes;
     std::vector<AggregateFunctionSignaturePtr> signatures;

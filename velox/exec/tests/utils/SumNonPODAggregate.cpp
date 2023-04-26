@@ -156,7 +156,7 @@ bool registerSumNonPODAggregate(const std::string& name, int alignment) {
       [alignment](
           velox::core::AggregationNode::Step /*step*/,
           const std::vector<velox::TypePtr>& /*argTypes*/,
-          const velox::TypePtr &
+          const velox::TypePtr&
           /*resultType*/) -> std::unique_ptr<velox::exec::Aggregate> {
         return std::make_unique<SumNonPODAggregate>(velox::BIGINT(), alignment);
       });

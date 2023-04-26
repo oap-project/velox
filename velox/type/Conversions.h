@@ -30,7 +30,11 @@
 
 namespace facebook::velox::util {
 
-template <TypeKind KIND, typename = void, bool TRUNCATE = false, bool ALLOW_DECIMAL = false>
+template <
+    TypeKind KIND,
+    typename = void,
+    bool TRUNCATE = false,
+    bool ALLOW_DECIMAL = false>
 struct Converter {
   template <typename T>
   // nullOutput API requires that the user has already set nullOutput to
@@ -103,7 +107,8 @@ struct Converter<
             KIND == TypeKind::SMALLINT || KIND == TypeKind::INTEGER ||
             KIND == TypeKind::BIGINT,
         void>,
-    TRUNCATE, ALLOW_DECIMAL> {
+    TRUNCATE,
+    ALLOW_DECIMAL> {
   using T = typename TypeTraits<KIND>::NativeType;
 
   template <typename From>
@@ -151,7 +156,10 @@ struct Converter<
         "Conversion to {} is not supported", TypeTraits<KIND>::name);
   }
 
-  static T convertStringToInt(const folly::StringPiece& v, const bool allowDecimal, bool& nullOutput) {
+  static T convertStringToInt(
+      const folly::StringPiece& v,
+      const bool allowDecimal,
+      bool& nullOutput) {
     // Handling boolean target case fist because it is in this scope
     if constexpr (std::is_same_v<T, bool>) {
       return folly::to<T>(v);
@@ -224,7 +232,8 @@ struct Converter<
   static T cast(const StringView& v, bool& nullOutput) {
     try {
       if constexpr (TRUNCATE) {
-        return convertStringToInt(folly::StringPiece(v), ALLOW_DECIMAL, nullOutput);
+        return convertStringToInt(
+            folly::StringPiece(v), ALLOW_DECIMAL, nullOutput);
       } else {
         return folly::to<T>(folly::StringPiece(v));
       }
@@ -370,7 +379,8 @@ template <TypeKind KIND, bool TRUNCATE, bool ALLOW_DECIMAL>
 struct Converter<
     KIND,
     std::enable_if_t<KIND == TypeKind::REAL || KIND == TypeKind::DOUBLE, void>,
-    TRUNCATE, ALLOW_DECIMAL> {
+    TRUNCATE,
+    ALLOW_DECIMAL> {
   using T = typename TypeTraits<KIND>::NativeType;
 
   template <typename From>

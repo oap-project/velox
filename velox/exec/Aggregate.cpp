@@ -67,8 +67,8 @@ bool registerAggregateFunction(
     // RegisterAdapter::registerPartialFunction(name, signatures);
     RegisterAdapter::registerMergeFunction(name, signatures);
     // RegisterAdapter::registerExtractFunction(name, signatures);
-    // TODO: register retract function only when the original UDAF supports retracting.
-    // RegisterAdapter::registerRetractFunction(name, signatures);
+    // TODO: register retract function only when the original UDAF supports
+    // retracting. RegisterAdapter::registerRetractFunction(name, signatures);
   }
 
   return true;

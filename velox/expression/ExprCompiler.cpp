@@ -220,7 +220,8 @@ ExprPtr getRowConstructorWithNullExpr(
   static auto rowConstructorVectorFunction =
       vectorFunctionFactories().withRLock([](auto& functionMap) {
         auto functionIterator = functionMap.find(exec::kRowConstructorWithNull);
-        return functionIterator->second.factory(exec::kRowConstructorWithNull, {});
+        return functionIterator->second.factory(
+            exec::kRowConstructorWithNull, {});
       });
 
   return std::make_shared<Expr>(

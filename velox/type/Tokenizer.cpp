@@ -18,7 +18,7 @@
 namespace facebook::velox::common {
 
 Tokenizer::Tokenizer(const std::string& path, bool dotAsRegular)
-  : path_(path), dotAsRegular_(dotAsRegular) {
+    : path_(path), dotAsRegular_(dotAsRegular) {
   state = State::kNotReady;
   index_ = 0;
 }
@@ -145,8 +145,8 @@ std::unique_ptr<Subfield::PathElement> Tokenizer::matchUnquotedSubscript() {
 }
 
 bool Tokenizer::isUnquotedPathCharacter(char c) {
-  bool unquoted = c == ':' || c == '$' || c == '-' || c == '/' || c == '@' || c == '|' ||
-      c == '#' || isUnquotedSubscriptCharacter(c);
+  bool unquoted = c == ':' || c == '$' || c == '-' || c == '/' || c == '@' ||
+      c == '|' || c == '#' || isUnquotedSubscriptCharacter(c);
   if (dotAsRegular_) {
     return unquoted || c == '.';
   }

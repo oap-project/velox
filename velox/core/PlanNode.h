@@ -673,7 +673,6 @@ inline std::string mapAggregationStepToName(const AggregationNode::Step& step) {
 /// similar behavior to spark ExpandExec.
 class ExpandNode : public PlanNode {
  public:
-
   /// @param id Plan node ID.
   /// @param projectSets A list of project sets. The output conatins one cloumn
   /// for each project expr. The project expr may be cloumn reference, null or
@@ -694,8 +693,7 @@ class ExpandNode : public PlanNode {
     return sources_;
   }
 
-  const std::vector<std::vector<TypedExprPtr>>& projectSets()
-      const {
+  const std::vector<std::vector<TypedExprPtr>>& projectSets() const {
     return projectSets_;
   }
 

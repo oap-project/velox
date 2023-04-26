@@ -79,9 +79,10 @@ class QueryConfig {
   static constexpr const char* kCastIntByTruncate =
       "driver.cast.int_by_truncate";
 
-  // Allow decimal in casting varchar to int. The fractional part will be ignored.
+  // Allow decimal in casting varchar to int. The fractional part will be
+  // ignored.
   static constexpr const char* kCastIntAllowDecimal =
-       "driver.cast.int_allow_decimal";
+      "driver.cast.int_allow_decimal";
 
   static constexpr const char* kMaxLocalExchangeBufferSize =
       "max_local_exchange_buffer_size";

@@ -39,12 +39,14 @@ Expand::Expand(
     constantMapping.reserve(numProjects);
     for (const auto& project : projectSet) {
       if (auto field =
-        std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(project)) {
+              std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
+                  project)) {
         projectMapping.push_back(inputType->getChildIdx(field->name()));
         constantMapping.push_back(nullptr);
       } else if (
-        auto constant =
-          std::dynamic_pointer_cast<const core::ConstantTypedExpr>(project)) {
+          auto constant =
+              std::dynamic_pointer_cast<const core::ConstantTypedExpr>(
+                  project)) {
         projectMapping.push_back(kUnMapedProject);
         constantMapping.push_back(constant);
       } else {
@@ -90,14 +92,11 @@ RowVectorPtr Expand::getOutput() {
       if (constantExpr->value().isNull()) {
         // Add null column.
         outputColumns[i] = BaseVector::createNullConstant(
-          outputType_->childAt(i), numInput, pool());
+            outputType_->childAt(i), numInput, pool());
       } else {
         // Add constant column: gid, gpos, etc.
         outputColumns[i] = BaseVector::createConstant(
-          constantExpr->type(),
-          constantExpr->value(),
-          numInput,
-          pool());
+            constantExpr->type(), constantExpr->value(), numInput, pool());
       }
     } else {
       outputColumns[i] = input_->childAt(projectMapping[i]);

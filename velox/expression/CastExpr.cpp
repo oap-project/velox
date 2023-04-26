@@ -55,12 +55,14 @@ void applyCastKernel(
     if constexpr (
         CppToType<From>::typeKind == TypeKind::SHORT_DECIMAL ||
         CppToType<From>::typeKind == TypeKind::LONG_DECIMAL) {
-      output = util::Converter<CppToType<To>::typeKind, void, Truncate, AllowDecimal>::cast(
-          input->valueAt(row), nullOutput, input->type());
+      output = util::
+          Converter<CppToType<To>::typeKind, void, Truncate, AllowDecimal>::
+              cast(input->valueAt(row), nullOutput, input->type());
 
     } else {
-      output = util::Converter<CppToType<To>::typeKind, void, Truncate, AllowDecimal>::cast(
-          input->valueAt(row), nullOutput);
+      output = util::
+          Converter<CppToType<To>::typeKind, void, Truncate, AllowDecimal>::
+              cast(input->valueAt(row), nullOutput);
     }
 
     if (!nullOutput) {
@@ -76,16 +78,16 @@ void applyCastKernel(
     if constexpr (
         CppToType<From>::typeKind == TypeKind::SHORT_DECIMAL ||
         CppToType<From>::typeKind == TypeKind::LONG_DECIMAL) {
-      auto output =
-          util::Converter<CppToType<To>::typeKind, void, Truncate, AllowDecimal>::cast(
-              input->valueAt(row), nullOutput, input->type());
+      auto output = util::
+          Converter<CppToType<To>::typeKind, void, Truncate, AllowDecimal>::
+              cast(input->valueAt(row), nullOutput, input->type());
       if (!nullOutput) {
         result->set(row, output);
       }
     } else {
-      auto output =
-          util::Converter<CppToType<To>::typeKind, void, Truncate, AllowDecimal>::cast(
-              input->valueAt(row), nullOutput);
+      auto output = util::
+          Converter<CppToType<To>::typeKind, void, Truncate, AllowDecimal>::
+              cast(input->valueAt(row), nullOutput);
       if (!nullOutput) {
         result->set(row, output);
       }
@@ -248,10 +250,10 @@ void CastExpr::applyCastWithTry(
         // Passing a false truncate flag
         if (isCastIntAllowDecimal) {
           applyCastKernel<To, From, false, true>(
-            row, inputSimpleVector, resultFlatVector, nullOutput);
+              row, inputSimpleVector, resultFlatVector, nullOutput);
         } else {
           applyCastKernel<To, From, false, false>(
-            row, inputSimpleVector, resultFlatVector, nullOutput);
+              row, inputSimpleVector, resultFlatVector, nullOutput);
         }
       } catch (const VeloxRuntimeError& re) {
         VELOX_FAIL(
@@ -278,10 +280,10 @@ void CastExpr::applyCastWithTry(
         // Passing a true truncate flag
         if (isCastIntAllowDecimal) {
           applyCastKernel<To, From, true, true>(
-            row, inputSimpleVector, resultFlatVector, nullOutput);
+              row, inputSimpleVector, resultFlatVector, nullOutput);
         } else {
           applyCastKernel<To, From, true, false>(
-            row, inputSimpleVector, resultFlatVector, nullOutput);
+              row, inputSimpleVector, resultFlatVector, nullOutput);
         }
       } catch (const VeloxRuntimeError& re) {
         VELOX_FAIL(

@@ -247,13 +247,12 @@ bool SubstraitToVeloxPlanValidator::validate(
             case ::substrait::Expression::RexTypeCase::kLiteral:
               break;
             default:
-              std::cout << "Only field or literal is supported."
-                        << std::endl;
+              std::cout << "Only field or literal is supported." << std::endl;
               return false;
           }
           if (rowType) {
             expressions.emplace_back(
-              exprConverter_->toVeloxExpr(projectExpr, rowType));
+                exprConverter_->toVeloxExpr(projectExpr, rowType));
           }
         }
 
@@ -262,7 +261,7 @@ bool SubstraitToVeloxPlanValidator::validate(
           // function or mismatched type, exception will be thrown.
           exec::ExprSet exprSet(std::move(expressions), execCtx_);
         }
-        
+
       } catch (const VeloxException& err) {
         std::cout << "Validation failed for expressions in ExpandRel due to:"
                   << err.message() << std::endl;
@@ -677,7 +676,8 @@ bool SubstraitToVeloxPlanValidator::validate(
   return true;
 }
 
-TypePtr SubstraitToVeloxPlanValidator::getDecimalType(const std::string& decimalType) {
+TypePtr SubstraitToVeloxPlanValidator::getDecimalType(
+    const std::string& decimalType) {
   // Decimal info is in the format of dec<precision,scale>.
   auto precisionStart = decimalType.find_first_of('<');
   auto tokenIndex = decimalType.find_first_of(',');
@@ -694,13 +694,17 @@ TypePtr SubstraitToVeloxPlanValidator::getDecimalType(const std::string& decimal
   }
 }
 
-TypePtr SubstraitToVeloxPlanValidator::getRowType(const std::string& structType) {
+TypePtr SubstraitToVeloxPlanValidator::getRowType(
+    const std::string& structType) {
   // Struct info is in the format of struct<T1,T2, ...,Tn>.
   // TODO: nested struct is not supported.
   auto structStart = structType.find_first_of('<');
   auto structEnd = structType.find_last_of('>');
-  VELOX_CHECK(structEnd - structStart > 1, "More information is needed to create RowType");
-  std::string childrenTypes = structType.substr(structStart + 1, structEnd - structStart - 1);
+  VELOX_CHECK(
+      structEnd - structStart > 1,
+      "More information is needed to create RowType");
+  std::string childrenTypes =
+      structType.substr(structStart + 1, structEnd - structStart - 1);
 
   // Split the types with delimiter.
   std::string delimiter = ",";
@@ -713,10 +717,12 @@ TypePtr SubstraitToVeloxPlanValidator::getRowType(const std::string& structType)
     if (typeStr.find("dec") != std::string::npos) {
       std::size_t endPos = childrenTypes.find(decDelimiter);
       VELOX_CHECK(endPos >= pos + 1, "Decimal scale is expected.");
-      const auto& decimalStr = typeStr + childrenTypes.substr(pos, endPos - pos) + decDelimiter;
+      const auto& decimalStr =
+          typeStr + childrenTypes.substr(pos, endPos - pos) + decDelimiter;
       types.emplace_back(getDecimalType(decimalStr));
       names.emplace_back("");
-      childrenTypes.erase(0, endPos + delimiter.length() + decDelimiter.length());
+      childrenTypes.erase(
+          0, endPos + delimiter.length() + decDelimiter.length());
       continue;
     }
 
@@ -770,8 +776,9 @@ bool SubstraitToVeloxPlanValidator::validateAggRelFunctionType(
         exec::SignatureBinder binder(*signature, types);
         if (binder.tryBind()) {
           auto resolveType = binder.tryResolveType(
-              exec::isPartialOutput(planConverter_->toAggregationStep(aggRel)) ? signature->intermediateType()
-                                          : signature->returnType());
+              exec::isPartialOutput(planConverter_->toAggregationStep(aggRel))
+                  ? signature->intermediateType()
+                  : signature->returnType());
           if (resolveType == nullptr) {
             std::cout
                 << fmt::format(

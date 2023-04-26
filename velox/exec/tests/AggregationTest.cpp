@@ -1302,23 +1302,24 @@ TEST_F(AggregationTest, groupingSetsByExpand) {
   createDuckDbTable({data});
   // Compute a subset of aggregates per grouping set by using masks based on
   // group_id column.
-  auto plan = PlanBuilder()
-             .values({data})
-             .expand({{"k1", "", "a", "b", "0"}, {"", "k2", "a", "b", "1"}})
-             .project(
-                 {"k1",
-                  "k2",
-                  "group_id_0",
-                  "a",
-                  "b",
-                  "group_id_0 = 0 as mask_a",
-                  "group_id_0 = 1 as mask_b"})
-             .singleAggregation(
-                 {"k1", "k2", "group_id_0"},
-                 {"count(1) as count_1", "sum(a) as sum_a", "max(b) as max_b"},
-                 {"", "mask_a", "mask_b"})
-             .project({"k1", "k2", "count_1", "sum_a", "max_b"})
-             .planNode();
+  auto plan =
+      PlanBuilder()
+          .values({data})
+          .expand({{"k1", "", "a", "b", "0"}, {"", "k2", "a", "b", "1"}})
+          .project(
+              {"k1",
+               "k2",
+               "group_id_0",
+               "a",
+               "b",
+               "group_id_0 = 0 as mask_a",
+               "group_id_0 = 1 as mask_b"})
+          .singleAggregation(
+              {"k1", "k2", "group_id_0"},
+              {"count(1) as count_1", "sum(a) as sum_a", "max(b) as max_b"},
+              {"", "mask_a", "mask_b"})
+          .project({"k1", "k2", "count_1", "sum_a", "max_b"})
+          .planNode();
 
   assertQuery(
       plan,
@@ -1330,10 +1331,11 @@ TEST_F(AggregationTest, groupingSetsByExpand) {
   plan = PlanBuilder()
              .values({data})
              .expand({
-                {"k1", "k2", "a", "b", "0"},
-                {"k1", "", "a", "b", "1"},
-                {"", "k2", "a", "b", "2"},
-                {"", "", "a", "b", "3"},})
+                 {"k1", "k2", "a", "b", "0"},
+                 {"k1", "", "a", "b", "1"},
+                 {"", "k2", "a", "b", "2"},
+                 {"", "", "a", "b", "3"},
+             })
              .singleAggregation(
                  {"k1", "k2", "group_id_0"},
                  {"count(1) as count_1", "sum(a) as sum_a", "max(b) as max_b"})
@@ -1347,10 +1349,10 @@ TEST_F(AggregationTest, groupingSetsByExpand) {
   // Rollup.
   plan = PlanBuilder()
              .values({data})
-             .expand({
-                {"k1", "k2", "a", "b", "0"},
-                {"k1", "", "a", "b", "1"},
-                {"", "", "a", "b", "2"}})
+             .expand(
+                 {{"k1", "k2", "a", "b", "0"},
+                  {"k1", "", "a", "b", "1"},
+                  {"", "", "a", "b", "2"}})
              .singleAggregation(
                  {"k1", "k2", "group_id_0"},
                  {"count(1) as count_1", "sum(a) as sum_a", "max(b) as max_b"})
@@ -1360,18 +1362,17 @@ TEST_F(AggregationTest, groupingSetsByExpand) {
   assertQuery(
       plan,
       "SELECT k1, k2, count(1), sum(a), max(b) FROM tmp GROUP BY ROLLUP (k1, k2)");
-  plan =
-      PlanBuilder()
-          .values({data})
-          .expand({
-                {"k1", "", "a", "b", "0", "0"},
-                {"k1", "", "a", "b", "0", "1"},
-                {"", "k2", "a", "b", "1", "2"}})
-          .singleAggregation(
-              {"k1", "k2", "group_id_0", "group_id_1"},
-              {"count(1) as count_1", "sum(a) as sum_a", "max(b) as max_b"})
-          .project({"k1", "k2", "count_1", "sum_a", "max_b"})
-          .planNode();
+  plan = PlanBuilder()
+             .values({data})
+             .expand(
+                 {{"k1", "", "a", "b", "0", "0"},
+                  {"k1", "", "a", "b", "0", "1"},
+                  {"", "k2", "a", "b", "1", "2"}})
+             .singleAggregation(
+                 {"k1", "k2", "group_id_0", "group_id_1"},
+                 {"count(1) as count_1", "sum(a) as sum_a", "max(b) as max_b"})
+             .project({"k1", "k2", "count_1", "sum_a", "max_b"})
+             .planNode();
 
   assertQuery(
       plan,

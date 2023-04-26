@@ -236,9 +236,7 @@ TEST_F(PlanNodeToStringTest, aggregation) {
 TEST_F(PlanNodeToStringTest, expand) {
   auto plan = PlanBuilder()
                   .values({data_})
-                  .expand({
-                    {"c0", "", "c2", "0"},
-                    {"", "c1", "c2", "1"}})
+                  .expand({{"c0", "", "c2", "0"}, {"", "c1", "c2", "1"}})
                   .planNode();
   ASSERT_EQ("-- Expand\n", plan->toString());
   ASSERT_EQ(

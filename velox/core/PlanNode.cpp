@@ -317,9 +317,7 @@ ExpandNode::ExpandNode(
     PlanNodePtr source)
     : PlanNode(std::move(id)),
       sources_{source},
-      outputType_(getSparkExpandOutputType(
-          projectSets,
-          names)),
+      outputType_(getSparkExpandOutputType(projectSets, names)),
       projectSets_(std::move(projectSets)),
       names_(std::move(names)) {}
 
@@ -346,8 +344,9 @@ folly::dynamic ExpandNode::serialize() const {
 PlanNodePtr ExpandNode::create(const folly::dynamic& obj, void* context) {
   auto source = deserializeSingleSource(obj, context);
   auto names = deserializeStrings(obj["names"]);
-    auto projectSets = ISerializable::deserialize<
-      std::vector<std::vector<ITypedExpr>>>(obj["projectSets"], context);
+  auto projectSets =
+      ISerializable::deserialize<std::vector<std::vector<ITypedExpr>>>(
+          obj["projectSets"], context);
   return std::make_shared<ExpandNode>(
       deserializePlanNodeId(obj),
       std::move(projectSets),

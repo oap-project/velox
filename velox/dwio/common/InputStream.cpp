@@ -154,8 +154,7 @@ void InputStream::vread(
       ranges.push_back(folly::Range<char*>(nullptr, curOffset - lastEnd));
     }
     ranges.push_back(
-      folly::Range<char*>(static_cast<char*>(buffers[i]),
-      r.length));
+        folly::Range<char*>(static_cast<char*>(buffers[i]), r.length));
     lastEnd = curOffset + r.length;
   }
   read(ranges, offset, purpose);
