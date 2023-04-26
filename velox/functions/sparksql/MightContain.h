@@ -19,7 +19,7 @@ namespace facebook::velox::functions::sparksql {
 
 std::vector<std::shared_ptr<exec::FunctionSignature>> mightContainSignatures();
 
-std::unique_ptr<exec::VectorFunction> makeMightContain(
+std::shared_ptr<exec::VectorFunction> makeMightContain(
     const std::string& name,
     const std::vector<exec::VectorFunctionArg>& inputArgs);
 

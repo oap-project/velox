@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include <optional>
 
 #include "velox/functions/sparksql/MightContain.h"
@@ -42,7 +43,7 @@ class BloomFilterMightContainFunction final : public exec::VectorFunction {
     context.ensureWritable(rows, BOOLEAN(), resultRef);
     if (!output_.isSet()) {
       auto localResult = std::make_shared<ConstantVector<bool>>(
-        context.pool(), rows.size(), false /*isNull*/, BOOLEAN(), false);
+        context.pool(), rows.size(), true /*isNull*/, BOOLEAN(), false);
       context.moveOrCopyResult(localResult, rows, resultRef);
       return;
     }
@@ -58,7 +59,7 @@ class BloomFilterMightContainFunction final : public exec::VectorFunction {
   }
 
  private:
-  BloomFilter<StlAllocator<uint64_t>> output_;
+  BloomFilter<std::allocator<uint64_t>> output_;
 };
 } // namespace
 
@@ -70,19 +71,17 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> mightContainSignatures() {
               .build()};
 }
 
-std::unique_ptr<exec::VectorFunction> makeMightContain(
+std::shared_ptr<exec::VectorFunction> makeMightContain(
     const std::string& name,
     const std::vector<exec::VectorFunctionArg>& inputArgs) {
-  const auto& constantValue = inputArgs[0].constantValue;
-  if (constantValue) {
-    auto constantInput =
-      std::dynamic_pointer_cast<ConstantVector<StringView>>(constantValue);
-    if (!constantInput->isNullAt(0)) {
-      return std::make_unique<BloomFilterMightContainFunction>(
-        constantInput->valueAt(0).data());
-    }
+  VELOX_CHECK_EQ(inputArgs.size(), 2);
+  auto constantData = inputArgs[0].constantValue
+    .get()->as<ConstantVector<StringView>>();
+  if (!constantData->isNullAt(0)) {
+    return std::make_shared<BloomFilterMightContainFunction>(
+      constantData->valueAt(0).data());
   }
-  return std::make_unique<BloomFilterMightContainFunction>(nullptr);
+  return std::make_shared<BloomFilterMightContainFunction>(nullptr);
 }
 
 } // namespace facebook::velox::functions::sparksql
