@@ -31,11 +31,6 @@ class ValueStream : public SourceOperator {
     return BlockingReason::kNotBlocked;
   }
 
-  void noMoreInput() override {
-    Operator::noMoreInput();
-    close();
-  }
-
   bool isFinished() override;
 
  private:

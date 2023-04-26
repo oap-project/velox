@@ -403,10 +403,10 @@ std::shared_ptr<Driver> DriverFactory::createDriver(
             std::dynamic_pointer_cast<const core::ValuesNode>(planNode)) {
       operators.push_back(std::make_unique<Values>(id, ctx.get(), valuesNode));
     } else if (
-        auto arrowStreamNode =
+        auto valueStreamNode =
             std::dynamic_pointer_cast<const core::ValueStreamNode>(planNode)) {
       operators.push_back(
-          std::make_unique<ValueStream>(id, ctx.get(), arrowStreamNode));
+          std::make_unique<ValueStream>(id, ctx.get(), valueStreamNode));
     } else if (
         auto arrowStreamNode =
             std::dynamic_pointer_cast<const core::ArrowStreamNode>(planNode)) {
