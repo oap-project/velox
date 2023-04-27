@@ -182,6 +182,7 @@ def get_commit(files):
 
 def get_files(commit, path):
     filelist = []
+
     if commit != "":
         status, stdout, stderr = util.run(
             f"git diff --relative --name-only --diff-filter='ACM' {commit}"
