@@ -16,7 +16,6 @@
 #include "velox/exec/LocalPlanner.h"
 #include "velox/core/PlanFragment.h"
 #include "velox/exec/ArrowStream.h"
-#include "velox/exec/ValueStream.h"
 #include "velox/exec/AssignUniqueId.h"
 #include "velox/exec/CallbackSink.h"
 #include "velox/exec/CrossJoinBuild.h"
@@ -39,6 +38,7 @@
 #include "velox/exec/TableWriter.h"
 #include "velox/exec/TopN.h"
 #include "velox/exec/Unnest.h"
+#include "velox/exec/ValueStream.h"
 #include "velox/exec/Values.h"
 #include "velox/exec/Window.h"
 
