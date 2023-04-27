@@ -34,7 +34,6 @@ ValueStream::ValueStream(
 }
 
 RowVectorPtr ValueStream::getOutput() {
-  TestValue::adjust("facebook::velox::exec::ValueStream::getOutput", this);
   if (valueStream_->hasNext()) {
     return valueStream_->next();
   } else {
