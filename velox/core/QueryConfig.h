@@ -84,6 +84,9 @@ class QueryConfig {
   static constexpr const char* kCastIntAllowDecimal =
       "driver.cast.int_allow_decimal";
 
+  static constexpr const char* kCastIntTrimWhitespace =
+       "driver.cast.int_trim_whitespace";
+
   static constexpr const char* kMaxLocalExchangeBufferSize =
       "max_local_exchange_buffer_size";
 
@@ -265,6 +268,10 @@ class QueryConfig {
 
   bool isCastIntAllowDecimal() const {
     return get<bool>(kCastIntAllowDecimal, false);
+  }
+
+  bool isCastIntTrimWhitespace() const {
+    return get<bool>(kCastIntTrimWhitespace, false);
   }
 
   bool codegenEnabled() const {

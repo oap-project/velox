@@ -30,11 +30,7 @@
 
 namespace facebook::velox::util {
 
-template <
-    TypeKind KIND,
-    typename = void,
-    bool TRUNCATE = false,
-    bool ALLOW_DECIMAL = false>
+template <TypeKind KIND, typename = void, bool TRUNCATE = false, bool ALLOW_DECIMAL = false, bool TRIM_WHITESPACE = false>
 struct Converter {
   template <typename T>
   // nullOutput API requires that the user has already set nullOutput to
@@ -99,7 +95,7 @@ struct Converter<TypeKind::BOOLEAN> {
   }
 };
 
-template <TypeKind KIND, bool TRUNCATE, bool ALLOW_DECIMAL>
+template <TypeKind KIND, bool TRUNCATE, bool ALLOW_DECIMAL, bool TRIM_WHITESPACE>
 struct Converter<
     KIND,
     std::enable_if_t<
@@ -107,8 +103,7 @@ struct Converter<
             KIND == TypeKind::SMALLINT || KIND == TypeKind::INTEGER ||
             KIND == TypeKind::BIGINT,
         void>,
-    TRUNCATE,
-    ALLOW_DECIMAL> {
+    TRUNCATE, ALLOW_DECIMAL, TRIM_WHITESPACE> {
   using T = typename TypeTraits<KIND>::NativeType;
 
   template <typename From>
@@ -156,10 +151,7 @@ struct Converter<
         "Conversion to {} is not supported", TypeTraits<KIND>::name);
   }
 
-  static T convertStringToInt(
-      const folly::StringPiece& v,
-      const bool allowDecimal,
-      bool& nullOutput) {
+  static T convertStringToInt(const folly::StringPiece& v, const bool allowDecimal, const bool trimWhitespace, bool& nullOutput) {
     // Handling boolean target case fist because it is in this scope
     if constexpr (std::is_same_v<T, bool>) {
       return folly::to<T>(v);
@@ -169,12 +161,18 @@ struct Converter<
       bool negative = false;
       T result = 0;
       int index = 0;
-      int len = v.size();
+      folly::StringPiece sp;
+      if (trimWhitespace) {
+        sp = folly::trimWhitespace(v);
+      } else {
+        sp = v;
+      }
+      int len = sp.size();
       if (len == 0) {
         return -1;
       }
       // Setting negative flag
-      if (v[0] == '-') {
+      if (sp[0] == '-') {
         if (len == 1) {
           return -1;
         }
@@ -184,13 +182,13 @@ struct Converter<
       if (negative) {
         for (; index < len; index++) {
           // Allow decimal and ignore the fractional part.
-          if (v[index] == '.' && allowDecimal) {
+          if (sp[index] == '.' && allowDecimal) {
             break;
           }
-          if (!std::isdigit(v[index])) {
+          if (!std::isdigit(sp[index])) {
             return -1;
           }
-          result = result * 10 - (v[index] - '0');
+          result = result * 10 - (sp[index] - '0');
           // Overflow check
           if (result > 0) {
             return -1;
@@ -198,13 +196,13 @@ struct Converter<
         }
       } else {
         for (; index < len; index++) {
-          if (v[index] == '.' && allowDecimal) {
+          if (sp[index] == '.' && allowDecimal) {
             break;
           }
-          if (!std::isdigit(v[index])) {
+          if (!std::isdigit(sp[index])) {
             return -1;
           }
-          result = result * 10 + (v[index] - '0');
+          result = result * 10 + (sp[index] - '0');
           // Overflow check
           if (result < 0) {
             return -1;
@@ -220,7 +218,7 @@ struct Converter<
   static T cast(const folly::StringPiece& v, bool& nullOutput) {
     try {
       if constexpr (TRUNCATE) {
-        return convertStringToInt(v, ALLOW_DECIMAL, nullOutput);
+        return convertStringToInt(v, ALLOW_DECIMAL, TRIM_WHITESPACE, nullOutput);
       } else {
         return folly::to<T>(v);
       }
@@ -232,8 +230,7 @@ struct Converter<
   static T cast(const StringView& v, bool& nullOutput) {
     try {
       if constexpr (TRUNCATE) {
-        return convertStringToInt(
-            folly::StringPiece(v), ALLOW_DECIMAL, nullOutput);
+        return convertStringToInt(folly::StringPiece(v), ALLOW_DECIMAL, TRIM_WHITESPACE, nullOutput);
       } else {
         return folly::to<T>(folly::StringPiece(v));
       }
@@ -245,7 +242,7 @@ struct Converter<
   static T cast(const std::string& v, bool& nullOutput) {
     try {
       if constexpr (TRUNCATE) {
-        return convertStringToInt(v, ALLOW_DECIMAL, nullOutput);
+        return convertStringToInt(v, ALLOW_DECIMAL, TRIM_WHITESPACE, nullOutput);
       } else {
         return folly::to<T>(v);
       }
@@ -375,12 +372,11 @@ struct Converter<
   }
 };
 
-template <TypeKind KIND, bool TRUNCATE, bool ALLOW_DECIMAL>
+template <TypeKind KIND, bool TRUNCATE, bool ALLOW_DECIMAL, bool TRIM_WHITESPACE>
 struct Converter<
     KIND,
     std::enable_if_t<KIND == TypeKind::REAL || KIND == TypeKind::DOUBLE, void>,
-    TRUNCATE,
-    ALLOW_DECIMAL> {
+    TRUNCATE, ALLOW_DECIMAL, TRIM_WHITESPACE> {
   using T = typename TypeTraits<KIND>::NativeType;
 
   template <typename From>
@@ -481,8 +477,8 @@ struct Converter<
   }
 };
 
-template <bool TRUNCATE, bool ALLOW_DECIMAL>
-struct Converter<TypeKind::VARCHAR, void, TRUNCATE, ALLOW_DECIMAL> {
+template <bool TRUNCATE, bool ALLOW_DECIMAL, bool TRIM_WHITESPACE>
+struct Converter<TypeKind::VARCHAR, void, TRUNCATE, ALLOW_DECIMAL, TRIM_WHITESPACE> {
   template <typename T>
   static std::string
   cast(const T& v, bool& nullOutput, const TypePtr& fromType) {
@@ -581,8 +577,8 @@ struct Converter<TypeKind::TIMESTAMP> {
 };
 
 // Allow conversions from string to DATE type.
-template <bool TRUNCATE, bool ALLOW_DECIMAL>
-struct Converter<TypeKind::DATE, void, TRUNCATE, ALLOW_DECIMAL> {
+template <bool TRUNCATE, bool ALLOW_DECIMAL, bool TRIM_WHITESPACE>
+struct Converter<TypeKind::DATE, void, TRUNCATE, ALLOW_DECIMAL, TRIM_WHITESPACE> {
   using T = typename TypeTraits<TypeKind::DATE>::NativeType;
 
   template <typename From>
