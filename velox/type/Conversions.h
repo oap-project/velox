@@ -30,7 +30,12 @@
 
 namespace facebook::velox::util {
 
-template <TypeKind KIND, typename = void, bool TRUNCATE = false, bool ALLOW_DECIMAL = false, bool TRIM_WHITESPACE = false>
+template <
+    TypeKind KIND,
+    typename = void,
+    bool TRUNCATE = false,
+    bool ALLOW_DECIMAL = false,
+    bool TRIM_WHITESPACE = false>
 struct Converter {
   template <typename T>
   // nullOutput API requires that the user has already set nullOutput to
@@ -95,7 +100,11 @@ struct Converter<TypeKind::BOOLEAN> {
   }
 };
 
-template <TypeKind KIND, bool TRUNCATE, bool ALLOW_DECIMAL, bool TRIM_WHITESPACE>
+template <
+    TypeKind KIND,
+    bool TRUNCATE,
+    bool ALLOW_DECIMAL,
+    bool TRIM_WHITESPACE>
 struct Converter<
     KIND,
     std::enable_if_t<
@@ -103,7 +112,9 @@ struct Converter<
             KIND == TypeKind::SMALLINT || KIND == TypeKind::INTEGER ||
             KIND == TypeKind::BIGINT,
         void>,
-    TRUNCATE, ALLOW_DECIMAL, TRIM_WHITESPACE> {
+    TRUNCATE,
+    ALLOW_DECIMAL,
+    TRIM_WHITESPACE> {
   using T = typename TypeTraits<KIND>::NativeType;
 
   template <typename From>
@@ -151,7 +162,11 @@ struct Converter<
         "Conversion to {} is not supported", TypeTraits<KIND>::name);
   }
 
-  static T convertStringToInt(const folly::StringPiece& v, const bool allowDecimal, const bool trimWhitespace, bool& nullOutput) {
+  static T convertStringToInt(
+      const folly::StringPiece& v,
+      const bool allowDecimal,
+      const bool trimWhitespace,
+      bool& nullOutput) {
     // Handling boolean target case fist because it is in this scope
     if constexpr (std::is_same_v<T, bool>) {
       return folly::to<T>(v);
@@ -218,7 +233,8 @@ struct Converter<
   static T cast(const folly::StringPiece& v, bool& nullOutput) {
     try {
       if constexpr (TRUNCATE) {
-        return convertStringToInt(v, ALLOW_DECIMAL, TRIM_WHITESPACE, nullOutput);
+        return convertStringToInt(
+            v, ALLOW_DECIMAL, TRIM_WHITESPACE, nullOutput);
       } else {
         return folly::to<T>(v);
       }
@@ -230,7 +246,8 @@ struct Converter<
   static T cast(const StringView& v, bool& nullOutput) {
     try {
       if constexpr (TRUNCATE) {
-        return convertStringToInt(folly::StringPiece(v), ALLOW_DECIMAL, TRIM_WHITESPACE, nullOutput);
+        return convertStringToInt(
+            folly::StringPiece(v), ALLOW_DECIMAL, TRIM_WHITESPACE, nullOutput);
       } else {
         return folly::to<T>(folly::StringPiece(v));
       }
@@ -242,7 +259,8 @@ struct Converter<
   static T cast(const std::string& v, bool& nullOutput) {
     try {
       if constexpr (TRUNCATE) {
-        return convertStringToInt(v, ALLOW_DECIMAL, TRIM_WHITESPACE, nullOutput);
+        return convertStringToInt(
+            v, ALLOW_DECIMAL, TRIM_WHITESPACE, nullOutput);
       } else {
         return folly::to<T>(v);
       }
@@ -372,11 +390,17 @@ struct Converter<
   }
 };
 
-template <TypeKind KIND, bool TRUNCATE, bool ALLOW_DECIMAL, bool TRIM_WHITESPACE>
+template <
+    TypeKind KIND,
+    bool TRUNCATE,
+    bool ALLOW_DECIMAL,
+    bool TRIM_WHITESPACE>
 struct Converter<
     KIND,
     std::enable_if_t<KIND == TypeKind::REAL || KIND == TypeKind::DOUBLE, void>,
-    TRUNCATE, ALLOW_DECIMAL, TRIM_WHITESPACE> {
+    TRUNCATE,
+    ALLOW_DECIMAL,
+    TRIM_WHITESPACE> {
   using T = typename TypeTraits<KIND>::NativeType;
 
   template <typename From>
@@ -478,7 +502,12 @@ struct Converter<
 };
 
 template <bool TRUNCATE, bool ALLOW_DECIMAL, bool TRIM_WHITESPACE>
-struct Converter<TypeKind::VARCHAR, void, TRUNCATE, ALLOW_DECIMAL, TRIM_WHITESPACE> {
+struct Converter<
+    TypeKind::VARCHAR,
+    void,
+    TRUNCATE,
+    ALLOW_DECIMAL,
+    TRIM_WHITESPACE> {
   template <typename T>
   static std::string
   cast(const T& v, bool& nullOutput, const TypePtr& fromType) {
@@ -578,7 +607,12 @@ struct Converter<TypeKind::TIMESTAMP> {
 
 // Allow conversions from string to DATE type.
 template <bool TRUNCATE, bool ALLOW_DECIMAL, bool TRIM_WHITESPACE>
-struct Converter<TypeKind::DATE, void, TRUNCATE, ALLOW_DECIMAL, TRIM_WHITESPACE> {
+struct Converter<
+    TypeKind::DATE,
+    void,
+    TRUNCATE,
+    ALLOW_DECIMAL,
+    TRIM_WHITESPACE> {
   using T = typename TypeTraits<TypeKind::DATE>::NativeType;
 
   template <typename From>

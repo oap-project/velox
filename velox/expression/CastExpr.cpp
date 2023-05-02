@@ -43,7 +43,12 @@ namespace {
 /// @param input The input vector (of type From)
 /// @param result The output vector (of type To)
 /// @return False if the result is null
-template <typename To, typename From, bool Truncate = false, bool AllowDecimal = false, bool TrimWhitespace = false>
+template <
+    typename To,
+    typename From,
+    bool Truncate = false,
+    bool AllowDecimal = false,
+    bool TrimWhitespace = false>
 void applyCastKernel(
     vector_size_t row,
     const SimpleVector<From>* input,
@@ -55,12 +60,20 @@ void applyCastKernel(
     if constexpr (
         CppToType<From>::typeKind == TypeKind::SHORT_DECIMAL ||
         CppToType<From>::typeKind == TypeKind::LONG_DECIMAL) {
-      output = util::Converter<CppToType<To>::typeKind, void, Truncate, AllowDecimal, TrimWhitespace>::cast(
-          input->valueAt(row), nullOutput, input->type());
+      output = util::Converter<
+          CppToType<To>::typeKind,
+          void,
+          Truncate,
+          AllowDecimal,
+          TrimWhitespace>::cast(input->valueAt(row), nullOutput, input->type());
 
     } else {
-      output = util::Converter<CppToType<To>::typeKind, void, Truncate, AllowDecimal, TrimWhitespace>::cast(
-          input->valueAt(row), nullOutput);
+      output = util::Converter<
+          CppToType<To>::typeKind,
+          void,
+          Truncate,
+          AllowDecimal,
+          TrimWhitespace>::cast(input->valueAt(row), nullOutput);
     }
 
     if (!nullOutput) {
@@ -76,16 +89,22 @@ void applyCastKernel(
     if constexpr (
         CppToType<From>::typeKind == TypeKind::SHORT_DECIMAL ||
         CppToType<From>::typeKind == TypeKind::LONG_DECIMAL) {
-      auto output =
-          util::Converter<CppToType<To>::typeKind, void, Truncate, AllowDecimal, TrimWhitespace>::cast(
-              input->valueAt(row), nullOutput, input->type());
+      auto output = util::Converter<
+          CppToType<To>::typeKind,
+          void,
+          Truncate,
+          AllowDecimal,
+          TrimWhitespace>::cast(input->valueAt(row), nullOutput, input->type());
       if (!nullOutput) {
         result->set(row, output);
       }
     } else {
-      auto output =
-          util::Converter<CppToType<To>::typeKind, void, Truncate, AllowDecimal, TrimWhitespace>::cast(
-              input->valueAt(row), nullOutput);
+      auto output = util::Converter<
+          CppToType<To>::typeKind,
+          void,
+          Truncate,
+          AllowDecimal,
+          TrimWhitespace>::cast(input->valueAt(row), nullOutput);
       if (!nullOutput) {
         result->set(row, output);
       }
@@ -250,18 +269,18 @@ void CastExpr::applyCastWithTry(
         if (isCastIntAllowDecimal) {
           if (isCastIntTrimWhitespace) {
             applyCastKernel<To, From, false, true, true>(
-              row, inputSimpleVector, resultFlatVector, nullOutput);
+                row, inputSimpleVector, resultFlatVector, nullOutput);
           } else {
             applyCastKernel<To, From, false, true, false>(
-            row, inputSimpleVector, resultFlatVector, nullOutput);
+                row, inputSimpleVector, resultFlatVector, nullOutput);
           }
         } else {
           if (isCastIntTrimWhitespace) {
             applyCastKernel<To, From, false, false, true>(
-              row, inputSimpleVector, resultFlatVector, nullOutput);
+                row, inputSimpleVector, resultFlatVector, nullOutput);
           } else {
             applyCastKernel<To, From, false, false, false>(
-              row, inputSimpleVector, resultFlatVector, nullOutput);
+                row, inputSimpleVector, resultFlatVector, nullOutput);
           }
         }
       } catch (const VeloxRuntimeError& re) {
@@ -290,18 +309,18 @@ void CastExpr::applyCastWithTry(
         if (isCastIntAllowDecimal) {
           if (isCastIntTrimWhitespace) {
             applyCastKernel<To, From, true, true, true>(
-              row, inputSimpleVector, resultFlatVector, nullOutput);
+                row, inputSimpleVector, resultFlatVector, nullOutput);
           } else {
             applyCastKernel<To, From, true, true, false>(
-            row, inputSimpleVector, resultFlatVector, nullOutput);
+                row, inputSimpleVector, resultFlatVector, nullOutput);
           }
         } else {
           if (isCastIntTrimWhitespace) {
             applyCastKernel<To, From, true, false, true>(
-              row, inputSimpleVector, resultFlatVector, nullOutput);
+                row, inputSimpleVector, resultFlatVector, nullOutput);
           } else {
             applyCastKernel<To, From, true, false, false>(
-              row, inputSimpleVector, resultFlatVector, nullOutput);
+                row, inputSimpleVector, resultFlatVector, nullOutput);
           }
         }
       } catch (const VeloxRuntimeError& re) {

@@ -85,7 +85,7 @@ class QueryConfig {
       "driver.cast.int_allow_decimal";
 
   static constexpr const char* kCastIntTrimWhitespace =
-       "driver.cast.int_trim_whitespace";
+      "driver.cast.int_trim_whitespace";
 
   static constexpr const char* kMaxLocalExchangeBufferSize =
       "max_local_exchange_buffer_size";
