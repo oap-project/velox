@@ -88,13 +88,11 @@ RowVectorPtr GroupId::getOutput() {
   auto numGroupingKeys = mapping.size();
 
   // Fill in grouping keys.
-  auto gid = 0;
   for (auto i = 0; i < numGroupingKeys; ++i) {
     if (mapping[i] == kMissingGroupingKey) {
       // Add null column.
       outputColumns[i] = BaseVector::createNullConstant(
           outputType_->childAt(i), numInput, pool());
-      gid = 1 << (numGroupingKeys - i - 1) | gid;
     } else {
       outputColumns[i] = input_->childAt(mapping[i]);
     }
@@ -108,7 +106,7 @@ RowVectorPtr GroupId::getOutput() {
   // Add groupId column.
   outputColumns[outputType_->size() - 1] =
       std::make_shared<ConstantVector<int64_t>>(
-          pool(), numInput, false, BIGINT(), gid);
+          pool(), numInput, false, BIGINT(), groupingSetIndex_);
 
   ++groupingSetIndex_;
   if (groupingSetIndex_ == groupingKeyMappings_.size()) {
