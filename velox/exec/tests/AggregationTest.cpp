@@ -1232,9 +1232,7 @@ TEST_F(AggregationTest, groupingSets) {
 
   // Compute a subset of aggregates per grouping set by using masks based on
   // group_id column.
-  // comments this case, because we change group_id column in
-  // https://github.com/oap-project/velox/pull/65.
-  /*plan = PlanBuilder()
+  plan = PlanBuilder()
              .values({data})
              .groupId({{"k1"}, {"k2"}}, {"a", "b"})
              .project(
@@ -1256,7 +1254,7 @@ TEST_F(AggregationTest, groupingSets) {
       plan,
       "SELECT k1, null, count(1), sum(a), null FROM tmp GROUP BY k1 "
       "UNION ALL "
-      "SELECT null, k2, count(1), null, max(b) FROM tmp GROUP BY k2");*/
+      "SELECT null, k2, count(1), null, max(b) FROM tmp GROUP BY k2");
 
   // Cube.
   plan = PlanBuilder()
