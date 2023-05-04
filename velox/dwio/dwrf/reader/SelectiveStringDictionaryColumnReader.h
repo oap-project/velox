@@ -88,7 +88,8 @@ class SelectiveStringDictionaryColumnReader
 
   std::unique_ptr<ByteRleDecoder> inDictionaryReader_;
   std::unique_ptr<dwio::common::SeekableInputStream> strideDictStream_;
-  std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ false>> strideDictLengthDecoder_;
+  std::unique_ptr<dwio::common::IntDecoder</*isSigned*/ false>>
+      strideDictLengthDecoder_;
 
   FlatVectorPtr<StringView> dictionaryValues_;
 
@@ -112,7 +113,8 @@ void SelectiveStringDictionaryColumnReader::readWithVisitor(
   vector_size_t numRows = rows.back() + 1;
 
   if (rleVersion == velox::dwrf::RleVersion_1) {
-    auto decoder = dynamic_cast<velox::dwrf::RleDecoderV1<false>*>(dictIndex_.get());
+    auto decoder =
+        dynamic_cast<velox::dwrf::RleDecoderV1<false>*>(dictIndex_.get());
     if (nullsInReadRange_) {
       decoder->readWithVisitor<true, TVisitor>(
           nullsInReadRange_->as<uint64_t>(), visitor);
@@ -120,7 +122,8 @@ void SelectiveStringDictionaryColumnReader::readWithVisitor(
       decoder->readWithVisitor<false, TVisitor>(nullptr, visitor);
     }
   } else {
-    auto decoder = dynamic_cast<velox::dwrf::RleDecoderV2<false>*>(dictIndex_.get());
+    auto decoder =
+        dynamic_cast<velox::dwrf::RleDecoderV2<false>*>(dictIndex_.get());
     if (nullsInReadRange_) {
       decoder->readWithVisitor<true, TVisitor>(
           nullsInReadRange_->as<uint64_t>(), visitor);

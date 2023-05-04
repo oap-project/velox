@@ -34,7 +34,11 @@ SelectiveTimestampColumnReader::SelectiveTimestampColumnReader(
   auto data = encodingKey.forKind(proto::Stream_Kind_DATA);
   bool vints = stripe.getUseVInts(data);
   seconds_ = createRleDecoder</*isSigned*/ true>(
-      stripe.getStream(data, true), version, memoryPool_, vints, LONG_BYTE_SIZE);
+      stripe.getStream(data, true),
+      version,
+      memoryPool_,
+      vints,
+      LONG_BYTE_SIZE);
 
   auto nanoData = encodingKey.forKind(proto::Stream_Kind_NANO_DATA);
   bool nanoVInts = stripe.getUseVInts(nanoData);
@@ -109,9 +113,13 @@ void SelectiveTimestampColumnReader::readHelper(RowSet rows) {
 
   // Save the seconds into their own buffer before reading nanos into
   // 'values_'
-  dwio::common::ensureCapacity<uint64_t>(secondsValues_, numValues_, &memoryPool_);
+  dwio::common::ensureCapacity<uint64_t>(
+      secondsValues_, numValues_, &memoryPool_);
   secondsValues_->setSize(numValues_ * sizeof(int64_t));
-  memcpy(secondsValues_->asMutable<char>(), rawValues_, numValues_ * sizeof(int64_t));
+  memcpy(
+      secondsValues_->asMutable<char>(),
+      rawValues_,
+      numValues_ * sizeof(int64_t));
 
   // We read the nanos into 'values_' starting at index 0.
   numValues_ = 0;
