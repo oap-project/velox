@@ -375,7 +375,7 @@ std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxAgg(
   aggregateMasks.reserve(aggRel.measures().size());
 
   for (const auto& measure : aggRel.measures()) {
-    core::FieldAccessTypedExprPtr aggregateMask;
+    core::FieldAccessTypedExprPtr aggregateMask = {};
     ::substrait::Expression substraitAggMask = measure.filter();
     // Get Aggregation Masks.
     if (measure.has_filter()) {
@@ -386,9 +386,8 @@ std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxAgg(
             std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
                 exprConverter_->toVeloxExpr(substraitAggMask, inputType));
       }
-      aggregateMasks.push_back(aggregateMask);
     }
-
+    aggregateMasks.push_back(aggregateMask);
     const auto& aggFunction = measure.measure();
     auto funcName = subParser_->findVeloxFunction(
         functionMap_, aggFunction.function_reference());
