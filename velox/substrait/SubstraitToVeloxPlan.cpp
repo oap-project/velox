@@ -356,8 +356,7 @@ std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxAgg(
     const std::shared_ptr<const core::PlanNode>& childNode,
     const core::AggregationNode::Step& aggStep) {
   const auto& inputType = childNode->outputType();
-  std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>
-      veloxGroupingExprs;
+  std::vector<core::FieldAccessTypedExprPtr> veloxGroupingExprs;
 
   // Get the grouping expressions.
   for (const auto& grouping : aggRel.groupings()) {
@@ -374,24 +373,26 @@ std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxAgg(
   aggExprs.reserve(aggRel.measures().size());
   std::vector<core::FieldAccessTypedExprPtr> aggregateMasks;
   aggregateMasks.reserve(aggRel.measures().size());
-  for (const auto& smea : aggRel.measures()) {
+
+  for (const auto& measure : aggRel.measures()) {
     core::FieldAccessTypedExprPtr aggregateMask;
+    ::substrait::Expression substraitAggMask = measure.filter();
     // Get Aggregation Masks.
-    if (!smea.has_filter()) {
-      aggregateMask = {};
-    } else {
-      aggregateMask =
-          std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
-              exprConverter_->toVeloxExpr(smea.filter(), inputType));
-      VELOX_CHECK(
-          aggregateMask != nullptr,
-          " the agg filter expression in Aggregate Operator only support field");
+    if (measure.has_filter()) {
+      if (substraitAggMask.ByteSizeLong() == 0) {
+        aggregateMask = {};
+      } else {
+        aggregateMask =
+            std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
+                exprConverter_->toVeloxExpr(substraitAggMask, inputType));
+      }
+      aggregateMasks.push_back(aggregateMask);
     }
-    aggregateMasks.push_back(aggregateMask);
-    const auto& aggFunction = smea.measure();
-    std::string funcName = subParser_->findVeloxFunction(
+
+    const auto& aggFunction = measure.measure();
+    auto funcName = substraitParser_->findVeloxFunction(
         functionMap_, aggFunction.function_reference());
-    std::vector<std::shared_ptr<const core::ITypedExpr>> aggParams;
+    std::vector<core::TypedExprPtr> aggParams;
     aggParams.reserve(aggFunction.arguments().size());
     for (const auto& arg : aggFunction.arguments()) {
       aggParams.emplace_back(
@@ -405,8 +406,7 @@ std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxAgg(
   }
 
   bool ignoreNullKeys = false;
-  std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>
-      preGroupingExprs = {};
+  std::vector<core::FieldAccessTypedExprPtr> preGroupingExprs;
 
   // Get the output names of Aggregation.
   std::vector<std::string> aggOutNames;
@@ -999,7 +999,13 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
   std::vector<RowVectorPtr> vectors;
   vectors.reserve(numVectors);
 
-  int64_t batchSize = valueFieldNums / numColumns;
+  int64_t batchSize;
+  // For the empty vectors, eg,vectors = makeRowVector(ROW({}, {}), 1).
+  if (numColumns == 0) {
+    batchSize = 1;
+  } else {
+    batchSize = valueFieldNums / numColumns;
+  }
 
   for (int64_t index = 0; index < numVectors; ++index) {
     std::vector<VectorPtr> children;

@@ -32,7 +32,7 @@ using namespace facebook::velox::connector::hive;
 using namespace facebook::velox::exec;
 namespace vestrait = facebook::velox::substrait;
 
-class Substrait2VeloxPlanConversionTest
+class Substrait2VeloxPlanValidatorTest
     : public exec::test::HiveConnectorTestBase {
  protected:
   std::shared_ptr<vestrait::SubstraitVeloxPlanConverter> planConverter_ =
@@ -40,7 +40,8 @@ class Substrait2VeloxPlanConversionTest
           memoryPool_.get());
 
   bool validatePlan(std::string file) {
-    std::string subPlanPath = getDataFilePath("velox/substrait/tests", file);
+    std::string subPlanPath =
+        getDataFilePath("velox/substrait/tests", "data/" + file);
 
     ::substrait::Plan substraitPlan;
     JsonToProtoConverter::readFromFile(subPlanPath, substraitPlan);
@@ -66,16 +67,14 @@ class Substrait2VeloxPlanConversionTest
       memory::addDefaultLeafMemoryPool()};
 };
 
-TEST_F(Substrait2VeloxPlanConversionTest, group) {
+TEST_F(Substrait2VeloxPlanValidatorTest, group) {
   std::string subPlanPath =
-      getDataFilePath("velox/substrait/tests", "group.json");
+      getDataFilePath("velox/substrait/tests", "data/group.json");
 
   ::substrait::Plan substraitPlan;
   JsonToProtoConverter::readFromFile(subPlanPath, substraitPlan);
 
   ASSERT_FALSE(validatePlan(substraitPlan));
   // Convert to Velox PlanNode.
-  facebook::velox::substrait::SubstraitVeloxPlanConverter planConverter(
-      pool_.get());
-  EXPECT_ANY_THROW(planConverter.toVeloxPlan(substraitPlan));
+  EXPECT_ANY_THROW(planConverter_->toVeloxPlan(substraitPlan));
 }

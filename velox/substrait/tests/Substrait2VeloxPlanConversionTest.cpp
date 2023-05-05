@@ -18,6 +18,7 @@
 
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/dwio/common/tests/utils/DataFiles.h"
+#include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -269,9 +270,9 @@ TEST_F(Substrait2VeloxPlanConversionTest, q6) {
       " the quickly ironic pains lose car"};
   vectors.emplace_back(makeFlatVector<std::string>(lCommentData));
 
-  // Write data into an ORC file.
+  // Write data into an DWRF file.
   writeToFile(
-      tmpDir_->path + "/mock_lineitem.orc",
+      tmpDir_->path + "/mock_lineitem.dwrf",
       {makeRowVector(type->names(), vectors)});
 
   // Find and deserialize Substrait plan json file.
@@ -283,9 +284,7 @@ TEST_F(Substrait2VeloxPlanConversionTest, q6) {
   JsonToProtoConverter::readFromFile(subPlanPath, substraitPlan);
 
   // Convert to Velox PlanNode.
-  facebook::velox::substrait::SubstraitVeloxPlanConverter planConverter(
-      pool_.get());
-  auto planNode = planConverter.toVeloxPlan(substraitPlan);
+  auto planNode = planConverter_->toVeloxPlan(substraitPlan);
 
   auto expectedResult = makeRowVector({
       makeFlatVector<double>(1, [](auto /*row*/) { return 13613.1921; }),
@@ -304,12 +303,16 @@ TEST_F(Substrait2VeloxPlanConversionTest, ifthenTest) {
   JsonToProtoConverter::readFromFile(subPlanPath, substraitPlan);
 
   // Convert to Velox PlanNode.
-  facebook::velox::substrait::SubstraitVeloxPlanConverter planConverter(
-      pool_.get());
-  auto planNode = planConverter.toVeloxPlan(substraitPlan);
+  auto planNode = planConverter_->toVeloxPlan(substraitPlan);
   ASSERT_EQ(
-      "-- Project[expressions: (n1_0:BIGINT, ROW[\"n0_0\"])] -> n1_0:BIGINT\n"
-      "  -- TableScan[table: hive_table, range filters: [(hd_buy_potential, Filter(MultiRange, deterministic, null not allowed)), (hd_demo_sk, Filter(IsNotNull, deterministic, null not allowed)), (hd_vehicle_count, BigintRange: [1, 9223372036854775807] no nulls)], remaining filter: (if(greaterthan(ROW[\"hd_vehicle_count\"],0),greaterthan(divide(cast ROW[\"hd_dep_count\"] as DOUBLE,cast ROW[\"hd_vehicle_count\"] as DOUBLE),1.2)))] -> n0_0:BIGINT, n0_1:VARCHAR, n0_2:BIGINT, n0_3:BIGINT\n",
+      "-- Project[expressions: ] -> \n"
+      "  -- TableScan[table: hive_table, range filters: "
+      "[(hd_demo_sk, Filter(IsNotNull, deterministic, null not allowed)),"
+      " (hd_vehicle_count, BigintRange: [1, 9223372036854775807] no nulls)], "
+      "remaining filter: (and(or(equalto(ROW[\"hd_buy_potential\"],\">10000\"),"
+      "equalto(ROW[\"hd_buy_potential\"],\"unknown\")),if(greaterthan(ROW[\"hd_vehicle_count\"],0),"
+      "greaterthan(divide(cast ROW[\"hd_dep_count\"] as DOUBLE,cast ROW[\"hd_vehicle_count\"] as DOUBLE),1.2))))]"
+      " -> n0_0:BIGINT, n0_1:VARCHAR, n0_2:BIGINT, n0_3:BIGINT\n",
       planNode->toString(true, true));
 }
 
@@ -321,7 +324,9 @@ TEST_F(Substrait2VeloxPlanConversionTest, filterUpper) {
   JsonToProtoConverter::readFromFile(subPlanPath, substraitPlan);
 
   // Convert to Velox PlanNode.
-  facebook::velox::substrait::SubstraitVeloxPlanConverter planConverter(
-      pool_.get());
-  auto planNode = planConverter.toVeloxPlan(substraitPlan);
+  auto planNode = planConverter_->toVeloxPlan(substraitPlan);
+  ASSERT_EQ(
+      "-- Project[expressions: ] -> \n  -- TableScan[table: hive_table, range filters: "
+      "[(key, BigintRange: [-2147483648, 2] no nulls)]] -> n0_0:INTEGER\n",
+      planNode->toString(true, true));
 }

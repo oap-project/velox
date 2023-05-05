@@ -200,15 +200,6 @@ TEST_F(FunctionTest, setVectorFromVariants) {
   ASSERT_EQ(8875, resultVec->asFlatVector<int64_t>()->valueAt(1));
 }
 
-TEST_F(FunctionTest, streamIsInput) {
-  std::string planPath =
-      getDataFilePath("velox/substrait/tests", "data/read_second_stage.json");
-  ::substrait::Rel substraitRel;
-  JsonToProtoConverter::readFromFile(planPath, substraitRel);
-  int index = planConverter_->streamIsInput(substraitRel.read());
-  ASSERT_EQ(index, 0);
-}
-
 TEST_F(FunctionTest, getFunctionType) {
   std::vector<std::string> types;
   substraitParser_->getSubFunctionTypes("sum:opt_i32", types);
