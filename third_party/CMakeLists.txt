@@ -20,28 +20,32 @@ include(ExternalProject)
 if(VELOX_ENABLE_ARROW)
   find_package(Thrift)
 
-  # Use external arrow if found
-  find_package(Arrow)
-  find_package(Parquet)
-  if(Thrift_FOUND AND Arrow_FOUND AND Parquet_FOUND)
-    add_library(arrow INTERFACE)
-    add_library(parquet INTERFACE)
-    add_library(thrift INTERFACE)
+  # Use external arrow & parquet only if <package>_DIR is defined
+  if(DEFINED Arrow_DIR AND DEFINED Parquet_DIR)
+    find_package(Arrow PATHS "${Arrow_DIR}" NO_DEFAULT_PATH)
+    find_package(Parquet PATHS "${Parquet_DIR}" NO_DEFAULT_PATH)
+    if(Thrift_FOUND AND Arrow_FOUND AND Parquet_FOUND)
+      add_library(arrow INTERFACE)
+      add_library(parquet INTERFACE)
+      add_library(thrift INTERFACE)
 
-    if(TARGET Arrow::arrow_static)
-      target_link_libraries(arrow INTERFACE Arrow::arrow_static)
-    else()
-      target_link_libraries(arrow INTERFACE Arrow::arrow_shared)
+      if(TARGET Arrow::arrow_static)
+        target_link_libraries(arrow INTERFACE Arrow::arrow_static)
+      else()
+        target_link_libraries(arrow INTERFACE Arrow::arrow_shared)
+      endif()
+
+      if(TARGET Parquet::parquet_static)
+        target_link_libraries(parquet INTERFACE Parquet::parquet_static)
+      else()
+        target_link_libraries(parquet INTERFACE Parquet::parquet_shared)
+      endif()
+
+      target_link_libraries(thrift INTERFACE thrift::thrift)
+
+      message(STATUS "Using external arrow")
+      return()
     endif()
-
-    if(TARGET Parquet::parquet_static)
-      target_link_libraries(parquet INTERFACE Parquet::parquet_static)
-    else()
-      target_link_libraries(parquet INTERFACE Parquet::parquet_shared)
-    endif()
-
-    target_link_libraries(thrift INTERFACE thrift::thrift)
-    return()
   endif()
 
   set(ARROW_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/arrow_ep")
