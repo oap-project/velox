@@ -390,7 +390,7 @@ std::shared_ptr<const core::PlanNode> SubstraitVeloxPlanConverter::toVeloxAgg(
     }
 
     const auto& aggFunction = measure.measure();
-    auto funcName = substraitParser_->findVeloxFunction(
+    auto funcName = subParser_->findVeloxFunction(
         functionMap_, aggFunction.function_reference());
     std::vector<core::TypedExprPtr> aggParams;
     aggParams.reserve(aggFunction.arguments().size());
