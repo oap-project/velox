@@ -83,10 +83,10 @@ class Writer {
       std::unique_ptr<dwio::common::DataSink> sink,
       memory::MemoryPool& pool,
       int32_t rowsInRowGroup,
-      std::shared_ptr<velox::core::QueryCtx> queryCtx = std::make_shared<velox::core::QueryCtx>(
-        nullptr),
       std::shared_ptr<::parquet::WriterProperties> properties =
-          ::parquet::WriterProperties::Builder().build())
+          ::parquet::WriterProperties::Builder().build(),
+      std::shared_ptr<velox::core::QueryCtx> queryCtx = std::make_shared<velox::core::QueryCtx>(
+        nullptr))
       : rowsInRowGroup_(rowsInRowGroup),
         pool_(pool),
         finalSink_(std::move(sink)),
