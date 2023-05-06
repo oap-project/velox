@@ -105,7 +105,7 @@ class DataBuffer {
     if (veloxRef_ != nullptr) {
       DWIO_RAISE("Can't reserve on a referenced buffer");
     }
-    const auto newSize = sizeInBytes(capacity);
+    const auto newSize = sizeInBytes(capacity) * 2;
     if (buf_ == nullptr) {
       buf_ = reinterpret_cast<T*>(pool_->allocate(newSize));
     } else {
@@ -113,7 +113,7 @@ class DataBuffer {
           pool_->reallocate(buf_, sizeInBytes(capacity_), newSize));
     }
     DWIO_ENSURE(buf_ != nullptr || newSize == 0);
-    capacity_ = capacity;
+    capacity_ = capacity * 2;
   }
 
   void extend(uint64_t size) {
