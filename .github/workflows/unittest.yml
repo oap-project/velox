@@ -48,7 +48,7 @@ jobs:
           export HADOOP_HOME='/usr/local/hadoop-2.10.1'
           export PATH=~/adapter-deps/install/bin:/usr/local/hadoop-2.10.1/bin:${PATH}
           cd _build/debug && ctest -j16 -VV -E "(velox_dwrf_e2e_filter_test|velox_parquet_e2e_filter_test)" --output-on-failure
-        
+
   formatting-check:
     name: Formatting Check
     runs-on: ubuntu-latest
