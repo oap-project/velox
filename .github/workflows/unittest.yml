@@ -42,29 +42,13 @@ jobs:
           mkdir -p ~/adapter-deps/install
           DEPENDENCY_DIR=~/adapter-deps PROMPT_ALWAYS_RESPOND=n ./scripts/setup-adapters.sh 
           make debug EXTRA_CMAKE_FLAGS="-DVELOX_ENABLE_PARQUET=ON -DVELOX_BUILD_TESTING=ON -DVELOX_BUILD_TEST_UTILS=ON -DVELOX_ENABLE_HDFS=ON -DVELOX_ENABLE_S3=ON" AWSSDK_ROOT_DIR=~/adapter-deps/install
-          # disable failed tests temporary, will need to restore if fixed
-          #./_build/debug/velox/type/tests/velox_type_test
-          #./_build/debug/velox/dwio/common/tests/velox_dwio_common_test
-          #./_build/debug/velox/dwio/dwrf/test/velox_dwrf_e2e_filter_test
-          #./_build/debug/velox/dwio/parquet/tests/reader/velox_parquet_e2e_filter_test
-          #./_build/debug/velox/functions/prestosql/window/tests/velox_windows_rank_test
-          #./_build/debug/velox/functions/prestosql/aggregates/tests/velox_aggregates_test
-          #./_build/debug/velox/functions/prestosql/tests/velox_functions_test
-          #./_build/debug/velox/functions/sparksql/aggregates/tests/velox_functions_spark_aggregates_test
-          #./_build/debug/velox/functions/sparksql/tests/velox_functions_spark_test
-          #./_build/debug/velox/connectors/hive/tests/velox_hive_connector_test
-          #./_build/debug/velox/exec/tests/velox_exec_test
-          #./_build/debug/velox/substrait/tests/velox_plan_conversion_test
-          #./_build/debug/velox/connectors/hive/storage_adapters/s3fs/tests/velox_s3file_test
-          #./_build/debug/velox/connectors/hive/storage_adapters/hdfs/tests/velox_hdfs_file_test
-          #./_build/debug/velox/functions/prestosql/window/tests/velox_windows_value_test
           export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-amd64/
           export HADOOP_ROOT_LOGGER="WARN,DRFA"
           export LIBHDFS3_CONF=$(pwd)/.circleci/hdfs-client.xml
           export HADOOP_HOME='/usr/local/hadoop-2.10.1'
           export PATH=~/adapter-deps/install/bin:/usr/local/hadoop-2.10.1/bin:${PATH}
-          cd _build/debug && ctest -j16 -VV -E "(velox_type_test|velox_dwio_common_test|velox_dwrf_e2e_filter_test|velox_parquet_e2e_filter_test|velox_windows_rank_test|velox_aggregates_test|velox_functions_test|velox_functions_spark_aggregates_test|velox_functions_spark_test|velox_hive_connector_test|velox_exec_test|velox_plan_conversion_test|velox_windows_value_test|velox_s3file_test)" --output-on-failure
-
+          cd _build/debug && ctest -j16 -VV -E --timeout 10000 "(velox_dwrf_e2e_filter_test|velox_parquet_e2e_filter_test)" --output-on-failure
+        
   formatting-check:
     name: Formatting Check
     runs-on: ubuntu-latest
