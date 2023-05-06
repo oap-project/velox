@@ -21,6 +21,7 @@
 #include <type_traits>
 #include "velox/buffer/Buffer.h"
 #include "velox/common/memory/Memory.h"
+#include "velox/core/QueryConfig.h"
 #include "velox/dwio/common/exception/Exception.h"
 
 namespace facebook {
@@ -96,7 +97,7 @@ class DataBuffer {
     return data()[i];
   }
 
-  void reserve(uint64_t capacity) {
+  void reserve(uint64_t capacity, uint32_t growRatio = 1) {
     if (capacity <= capacity_) {
       // After resetting the buffer, capacity always resets to zero.
       DWIO_ENSURE_NOT_NULL(buf_);
@@ -105,7 +106,7 @@ class DataBuffer {
     if (veloxRef_ != nullptr) {
       DWIO_RAISE("Can't reserve on a referenced buffer");
     }
-    const auto newSize = sizeInBytes(capacity) * 2;
+    const auto newSize = sizeInBytes(capacity) * growRatio;
     if (buf_ == nullptr) {
       buf_ = reinterpret_cast<T*>(pool_->allocate(newSize));
     } else {
@@ -113,7 +114,7 @@ class DataBuffer {
           pool_->reallocate(buf_, sizeInBytes(capacity_), newSize));
     }
     DWIO_ENSURE(buf_ != nullptr || newSize == 0);
-    capacity_ = capacity * 2;
+    capacity_ = capacity * growRatio;
   }
 
   void extend(uint64_t size) {
@@ -141,8 +142,8 @@ class DataBuffer {
     append(offset, src.data() + srcOffset, items);
   }
 
-  void append(uint64_t offset, const T* FOLLY_NONNULL src, uint64_t items) {
-    reserve(offset + items);
+  void append(uint64_t offset, const T* FOLLY_NONNULL src, uint64_t items, uint32_t growRatio = 1) {
+    reserve(offset + items, growRatio);
     unsafeAppend(offset, src, items);
   }
 

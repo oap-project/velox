@@ -115,6 +115,9 @@ class QueryConfig {
   /// output rows.
   static constexpr const char* kMaxOutputBatchRows = "max_output_batch_rows";
 
+  /// It is used when DataBuffer.reserve() method to reallocated buffer size.
+  static constexpr const char* kDataBufferGrowRatio = "data_buffer_grow_ratio";
+
   static constexpr const char* kHashAdaptivityEnabled =
       "driver.hash_adaptivity_enabled";
 
@@ -235,6 +238,10 @@ class QueryConfig {
 
   uint32_t maxOutputBatchRows() const {
     return get<uint32_t>(kMaxOutputBatchRows, 10'000);
+  }
+
+  uint32_t dataBufferGrowRatio() const {
+    return get<uint32_t>(kDataBufferGrowRatio, 1);
   }
 
   bool hashAdaptivityEnabled() const {

@@ -20,6 +20,9 @@
 #include "velox/dwio/common/DataSink.h"
 
 #include "velox/vector/ComplexVector.h"
+#include "velox/core/QueryConfig.h"
+#include "velox/core/Context.h"
+#include "velox/core/QueryCtx.h"
 
 #include <parquet/arrow/writer.h> // @manual
 
@@ -28,18 +31,19 @@ namespace facebook::velox::parquet {
 // Utility for capturing Arrow output into a DataBuffer.
 class DataBufferSink : public arrow::io::OutputStream {
  public:
-  explicit DataBufferSink(memory::MemoryPool& pool) : buffer_(pool) {}
+  explicit DataBufferSink(memory::MemoryPool& pool, uint32_t growRatio = 1) : buffer_(pool), growRatio_(growRatio) {
+  }
 
   arrow::Status Write(const std::shared_ptr<arrow::Buffer>& data) override {
     buffer_.append(
         buffer_.size(),
         reinterpret_cast<const char*>(data->data()),
-        data->size());
+        data->size(), growRatio_);
     return arrow::Status::OK();
   }
 
   arrow::Status Write(const void* data, int64_t nbytes) override {
-    buffer_.append(buffer_.size(), reinterpret_cast<const char*>(data), nbytes);
+    buffer_.append(buffer_.size(), reinterpret_cast<const char*>(data), nbytes, growRatio_);
     return arrow::Status::OK();
   }
 
@@ -64,7 +68,8 @@ class DataBufferSink : public arrow::io::OutputStream {
   }
 
  private:
-  dwio::common::DataBuffer<char> buffer_;
+  dwio::common::DataBuffer<char> buffer_; 
+  uint32_t growRatio_ = 1;
 };
 
 // Writes Velox vectors into  a DataSink using Arrow Parquet writer.
@@ -78,12 +83,15 @@ class Writer {
       std::unique_ptr<dwio::common::DataSink> sink,
       memory::MemoryPool& pool,
       int32_t rowsInRowGroup,
+      std::shared_ptr<velox::core::QueryCtx> queryCtx = std::make_shared<velox::core::QueryCtx>(
+        nullptr),
       std::shared_ptr<::parquet::WriterProperties> properties =
           ::parquet::WriterProperties::Builder().build())
       : rowsInRowGroup_(rowsInRowGroup),
         pool_(pool),
         finalSink_(std::move(sink)),
-        properties_(std::move(properties)) {}
+        properties_(std::move(properties)),
+        queryCtx_(std::move(queryCtx)) {}
 
   // Appends 'data' into the writer.
   void write(const RowVectorPtr& data);
@@ -113,6 +121,7 @@ class Writer {
   std::unique_ptr<::parquet::arrow::FileWriter> arrowWriter_;
 
   std::shared_ptr<::parquet::WriterProperties> properties_;
+  std::shared_ptr<velox::core::QueryCtx> queryCtx_;
 };
 
 } // namespace facebook::velox::parquet
