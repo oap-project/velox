@@ -21,7 +21,6 @@
 #include <type_traits>
 #include "velox/buffer/Buffer.h"
 #include "velox/common/memory/Memory.h"
-#include "velox/core/QueryConfig.h"
 #include "velox/dwio/common/exception/Exception.h"
 
 namespace facebook {
