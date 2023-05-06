@@ -141,7 +141,11 @@ class DataBuffer {
     append(offset, src.data() + srcOffset, items);
   }
 
-  void append(uint64_t offset, const T* FOLLY_NONNULL src, uint64_t items, uint32_t growRatio = 1) {
+  void append(
+      uint64_t offset,
+      const T* FOLLY_NONNULL src,
+      uint64_t items,
+      uint32_t growRatio = 1) {
     reserve(offset + items, growRatio);
     unsafeAppend(offset, src, items);
   }

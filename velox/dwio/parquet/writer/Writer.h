@@ -19,10 +19,10 @@
 #include "velox/dwio/common/DataBuffer.h"
 #include "velox/dwio/common/DataSink.h"
 
-#include "velox/vector/ComplexVector.h"
-#include "velox/core/QueryConfig.h"
 #include "velox/core/Context.h"
+#include "velox/core/QueryConfig.h"
 #include "velox/core/QueryCtx.h"
+#include "velox/vector/ComplexVector.h"
 
 #include <parquet/arrow/writer.h> // @manual
 
@@ -31,19 +31,24 @@ namespace facebook::velox::parquet {
 // Utility for capturing Arrow output into a DataBuffer.
 class DataBufferSink : public arrow::io::OutputStream {
  public:
-  explicit DataBufferSink(memory::MemoryPool& pool, uint32_t growRatio = 1) : buffer_(pool), growRatio_(growRatio) {
-  }
+  explicit DataBufferSink(memory::MemoryPool& pool, uint32_t growRatio = 1)
+      : buffer_(pool), growRatio_(growRatio) {}
 
   arrow::Status Write(const std::shared_ptr<arrow::Buffer>& data) override {
     buffer_.append(
         buffer_.size(),
         reinterpret_cast<const char*>(data->data()),
-        data->size(), growRatio_);
+        data->size(),
+        growRatio_);
     return arrow::Status::OK();
   }
 
   arrow::Status Write(const void* data, int64_t nbytes) override {
-    buffer_.append(buffer_.size(), reinterpret_cast<const char*>(data), nbytes, growRatio_);
+    buffer_.append(
+        buffer_.size(),
+        reinterpret_cast<const char*>(data),
+        nbytes,
+        growRatio_);
     return arrow::Status::OK();
   }
 
@@ -68,7 +73,7 @@ class DataBufferSink : public arrow::io::OutputStream {
   }
 
  private:
-  dwio::common::DataBuffer<char> buffer_; 
+  dwio::common::DataBuffer<char> buffer_;
   uint32_t growRatio_ = 1;
 };
 
@@ -85,8 +90,8 @@ class Writer {
       int32_t rowsInRowGroup,
       std::shared_ptr<::parquet::WriterProperties> properties =
           ::parquet::WriterProperties::Builder().build(),
-      std::shared_ptr<velox::core::QueryCtx> queryCtx = std::make_shared<velox::core::QueryCtx>(
-        nullptr))
+      std::shared_ptr<velox::core::QueryCtx> queryCtx =
+          std::make_shared<velox::core::QueryCtx>(nullptr))
       : rowsInRowGroup_(rowsInRowGroup),
         pool_(pool),
         finalSink_(std::move(sink)),
