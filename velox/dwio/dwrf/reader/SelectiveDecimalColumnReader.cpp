@@ -18,9 +18,9 @@
 #include "velox/dwio/common/BufferUtil.h"
 #include "velox/dwio/dwrf/common/DecoderUtil.h"
 
-using namespace dwio::common;
-
 namespace facebook::velox::dwrf {
+
+using namespace dwio::common;
 
 uint64_t SelectiveDecimalColumnReader::skip(uint64_t numValues) {
   numValues = SelectiveColumnReader::skip(numValues);

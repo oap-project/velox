@@ -52,8 +52,8 @@ class SelectiveDecimalColumnReader
       VELOX_CHECK(encodingKind == proto::ColumnEncoding_Kind_DIRECT || encodingKind == proto::ColumnEncoding_Kind_DIRECT_V2);
       version_ = convertRleVersion(encodingKind);
 
-      valueDecoder_ = createDirectDecoder<true>(stripe.getStream(values, true), valuesVInts, LONG_BYTE_SIZE);
-      scaleDecoder_ = createRleDecoder<true>(stripe.getStream(scale, true), version_, params.pool(), scaleVInts, INT_BYTE_SIZE);
+      valueDecoder_ = createDirectDecoder<true>(stripe.getStream(values, true), valuesVInts, facebook::velox::dwio::common::LONG_BYTE_SIZE);
+      scaleDecoder_ = createRleDecoder<true>(stripe.getStream(scale, true), version_, params.pool(), scaleVInts, facebook::velox::dwio::common::INT_BYTE_SIZE);
     } else {
       VELOX_FAIL("invalid stripe format");
     }
@@ -68,21 +68,21 @@ class SelectiveDecimalColumnReader
   void getValues(RowSet rows, VectorPtr* result) override;
 
  private:
-  template <bool isDense>
-  void SelectiveIntegerColumnReader::processValueHook(
+  template <bool dense>
+  void processValueHook(
       RowSet rows,
       ValueHook* hook) {
     VELOX_FAIL("TODO: orc decimal process ValueHook");
   }
 
-  template <bool isDense, typename ExtractValues>
+  template <bool dense, typename ExtractValues>
   void processFilter(
     velox::common::Filter* filter,
     ExtractValues extractValues,
     RowSet rows) {  
     switch (filter ? filter->kind() : velox::common::FilterKind::kAlwaysTrue) {
       case velox::common::FilterKind::kAlwaysTrue:
-        readHelper<velox::common::AlwaysTrue, isDense>(filter, rows, extractValues);
+        readHelper<dense, velox::common::AlwaysTrue>(filter, rows, extractValues);
         break;
       default:
         VELOX_FAIL("TODO: orc decimal process filter unsupport cases");
@@ -90,7 +90,7 @@ class SelectiveDecimalColumnReader
     }
   }
 
-  template <bool dense>
+  template <bool dense, typename Filter, typename ExtractValues>
   void readHelper(
     velox::common::Filter* filter,
     RowSet rows,
