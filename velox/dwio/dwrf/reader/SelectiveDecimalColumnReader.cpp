@@ -72,6 +72,28 @@ void SelectiveDecimalColumnReader::read(
 }
 
 void SelectiveDecimalColumnReader::getValues(RowSet rows, VectorPtr* result) {
+  
 }
 
+const uint32_t SelectiveDecimalColumnReader::MAX_PRECISION_64;
+const uint32_t SelectiveDecimalColumnReader::MAX_PRECISION_128;
+const int64_t SelectiveDecimalColumnReader::POWERS_OF_TEN[MAX_PRECISION_64 + 1] = { 1,
+                                                                                    10,
+                                                                                    100,
+                                                                                    1000,
+                                                                                    10000,
+                                                                                    100000,
+                                                                                    1000000,
+                                                                                    10000000,
+                                                                                    100000000,
+                                                                                    1000000000,
+                                                                                    10000000000,
+                                                                                    100000000000,
+                                                                                    1000000000000,
+                                                                                    10000000000000,
+                                                                                    100000000000000,
+                                                                                    1000000000000000,
+                                                                                    10000000000000000,
+                                                                                    100000000000000000,
+                                                                                    1000000000000000000};
 } // namespace facebook::velox::dwrf

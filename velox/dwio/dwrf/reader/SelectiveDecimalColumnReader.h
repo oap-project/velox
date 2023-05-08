@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "velox/dwio/common/BufferUtil.h"
+#include "velox/dwio/common/ColumnVisitors.h"
 #include "velox/dwio/common/SelectiveColumnReaderInternal.h"
 #include "velox/dwio/dwrf/common/DecoderUtil.h"
 #include "velox/dwio/dwrf/reader/DwrfData.h"
@@ -26,6 +28,10 @@ class SelectiveDecimalColumnReader
     : public dwio::common::SelectiveColumnReader {
  public:
   using ValueType = int128_t;
+
+  static const uint32_t MAX_PRECISION_64 = 18;
+  static const uint32_t MAX_PRECISION_128 = 38;
+  static const int64_t POWERS_OF_TEN[MAX_PRECISION_64 + 1];
 
   SelectiveDecimalColumnReader(
       const std::shared_ptr<const dwio::common::TypeWithId>& nodeType,
@@ -42,6 +48,9 @@ class SelectiveDecimalColumnReader
     bool valuesVInts = stripe.getUseVInts(values);
     bool scaleVInts = stripe.getUseVInts(scale);
 
+    VELOX_CHECK(!valuesVInts);
+    VELOX_CHECK(!scaleVInts);
+
     format_ = stripe.format();
     if (format_ == velox::dwrf::DwrfFormat::kDwrf) {
        VELOX_FAIL("dwrf unsupport decimal");
@@ -53,7 +62,7 @@ class SelectiveDecimalColumnReader
       version_ = convertRleVersion(encodingKind);
 
       valueDecoder_ = createDirectDecoder<true>(stripe.getStream(values, true), valuesVInts, facebook::velox::dwio::common::LONG_BYTE_SIZE);
-      scaleDecoder_ = createRleDecoder<true>(stripe.getStream(scale, true), version_, params.pool(), scaleVInts, facebook::velox::dwio::common::INT_BYTE_SIZE);
+      scaleDecoder_ = createRleDecoder<true>(stripe.getStream(scale, true), version_, params.pool(), scaleVInts, facebook::velox::dwio::common::LONG_BYTE_SIZE);
     } else {
       VELOX_FAIL("invalid stripe format");
     }
@@ -96,10 +105,79 @@ class SelectiveDecimalColumnReader
     RowSet rows,
     ExtractValues extractValues) {
 
+    VELOX_CHECK(filter->kind() == velox::common::FilterKind::kAlwaysTrue);
+    common::AlwaysTrue alwaysTrue;
+
     vector_size_t numRows = rows.back() + 1;
 
+    // step1: read scale
+    // 1.1 read scale into rawValues_
+    if (version_ == velox::dwrf::RleVersion_1) {
+      auto scaleDecoderV1 = dynamic_cast<RleDecoderV1<true>*>(scaleDecoder_.get());
+      if (nullsInReadRange_) {
+        scaleDecoderV1->readWithVisitor<true>(
+            nullsInReadRange_->as<uint64_t>(),
+            facebook::velox::dwio::common::DirectRleColumnVisitor<
+                int64_t,
+                velox::common::AlwaysTrue,
+                decltype(extractValues),
+                dense>(alwaysTrue, this, rows, extractValues));
+      } else {
+        scaleDecoderV1->readWithVisitor<false>(
+            nullptr,
+            facebook::velox::dwio::common::DirectRleColumnVisitor<
+                int64_t,
+                velox::common::AlwaysTrue,
+                decltype(extractValues),
+                dense>(alwaysTrue, this, rows, extractValues));
+      }
+    } else {
+      auto scaleDecoderV2 = dynamic_cast<RleDecoderV2<true>*>(scaleDecoder_.get());
+      if (nullsInReadRange_) {
+        scaleDecoderV2->readWithVisitor<true>(
+            nullsInReadRange_->as<uint64_t>(),
+            facebook::velox::dwio::common::DirectRleColumnVisitor<
+                int64_t,
+                velox::common::AlwaysTrue,
+                decltype(extractValues),
+                dense>(alwaysTrue, this, rows, extractValues));
+      } else {
+        scaleDecoderV2->readWithVisitor<false>(
+            nullptr,
+            facebook::velox::dwio::common::DirectRleColumnVisitor<
+                int64_t,
+                velox::common::AlwaysTrue,
+                decltype(extractValues),
+                dense>(alwaysTrue, this, rows, extractValues));
+      }
+    }
+
+    // 1.2 copy scale from rawValues_ into scaleBuffer before reading values
+    velox::dwio::common::ensureCapacity<int64_t>(scaleBuffer_, numValues_, &memoryPool_);
+    scaleBuffer_->setSize(numValues_ * sizeof(int64_t));
+    memcpy(scaleBuffer_->asMutable<char>(), rawValues_, numValues_ * sizeof(int64_t));
+
+    // step2: read values
     numValues_ = 0;
 
+    facebook::velox::dwio::common::ColumnVisitor<
+      int64_t,
+      velox::common::AlwaysTrue,
+      decltype(extractValues),
+      dense> columnVisitor(alwaysTrue, this, rows, extractValues);
+
+    auto valueDecoder = dynamic_cast<velox::dwio::common::DirectDecoder<true>*>(valueDecoder_.get());
+    if (nullsInReadRange_) {
+      valueDecoder->readWithVisitor<true>(
+          nullsInReadRange_->as<uint64_t>(),
+          columnVisitor);
+    } else {
+      valueDecoder->readWithVisitor<false>(
+          nullptr,
+          columnVisitor);
+    }
+
+    // step3: modify read offset
     readOffset_ += numRows;
   }
 
@@ -110,7 +188,7 @@ private:
   std::unique_ptr<dwio::common::IntDecoder<true>> valueDecoder_;
   std::unique_ptr<dwio::common::IntDecoder<true>> scaleDecoder_;
 
-  int32_t scale_ = 0;
+  BufferPtr scaleBuffer_;
 };
 
 } // namespace facebook::velox::dwrf
