@@ -27,7 +27,7 @@ namespace facebook::velox::dwrf {
 class SelectiveDecimalColumnReader
     : public dwio::common::SelectiveColumnReader {
  public:
-  using ValueType = int128_t;
+  using ValueType = int64_t;
 
   static const uint32_t MAX_PRECISION_64 = 18;
   static const uint32_t MAX_PRECISION_128 = 38;
@@ -35,10 +35,14 @@ class SelectiveDecimalColumnReader
 
   SelectiveDecimalColumnReader(
       const std::shared_ptr<const dwio::common::TypeWithId>& nodeType,
+      const TypePtr& dataType,
       DwrfParams& params,
       common::ScanSpec& scanSpec) 
     : SelectiveColumnReader(nodeType, params, scanSpec, nodeType->type) {
-      
+
+    precision_ = dataType->asShortDecimal().precision();
+    scale_ = dataType->asShortDecimal().scale();
+
     auto& stripe = params.stripeStreams();
 
     EncodingKey encodingKey{nodeType_->id, params.flatMapContext().sequence};
@@ -66,6 +70,12 @@ class SelectiveDecimalColumnReader
     } else {
       VELOX_FAIL("invalid stripe format");
     }
+
+    std::cout << "[zuochunwei] SelectiveDecimalColumnReader" 
+      << " pricision=" << precision_
+      << " scale=" << scale_
+      << " version=" << (int)version_
+      << std::endl;
   }
 
   void seekToRowGroup(uint32_t index) override;
@@ -158,6 +168,7 @@ class SelectiveDecimalColumnReader
     memcpy(scaleBuffer_->asMutable<char>(), rawValues_, numValues_ * sizeof(int64_t));
 
     // step2: read values
+    std::cout << "[zuochunwei] decimal read scale, numValues_=" << numValues_ << " readOffset_=" << readOffset_ << std::endl;
     numValues_ = 0;
 
     facebook::velox::dwio::common::ColumnVisitor<
@@ -179,6 +190,8 @@ class SelectiveDecimalColumnReader
 
     // step3: modify read offset
     readOffset_ += numRows;
+
+    std::cout << "[zuochunwei] decimal read values, numValues_=" << numValues_ << " readOffset_=" << readOffset_ << std::endl;
   }
 
 private:
@@ -189,6 +202,9 @@ private:
   std::unique_ptr<dwio::common::IntDecoder<true>> scaleDecoder_;
 
   BufferPtr scaleBuffer_;
+
+  int32_t precision_ = 0;
+  int32_t scale_ = 0;
 };
 
 } // namespace facebook::velox::dwrf

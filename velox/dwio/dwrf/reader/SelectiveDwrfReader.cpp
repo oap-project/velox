@@ -130,7 +130,7 @@ std::unique_ptr<SelectiveColumnReader> SelectiveDwrfReader::build(
     case TypeKind::SHORT_DECIMAL:
     case TypeKind::LONG_DECIMAL:
       return std::make_unique<SelectiveDecimalColumnReader>(
-          requestedType, params, scanSpec);
+          requestedType, dataType->type, params, scanSpec);
     default:
       DWIO_RAISE(
           "buildReader unhandled type: " +

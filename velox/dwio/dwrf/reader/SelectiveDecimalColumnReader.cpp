@@ -72,7 +72,42 @@ void SelectiveDecimalColumnReader::read(
 }
 
 void SelectiveDecimalColumnReader::getValues(RowSet rows, VectorPtr* result) {
-  
+  auto nullsPtr = nullsInReadRange_
+      ? (returnReaderNulls_ ? nullsInReadRange_->as<uint64_t>()
+                            : rawResultNulls_)
+      : nullptr;
+
+  auto decimalValues = AlignedBuffer::allocate<UnscaledShortDecimal>(numValues_, &memoryPool_);
+  auto rawDecimalValues = decimalValues->asMutable<UnscaledShortDecimal>();
+
+  auto scales = scaleBuffer_->as<int64_t>();
+  auto values = values_->as<int64_t>();
+
+  // transfer to UnscaledShortDecimal
+  int32_t scale = scale_;
+  for (vector_size_t i = 0; i < numValues_; i++) {
+    if (!nullsPtr || !bits::isBitNull(nullsPtr, i)) {
+      int32_t currentScale = scales[i];
+      int64_t value = values[i];
+
+      if (scale > currentScale && static_cast<uint64_t>(scale - currentScale) <= MAX_PRECISION_64) {
+        value *= POWERS_OF_TEN[scale - currentScale];
+      } else if (scale < currentScale && static_cast<uint64_t>(currentScale - scale) <= MAX_PRECISION_64) {
+        value /= POWERS_OF_TEN[currentScale - scale];
+      } else if (scale != currentScale) {
+        VELOX_FAIL("Decimal scale out of range");
+      }
+
+      rawDecimalValues[i] = UnscaledShortDecimal(value);
+    }
+  }
+
+  values_ = decimalValues;
+  rawValues_ = values_->asMutable<char>();
+  getFlatValues<UnscaledShortDecimal, UnscaledShortDecimal>(rows, result, type_, true);
+
+  std::cout << "[zuochunwei] SelectiveDecimalColumnReader::getValues =====" << std::endl;
+  std::cout << (*result)->toString() << std::endl;
 }
 
 const uint32_t SelectiveDecimalColumnReader::MAX_PRECISION_64;
