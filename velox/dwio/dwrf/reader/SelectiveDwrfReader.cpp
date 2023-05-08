@@ -27,6 +27,7 @@
 #include "velox/dwio/dwrf/reader/SelectiveStringDirectColumnReader.h"
 #include "velox/dwio/dwrf/reader/SelectiveStructColumnReader.h"
 #include "velox/dwio/dwrf/reader/SelectiveTimestampColumnReader.h"
+#include "velox/dwio/dwrf/reader/SelectiveDecimalColumnReader.h"
 
 namespace facebook::velox::dwrf {
 
@@ -125,6 +126,10 @@ std::unique_ptr<SelectiveColumnReader> SelectiveDwrfReader::build(
       }
     case TypeKind::TIMESTAMP:
       return std::make_unique<SelectiveTimestampColumnReader>(
+          requestedType, params, scanSpec);
+    case TypeKind::SHORT_DECIMAL:
+    case TypeKind::LONG_DECIMAL:
+      return std::make_unique<SelectiveDecimalColumnReader>(
           requestedType, params, scanSpec);
     default:
       DWIO_RAISE(
