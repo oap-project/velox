@@ -1012,8 +1012,7 @@ VectorPtr createTimestampVector(
   VectorPtr base = BaseVector::create(type, arrowArray.length, pool);
   base->setNulls(nulls);
 
-  auto flatVector =
-      std::dynamic_pointer_cast<FlatVector<Timestamp>>(base);
+  auto flatVector = std::dynamic_pointer_cast<FlatVector<Timestamp>>(base);
 
   for (int i = 0; i < arrowArray.length; i++) {
     if (!base->isNullAt(i)) {

@@ -96,7 +96,8 @@ bool SubstraitToVeloxPlanValidator::validateScalarFunction(
     const ::substrait::Expression::ScalarFunction& scalarFunction,
     const RowTypePtr& inputType) {
   for (const auto& argument : scalarFunction.arguments()) {
-    if (argument.has_value() && !validateExpression(argument.value(), inputType)) {
+    if (argument.has_value() &&
+        !validateExpression(argument.value(), inputType)) {
       return false;
     }
   }
@@ -154,7 +155,8 @@ bool SubstraitToVeloxPlanValidator::validateCast(
     const RowTypePtr& inputType) {
   std::vector<core::TypedExprPtr> inputs{
       exprConverter_->toVeloxExpr(castExpr.input(), inputType)};
-  const auto& toType = toVeloxType(subParser_->parseType(castExpr.type())->type);
+  const auto& toType =
+      toVeloxType(subParser_->parseType(castExpr.type())->type);
 
   // Casting from some types is not supported. See CastExpr::applyCast.
   for (const auto& input : inputs) {
@@ -172,8 +174,10 @@ bool SubstraitToVeloxPlanValidator::validateCast(
         }
       }
       case TypeKind::TIMESTAMP: {
-        if (toType->kind() == TypeKind::DOUBLE || toType->kind() == TypeKind::REAL) {
-          VLOG(1) << "Casting from TIMESTAMP to REAL or DOUBLE is not supported.";
+        if (toType->kind() == TypeKind::DOUBLE ||
+            toType->kind() == TypeKind::REAL) {
+          VLOG(1)
+              << "Casting from TIMESTAMP to REAL or DOUBLE is not supported.";
           return false;
         }
       }

@@ -383,7 +383,8 @@ SubstraitVeloxExprConverter::toVeloxExpr(
           DATE(), variant(Date(substraitLit.date())));
     case ::substrait::Expression_Literal::LiteralTypeCase::kTimestamp:
       return std::make_shared<core::ConstantTypedExpr>(
-          TIMESTAMP(), variant(Timestamp::fromMicros(substraitLit.timestamp())));
+          TIMESTAMP(),
+          variant(Timestamp::fromMicros(substraitLit.timestamp())));
     case ::substrait::Expression_Literal::LiteralTypeCase::kVarChar:
       return std::make_shared<core::ConstantTypedExpr>(
           VARCHAR(), variant(substraitLit.var_char().value()));
