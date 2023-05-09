@@ -261,7 +261,6 @@ SubstraitVeloxExprConverter::toExtractExpr(
       VELOX_FAIL("Value expected in variant.");
     }
     // The first parameter specifies extracting from which field.
-    // Only year is supported currently.
     std::string from = variant.value<std::string>();
 
     // The second parameter is the function parameter.

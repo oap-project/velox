@@ -92,14 +92,38 @@ bool SubstraitToVeloxPlanValidator::validateRound(
   }
 }
 
+bool SubstraitToVeloxPlanValidator::validateExtractExpr(
+    const std::vector<std::shared_ptr<const core::ITypedExpr>>& params) {
+  VELOX_CHECK_EQ(params.size(), 2);
+  auto functionArg =
+      std::dynamic_pointer_cast<const core::ConstantTypedExpr>(params[0]);
+  if (functionArg) {
+    // Get the function argument.
+    auto variant = functionArg->value();
+    if (!variant.hasValue()) {
+      VELOX_FAIL("Value expected in variant.");
+    }
+    // The first parameter specifies extracting from which field.
+    std::string from = variant.value<std::string>();
+    // Hour causes incorrect result.
+    if (from == "HOUR") {
+      return false;
+    }
+  }
+  VELOX_FAIL("Constant is expected to be the first parameter in extract.");
+}
+
 bool SubstraitToVeloxPlanValidator::validateScalarFunction(
     const ::substrait::Expression::ScalarFunction& scalarFunction,
     const RowTypePtr& inputType) {
+  std::vector<core::TypedExprPtr> params;
+  params.reserve(scalarFunction.arguments().size());
   for (const auto& argument : scalarFunction.arguments()) {
     if (argument.has_value() &&
         !validateExpression(argument.value(), inputType)) {
       return false;
     }
+    params.emplace_back(exprConverter_->toVeloxExpr(argument.value(), inputType));
   }
 
   const auto& function = subParser_->findFunctionSpec(
@@ -109,6 +133,9 @@ bool SubstraitToVeloxPlanValidator::validateScalarFunction(
   subParser_->getSubFunctionTypes(function, types);
   if (name == "round") {
     return validateRound(scalarFunction, inputType);
+  }
+  if (name == "extract") {
+    return validateExtractExpr(params);
   }
   if (name == "char_length") {
     VELOX_CHECK(types.size() == 1);
@@ -153,36 +180,39 @@ bool SubstraitToVeloxPlanValidator::validateLiteral(
 bool SubstraitToVeloxPlanValidator::validateCast(
     const ::substrait::Expression::Cast& castExpr,
     const RowTypePtr& inputType) {
-  std::vector<core::TypedExprPtr> inputs{
-      exprConverter_->toVeloxExpr(castExpr.input(), inputType)};
+  if (!validateExpression(castExpr.input(), inputType)) {
+    return false;
+  }
+  
   const auto& toType =
       toVeloxType(subParser_->parseType(castExpr.type())->type);
+  if (toType->kind() == TypeKind::TIMESTAMP) {
+    VLOG(1) << "Casting to TIMESTAMP is not supported";
+    return false;
+  }
+
+  core::TypedExprPtr input =
+      exprConverter_->toVeloxExpr(castExpr.input(), inputType);
 
   // Casting from some types is not supported. See CastExpr::applyCast.
-  for (const auto& input : inputs) {
-    switch (input->type()->kind()) {
-      case TypeKind::ARRAY:
-      case TypeKind::MAP:
-      case TypeKind::ROW:
-      case TypeKind::VARBINARY:
-        VLOG(1) << "Invalid input type in casting: " << input->type() << ".";
+  switch (input->type()->kind()) {
+    case TypeKind::ARRAY:
+    case TypeKind::MAP:
+    case TypeKind::ROW:
+    case TypeKind::VARBINARY:
+      VLOG(1) << "Invalid input type in casting: " << input->type() << ".";
+      return false;
+    case TypeKind::DATE: {
+      if (toType->kind() == TypeKind::TIMESTAMP) {
+        VLOG(1) << "Casting from DATE to TIMESTAMP is not supported.";
         return false;
-      case TypeKind::DATE: {
-        if (toType->kind() == TypeKind::TIMESTAMP) {
-          VLOG(1) << "Casting from DATE to TIMESTAMP is not supported.";
-          return false;
-        }
       }
-      case TypeKind::TIMESTAMP: {
-        if (toType->kind() == TypeKind::DOUBLE ||
-            toType->kind() == TypeKind::REAL) {
-          VLOG(1)
-              << "Casting from TIMESTAMP to REAL or DOUBLE is not supported.";
-          return false;
-        }
-      }
-      default: {
-      }
+    }
+    case TypeKind::TIMESTAMP: {
+      VLOG(1) << "Casting from TIMESTAMP is not supported or has incorrect result.";
+      return false;
+    }
+    default: {
     }
   }
   return true;
@@ -607,6 +637,9 @@ bool SubstraitToVeloxPlanValidator::validate(
   std::vector<std::shared_ptr<const core::ITypedExpr>> expressions;
   expressions.reserve(1);
   try {
+    if (!validateExpression(filterRel.condition(), rowType)) {
+      return false;
+    }
     expressions.emplace_back(
         exprConverter_->toVeloxExpr(filterRel.condition(), rowType));
     // Try to compile the expressions. If there is any unregistered function

@@ -327,12 +327,6 @@ void gatherFromBuffer(
       int128_t value = decimalSrc[i].unscaledValue();
       memcpy(dst + (j++) * sizeof(int128_t), &value, sizeof(int128_t));
     });
-  } else if (type.kind() == TypeKind::TIMESTAMP) {
-    rows.apply([&](vector_size_t i) {
-      auto tsSrc = buf.as<Timestamp>();
-      int64_t value = tsSrc[i].toMicros();
-      memcpy(dst + (j++) * sizeof(int64_t), &value, sizeof(int64_t));
-    });
   } else {
     auto typeSize = type.cppSizeInBytes();
     rows.apply([&](vector_size_t i) {
@@ -372,8 +366,7 @@ void exportValues(
   // Short decimals need to be converted to 128 bit values as they are mapped
   // to Arrow Decimal128.
   // Timestamps need to be converted to micros.
-  if (!rows.changed() && !vec.type()->isShortDecimal() &&
-      (vec.type()->kind() != TypeKind::TIMESTAMP)) {
+  if (!rows.changed() && !vec.type()->isShortDecimal()) {
     holder.setBuffer(1, vec.values());
     return;
   }
@@ -384,6 +377,32 @@ void exportValues(
       : AlignedBuffer::allocate<uint8_t>(
             checkedMultiply<size_t>(out.length, size), pool);
   gatherFromBuffer(*vec.type(), *vec.values(), rows, *values);
+  holder.setBuffer(1, values);
+}
+
+void exportTimestamps(
+    const BaseVector& vec,
+    const Selection& rows,
+    ArrowArray& out,
+    memory::MemoryPool* pool,
+    VeloxToArrowBridgeHolder& holder) {
+  out.n_buffers = 2;
+  auto size = vec.type()->cppSizeInBytes();
+  auto values = AlignedBuffer::allocate<uint8_t>(
+      checkedMultiply<size_t>(out.length, size), pool);
+  const Buffer& buf = *vec.values();
+  const auto& tsSrc = buf.as<Timestamp>();
+  Buffer& outBuffer = *values;
+  auto dst = outBuffer.asMutable<uint8_t>();
+  vector_size_t j = 0; // index into dst
+  rows.apply([&](vector_size_t i) {
+    int64_t value = 0;
+    if (!vec.mayHaveNulls() || !vec.isNullAt(i)) {
+      // The use of toMicros on null causes integer overflow.
+      value = tsSrc[i].toMicros();
+    }
+    memcpy(dst + (j++) * sizeof(int64_t), &value, sizeof(int64_t));
+  });
   holder.setBuffer(1, values);
 }
 
@@ -439,8 +458,10 @@ void exportFlat(
     case TypeKind::DOUBLE:
     case TypeKind::SHORT_DECIMAL:
     case TypeKind::LONG_DECIMAL:
-    case TypeKind::TIMESTAMP:
       exportValues(vec, rows, out, pool, holder);
+      break;
+    case TypeKind::TIMESTAMP:
+      exportTimestamps(vec, rows, out, pool, holder);
       break;
     case TypeKind::VARCHAR:
     case TypeKind::VARBINARY:
