@@ -95,6 +95,12 @@ bool SubstraitToVeloxPlanValidator::validateRound(
 bool SubstraitToVeloxPlanValidator::validateScalarFunction(
     const ::substrait::Expression::ScalarFunction& scalarFunction,
     const RowTypePtr& inputType) {
+  for (const auto& argument : scalarFunction.arguments()) {
+    if (argument.has_value() && !validateExpression(argument.value(), inputType)) {
+      return false;
+    }
+  }
+
   const auto& function = subParser_->findFunctionSpec(
       planConverter_->getFunctionMap(), scalarFunction.function_reference());
   const auto& name = subParser_->getSubFunctionName(function);
@@ -108,6 +114,14 @@ bool SubstraitToVeloxPlanValidator::validateScalarFunction(
     if (types[0] == "vbin") {
       VLOG(1) << "Binary type is not supported in " << name << ".";
       return false;
+    }
+  }
+  if (name == "murmur3hash") {
+    for (const auto& type : types) {
+      if (type == "ts") {
+        VLOG(1) << "Timestamp type is not supported in " << name << ".";
+        return false;
+      }
     }
   }
   std::unordered_set<std::string> functions = {
@@ -140,6 +154,7 @@ bool SubstraitToVeloxPlanValidator::validateCast(
     const RowTypePtr& inputType) {
   std::vector<core::TypedExprPtr> inputs{
       exprConverter_->toVeloxExpr(castExpr.input(), inputType)};
+  const auto& toType = toVeloxType(subParser_->parseType(castExpr.type())->type);
 
   // Casting from some types is not supported. See CastExpr::applyCast.
   for (const auto& input : inputs) {
@@ -150,6 +165,18 @@ bool SubstraitToVeloxPlanValidator::validateCast(
       case TypeKind::VARBINARY:
         VLOG(1) << "Invalid input type in casting: " << input->type() << ".";
         return false;
+      case TypeKind::DATE: {
+        if (toType->kind() == TypeKind::TIMESTAMP) {
+          VLOG(1) << "Casting from DATE to TIMESTAMP is not supported.";
+          return false;
+        }
+      }
+      case TypeKind::TIMESTAMP: {
+        if (toType->kind() == TypeKind::DOUBLE || toType->kind() == TypeKind::REAL) {
+          VLOG(1) << "Casting from TIMESTAMP to REAL or DOUBLE is not supported.";
+          return false;
+        }
+      }
       default: {
       }
     }
@@ -556,6 +583,12 @@ bool SubstraitToVeloxPlanValidator::validate(
   if (!validateInputTypes(extension, types)) {
     std::cout << "Validation failed for input types in FilterRel." << std::endl;
     return false;
+  }
+  for (const auto& type : types) {
+    if (type->kind() == TypeKind::TIMESTAMP) {
+      VLOG(1) << "Timestamp is not fully supported in Filter";
+      return false;
+    }
   }
 
   int32_t inputPlanNodeId = 0;
