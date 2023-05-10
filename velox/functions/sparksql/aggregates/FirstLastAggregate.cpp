@@ -106,7 +106,9 @@ class FirstLastAggregateBase
     if constexpr (!numeric) {
       for (auto group : groups) {
         auto accumulator = exec::Aggregate::value<TAccumulator>(group);
-        accumulator->value().destroy(exec::Aggregate::allocator_);
+        if (accumulator->has_value()) {
+          accumulator->value().destroy(exec::Aggregate::allocator_);
+        }
       }
     }
   }
