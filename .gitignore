@@ -276,6 +276,9 @@ settings.json
 # User's build configuration
 Makefile.config
 
+# Clangd conf
+.clangd
+
 # build, distribute, and bins (+ python proto bindings)
 build
 .build_debug/*
