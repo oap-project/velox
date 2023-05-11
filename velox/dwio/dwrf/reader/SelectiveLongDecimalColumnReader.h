@@ -39,7 +39,6 @@ class SelectiveLongDecimalColumnReader
       DwrfParams& params,
       common::ScanSpec& scanSpec)
       : SelectiveColumnReader(nodeType, params, scanSpec, nodeType->type) {
-
     precision_ = dataType->asLongDecimal().precision();
     scale_ = dataType->asLongDecimal().scale();
 
@@ -67,9 +66,7 @@ class SelectiveLongDecimalColumnReader
       version_ = convertRleVersion(encodingKind);
 
       valueDecoder_ = createDirectDecoder<true>(
-          stripe.getStream(values, true),
-          valuesVInts,
-          sizeof(int128_t));
+          stripe.getStream(values, true), valuesVInts, sizeof(int128_t));
 
       scaleDecoder_ = createRleDecoder<true>(
           stripe.getStream(scales, true),
@@ -177,7 +174,8 @@ class SelectiveLongDecimalColumnReader
       }
     }
 
-    // 1.2 copy scales from values_(rawValues_) into scaleBuffer_ before reading values
+    // 1.2 copy scales from values_(rawValues_) into scaleBuffer_ before reading
+    // values
     velox::dwio::common::ensureCapacity<int64_t>(
         scaleBuffer_, numValues_, &memoryPool_);
     scaleBuffer_->setSize(numValues_ * sizeof(int64_t));
