@@ -880,8 +880,7 @@ message Expression {
     // Optional; defaults to the start of the partition.
     Bound lower_bound = 5;
 
-    string column_name = 12;
-    WindowType window_type = 13;
+    WindowType window_type = 12;
 
     // Defines the record relative to the current record up to which the window
     // extends. The bound is inclusive. If the upper bound indexes a record

@@ -594,6 +594,7 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
   std::vector<std::string> windowColumnNames;
 
   windowNodeFunctions.reserve(windowRel.measures().size());
+  int i = 0;
   for (const auto& smea : windowRel.measures()) {
     const auto& windowFunction = smea.measure();
     std::string funcName = subParser_->findVeloxFunction(
@@ -612,7 +613,7 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
     auto lowerBound = windowFunction.lower_bound();
     auto type = windowFunction.window_type();
 
-    windowColumnNames.push_back(windowFunction.column_name());
+    windowColumnNames.push_back(fmt::format("{}_{}", funcName, i++));
 
     windowNodeFunctions.push_back(
         {std::move(windowCall),
