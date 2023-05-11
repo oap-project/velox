@@ -22,13 +22,13 @@
 #include "velox/dwio/dwrf/reader/SelectiveFloatingPointColumnReader.h"
 #include "velox/dwio/dwrf/reader/SelectiveIntegerDictionaryColumnReader.h"
 #include "velox/dwio/dwrf/reader/SelectiveIntegerDirectColumnReader.h"
+#include "velox/dwio/dwrf/reader/SelectiveLongDecimalColumnReader.h"
 #include "velox/dwio/dwrf/reader/SelectiveRepeatedColumnReader.h"
+#include "velox/dwio/dwrf/reader/SelectiveShortDecimalColumnReader.h"
 #include "velox/dwio/dwrf/reader/SelectiveStringDictionaryColumnReader.h"
 #include "velox/dwio/dwrf/reader/SelectiveStringDirectColumnReader.h"
 #include "velox/dwio/dwrf/reader/SelectiveStructColumnReader.h"
 #include "velox/dwio/dwrf/reader/SelectiveTimestampColumnReader.h"
-#include "velox/dwio/dwrf/reader/SelectiveShortDecimalColumnReader.h"
-#include "velox/dwio/dwrf/reader/SelectiveLongDecimalColumnReader.h"
 
 namespace facebook::velox::dwrf {
 
