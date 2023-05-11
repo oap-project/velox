@@ -99,7 +99,7 @@ class SubstraitToVeloxPlanValidator {
 
   /// Validate extract function.
   bool validateExtractExpr(
-    const std::vector<std::shared_ptr<const core::ITypedExpr>>& params);
+      const std::vector<std::shared_ptr<const core::ITypedExpr>>& params);
 
   /// Validate Substrait scarlar function.
   bool validateScalarFunction(

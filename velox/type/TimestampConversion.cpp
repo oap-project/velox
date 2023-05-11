@@ -528,9 +528,10 @@ int64_t fromDateString(const char* str, size_t len) {
       std::string input(str);
       size_t strLen = 10;
       std::string leadingStr = input.substr(0, strLen);
-      if (!tryParseDateString(leadingStr.c_str(), strLen, pos, daysSinceEpoch, true)) {
+      if (!tryParseDateString(
+              leadingStr.c_str(), strLen, pos, daysSinceEpoch, true)) {
         VELOX_USER_FAIL(
-          "Unable to parse date value: \"{}\", expected format is (YYYY-MM-DD)",
+            "Unable to parse date value: \"{}\", expected format is (YYYY-MM-DD)",
             std::string(leadingStr, strLen));
       }
       return daysSinceEpoch;

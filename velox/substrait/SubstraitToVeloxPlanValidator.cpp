@@ -109,6 +109,7 @@ bool SubstraitToVeloxPlanValidator::validateExtractExpr(
     if (from == "HOUR") {
       return false;
     }
+    return true;
   }
   VELOX_FAIL("Constant is expected to be the first parameter in extract.");
 }
@@ -123,7 +124,8 @@ bool SubstraitToVeloxPlanValidator::validateScalarFunction(
         !validateExpression(argument.value(), inputType)) {
       return false;
     }
-    params.emplace_back(exprConverter_->toVeloxExpr(argument.value(), inputType));
+    params.emplace_back(
+        exprConverter_->toVeloxExpr(argument.value(), inputType));
   }
 
   const auto& function = subParser_->findFunctionSpec(
@@ -183,7 +185,7 @@ bool SubstraitToVeloxPlanValidator::validateCast(
   if (!validateExpression(castExpr.input(), inputType)) {
     return false;
   }
-  
+
   const auto& toType =
       toVeloxType(subParser_->parseType(castExpr.type())->type);
   if (toType->kind() == TypeKind::TIMESTAMP) {
@@ -209,7 +211,8 @@ bool SubstraitToVeloxPlanValidator::validateCast(
       }
     }
     case TypeKind::TIMESTAMP: {
-      VLOG(1) << "Casting from TIMESTAMP is not supported or has incorrect result.";
+      VLOG(1)
+          << "Casting from TIMESTAMP is not supported or has incorrect result.";
       return false;
     }
     default: {
