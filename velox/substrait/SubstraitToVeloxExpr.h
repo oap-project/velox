@@ -19,11 +19,8 @@
 #include "velox/core/Expressions.h"
 #include "velox/substrait/SubstraitParser.h"
 #include "velox/vector/ComplexVector.h"
-
 #include "velox/type/StringView.h"
 #include "velox/vector/FlatVector.h"
-
-#include "velox/vector/ComplexVector.h"
 
 namespace facebook::velox::substrait {
 
@@ -53,6 +50,11 @@ class SubstraitVeloxExprConverter {
   /// Convert Substrait ScalarFunction into Velox Expression.
   std::shared_ptr<const core::ITypedExpr> toVeloxExpr(
       const ::substrait::Expression::ScalarFunction& sFunc,
+      const RowTypePtr& inputType);
+
+  /// Convert Substrait SingularOrList into Velox Expression.
+  core::TypedExprPtr toVeloxExpr(
+      const ::substrait::Expression::SingularOrList& singularOrList,
       const RowTypePtr& inputType);
 
   /// Convert Substrait SingularOrList into Velox Expression.

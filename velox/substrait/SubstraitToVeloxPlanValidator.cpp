@@ -95,7 +95,7 @@ bool SubstraitToVeloxPlanValidator::validateRound(
 bool SubstraitToVeloxPlanValidator::validateScalarFunction(
     const ::substrait::Expression::ScalarFunction& scalarFunction,
     const RowTypePtr& inputType) {
-  const auto& function = subParser_->findSubstraitFuncSpec(
+  const auto& function = subParser_->findFunctionSpec(
       planConverter_->getFunctionMap(), scalarFunction.function_reference());
   const auto& name = subParser_->getSubFunctionName(function);
   std::vector<std::string> types;

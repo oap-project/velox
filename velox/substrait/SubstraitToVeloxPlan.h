@@ -50,16 +50,16 @@ class SubstraitVeloxPlanConverter {
       bool validationMode = false)
       : pool_(pool), validationMode_(validationMode) {}
   /// Used to convert Substrait ExpandRel into Velox PlanNode.
-  core::PlanNodePtr toVeloxPlan(const ::substrait::ExpandRel& sExpand);
+  core::PlanNodePtr toVeloxPlan(const ::substrait::ExpandRel& expandRel);
 
   /// Used to convert Substrait SortRel into Velox PlanNode.
-  core::PlanNodePtr toVeloxPlan(const ::substrait::WindowRel& sWindow);
+  core::PlanNodePtr toVeloxPlan(const ::substrait::WindowRel& windowRel);
 
   /// Used to convert Substrait JoinRel into Velox PlanNode.
-  core::PlanNodePtr toVeloxPlan(const ::substrait::JoinRel& sJoin);
+  core::PlanNodePtr toVeloxPlan(const ::substrait::JoinRel& joinRel);
 
   /// Used to convert Substrait AggregateRel into Velox PlanNode.
-  core::PlanNodePtr toVeloxPlan(const ::substrait::AggregateRel& sAgg);
+  core::PlanNodePtr toVeloxPlan(const ::substrait::AggregateRel& aggRel);
 
   /// Convert Substrait ProjectRel into Velox PlanNode.
   core::PlanNodePtr toVeloxPlan(const ::substrait::ProjectRel& projectRel);
@@ -103,7 +103,7 @@ class SubstraitVeloxPlanConverter {
   void constructFunctionMap(const ::substrait::Plan& substraitPlan);
 
   /// Will return the function map used by this plan converter.
-  const std::unordered_map<uint64_t, std::string>& getFunctionMap() {
+  const std::unordered_map<uint64_t, std::string>& getFunctionMap() const {
     return functionMap_;
   }
 

@@ -1058,29 +1058,29 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
   if (sRel.has_filter()) {
     return toVeloxPlan(sRel.filter());
   }
-  if (sRel.has_join()) {
-    return toVeloxPlan(sRel.join());
+  if (rel.has_join()) {
+    return toVeloxPlan(rel.join());
   }
-  if (sRel.has_read()) {
-    return toVeloxPlan(sRel.read());
+  if (rel.has_read()) {
+    return toVeloxPlan(rel.read());
   }
-  if (sRel.has_sort()) {
-    return toVeloxPlan(sRel.sort());
-  }
-  if (sRel.has_fetch()) {
-    return toVeloxPlan(sRel.fetch());
-  }
-  if (sRel.has_sort()) {
-    return toVeloxPlan(sRel.sort());
-  }
-  if (sRel.has_expand()) {
-    return toVeloxPlan(sRel.expand());
+  if (rel.has_sort()) {
+    return toVeloxPlan(rel.sort());
   }
   if (sRel.has_fetch()) {
     return toVeloxPlan(sRel.fetch());
   }
   if (sRel.has_window()) {
     return toVeloxPlan(sRel.window());
+  }
+  if (rel.has_expand()) {
+    return toVeloxPlan(rel.expand());
+  }
+  if (rel.has_fetch()) {
+    return toVeloxPlan(rel.fetch());
+  }
+  if (rel.has_window()) {
+    return toVeloxPlan(rel.window());
   }
   VELOX_NYI("Substrait conversion not supported for Rel.");
 }
@@ -1138,6 +1138,22 @@ std::string SubstraitVeloxPlanConverter::nextPlanNodeId() {
   planNodeId_++;
   return id;
 }
+ 
+void SubstraitVeloxPlanConverter::constructFunctionMap(
+    const ::substrait::Plan& substraitPlan) {
+  // Construct the function map based on the Substrait representation.
+  for (const auto& sExtension : substraitPlan.extensions()) {
+    if (!sExtension.has_extension_function()) {
+      continue;
+    }
+    const auto& sFmap = sExtension.extension_function();
+    auto id = sFmap.function_anchor();
+    auto name = sFmap.name();
+    functionMap_[id] = name;
+  }
+  exprConverter_ =
+      std::make_shared<SubstraitVeloxExprConverter>(pool_, functionMap_);
+}
 
 void SubstraitVeloxPlanConverter::flattenConditions(
     const ::substrait::Expression& substraitFilter,
@@ -1148,7 +1164,7 @@ void SubstraitVeloxPlanConverter::flattenConditions(
   switch (typeCase) {
     case ::substrait::Expression::RexTypeCase::kScalarFunction: {
       auto sFunc = substraitFilter.scalar_function();
-      auto filterNameSpec = subParser_->findSubstraitFuncSpec(
+      auto filterNameSpec = subParser_->findFunctionSpec(
           functionMap_, sFunc.function_reference());
       // TODO: Only and relation is supported here.
       if (subParser_->getSubFunctionName(filterNameSpec) == "and") {
@@ -1175,7 +1191,7 @@ void SubstraitVeloxPlanConverter::flattenConditions(
 }
 
 std::string SubstraitVeloxPlanConverter::findFuncSpec(uint64_t id) {
-  return subParser_->findSubstraitFuncSpec(functionMap_, id);
+  return subParser_->findFunctionSpec(functionMap_, id);
 }
 
 int32_t SubstraitVeloxPlanConverter::streamIsInput(
@@ -1261,7 +1277,7 @@ connector::hive::SubfieldFilters SubstraitVeloxPlanConverter::toSubfieldFilters(
 
   // Construct the FilterInfo for the related column.
   for (const auto& scalarFunction : scalarFunctions) {
-    auto filterNameSpec = subParser_->findSubstraitFuncSpec(
+    auto filterNameSpec = subParser_->findFunctionSpec(
         functionMap_, scalarFunction.function_reference());
     auto filterName = subParser_->getSubFunctionName(filterNameSpec);
     if (filterName == sNot) {
@@ -1421,7 +1437,7 @@ bool SubstraitVeloxPlanConverter::canPushdownNot(
     return false;
   }
 
-  auto argFunction = subParser_->findSubstraitFuncSpec(
+  auto argFunction = subParser_->findFunctionSpec(
       functionMap_, notArg.value().scalar_function().function_reference());
   auto functionName = subParser_->getSubFunctionName(argFunction);
 
@@ -1456,7 +1472,7 @@ bool SubstraitVeloxPlanConverter::canPushdownOr(
 
   for (const auto& arg : scalarFunction.arguments()) {
     if (arg.value().has_scalar_function()) {
-      auto nameSpec = subParser_->findSubstraitFuncSpec(
+      auto nameSpec = subParser_->findFunctionSpec(
           functionMap_, arg.value().scalar_function().function_reference());
       auto functionName = subParser_->getSubFunctionName(nameSpec);
 
@@ -1513,7 +1529,7 @@ void SubstraitVeloxPlanConverter::separateFilters(
   }
 
   for (const auto& scalarFunction : scalarFunctions) {
-    auto filterNameSpec = subParser_->findSubstraitFuncSpec(
+    auto filterNameSpec = subParser_->findFunctionSpec(
         functionMap_, scalarFunction.function_reference());
     auto filterName = subParser_->getSubFunctionName(filterNameSpec);
     if (filterName != sNot && filterName != sOr) {
@@ -1659,7 +1675,7 @@ void SubstraitVeloxPlanConverter::setFilterMap(
     const std::vector<TypePtr>& inputTypeList,
     std::unordered_map<uint32_t, std::shared_ptr<FilterInfo>>& colInfoMap,
     bool reverse) {
-  auto nameSpec = subParser_->findSubstraitFuncSpec(
+  auto nameSpec = subParser_->findFunctionSpec(
       functionMap_, scalarFunction.function_reference());
   auto functionName = subParser_->getSubFunctionName(nameSpec);
 

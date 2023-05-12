@@ -33,7 +33,7 @@ get_filename_component(PROTO_DIR ${substrait_proto_directory}/, DIRECTORY)
 # Generate Substrait hearders
 add_custom_command(
   OUTPUT ${PROTO_OUTPUT_FILES}
-  COMMAND protoc --proto_path  ${proto_directory}/ --cpp_out ${PROTO_OUTPUT_DIR}
+  COMMAND ${Protobuf_PROTOC_EXECUTABLE} --proto_path  ${proto_directory}/ --cpp_out ${PROTO_OUTPUT_DIR}
           ${PROTO_FILES}
   DEPENDS ${PROTO_DIR}
   COMMENT "Running PROTO compiler"

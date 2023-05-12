@@ -309,9 +309,8 @@ void SubstraitParser::getSubFunctionTypes(
 std::string SubstraitParser::findVeloxFunction(
     const std::unordered_map<uint64_t, std::string>& functionMap,
     uint64_t id) const {
-  std::string funcSpec = findSubstraitFuncSpec(functionMap, id);
-  std::string funcName = getSubFunctionName(funcSpec);
-
+  std::string funcSpec = findFunctionSpec(functionMap, id);
+  std::string_view funcName = getNameBeforeDelimiter(funcSpec, ":");
   std::vector<std::string> types;
   getSubFunctionTypes(funcSpec, types);
   bool isDecimal = false;
@@ -321,19 +320,20 @@ std::string SubstraitParser::findVeloxFunction(
       break;
     }
   }
-
-  return mapToVeloxFunction(funcName, isDecimal);
+  return mapToVeloxFunction({funcName.begin(), funcName.end()}, isDecimal);
 }
 
 std::string SubstraitParser::mapToVeloxFunction(
-    const std::string& subFunc,
+    const std::string& substraitFunction,
     bool isDecimal) const {
-  auto it = substraitVeloxFunctionMap_.find(subFunc);
+  auto it = substraitVeloxFunctionMap_.find(substraitFunction);
   if (isDecimal) {
-    if (subFunc == "add" || subFunc == "subtract" || subFunc == "multiply" ||
-        subFunc == "divide" || subFunc == "avg" || subFunc == "avg_merge" ||
-        subFunc == "sum" || subFunc == "sum_merge" || subFunc == "round") {
-      return "decimal_" + subFunc;
+    if (substraitFunction == "add" || substraitFunction == "subtract" ||
+        substraitFunction == "multiply" || substraitFunction == "divide" ||
+        substraitFunction == "avg" || substraitFunction == "avg_merge" ||
+        substraitFunction == "sum" || substraitFunction == "sum_merge" ||
+        substraitFunction == "round") {
+      return "decimal_" + substraitFunction;
     }
   }
   if (it != substraitVeloxFunctionMap_.end()) {
@@ -343,6 +343,21 @@ std::string SubstraitParser::mapToVeloxFunction(
   // If not finding the mapping from Substrait function name to Velox function
   // name, the original Substrait function name will be used.
   return subFunc;
+}
+
+bool SubstraitParser::configSetInOptimization(
+    const ::substrait::extensions::AdvancedExtension& extension,
+    const std::string& config) const {
+  if (extension.has_optimization()) {
+    google::protobuf::StringValue msg;
+    extension.optimization().UnpackTo(&msg);
+    std::size_t pos = msg.value().find(config);
+    if ((pos != std::string::npos) &&
+        (msg.value().substr(pos + config.size(), 1) == "1")) {
+      return true;
+    }
+  }
+  return false;
 }
 
 bool SubstraitParser::configSetInOptimization(

@@ -275,7 +275,7 @@ inline int32_t sizeOfIntKind(TypeKind kind) {
     case TypeKind::SMALLINT:
       return 2;
     case TypeKind::INTEGER:
-    case TypeKind::DATE: // the same with INTEGER
+    case TypeKind::DATE:
       return 4;
     case TypeKind::BIGINT:
       return 8;

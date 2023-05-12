@@ -287,9 +287,11 @@ SubstraitVeloxExprConverter::toVeloxExpr(
   for (const auto& sArg : sFunc.arguments()) {
     params.emplace_back(toVeloxExpr(sArg.value(), inputType));
   }
-  const auto& veloxFunction =
-      subParser_->findVeloxFunction(functionMap_, sFunc.function_reference());
-  std::string typeName = subParser_->parseType(sFunc.output_type())->type;
+
+  const auto& veloxFunction = subParser_->findVeloxFunction(
+      functionMap_, substraitFunc.function_reference());
+  std::string typeName =
+      subParser_->parseType(substraitFunc.output_type())->type;
 
   if (veloxFunction == "extract") {
     return toExtractExpr(std::move(params), toVeloxType(typeName));
@@ -573,7 +575,7 @@ SubstraitVeloxExprConverter::toVeloxExpr(
 
 std::shared_ptr<const core::ITypedExpr>
 SubstraitVeloxExprConverter::toVeloxExpr(
-    const ::substrait::Expression& sExpr,
+    const ::substrait::Expression& substraitExpr,
     const RowTypePtr& inputType) {
   std::shared_ptr<const core::ITypedExpr> veloxExpr;
   auto typeCase = sExpr.rex_type_case();
@@ -587,9 +589,9 @@ SubstraitVeloxExprConverter::toVeloxExpr(
     case ::substrait::Expression::RexTypeCase::kCast:
       return toVeloxExpr(sExpr.cast(), inputType);
     case ::substrait::Expression::RexTypeCase::kIfThen:
-      return toVeloxExpr(sExpr.if_then(), inputType);
+      return toVeloxExpr(substraitExpr.if_then(), inputType);
     case ::substrait::Expression::RexTypeCase::kSingularOrList:
-      return toVeloxExpr(sExpr.singular_or_list(), inputType);
+      return toVeloxExpr(substraitExpr.singular_or_list(), inputType);
     default:
       VELOX_NYI(
           "Substrait conversion not supported for Expression '{}'", typeCase);

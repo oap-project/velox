@@ -68,7 +68,7 @@ std::unique_ptr<SelectiveColumnReader> SelectiveDwrfReader::build(
   auto& stripe = params.stripeStreams();
   switch (dataType->type->kind()) {
     case TypeKind::INTEGER:
-    case TypeKind::DATE: // the same with INTEGER
+    case TypeKind::DATE:
       return buildIntegerReader(
           requestedType, dataType, params, INT_BYTE_SIZE, scanSpec);
     case TypeKind::BIGINT:
