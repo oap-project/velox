@@ -77,6 +77,14 @@ void LocalFileSink::write(std::vector<DataBuffer<char>>& buffers) {
   });
 }
 
+void HDFSFileSink::write(std::vector<DataBuffer<char>>& buffers) {
+  writeImpl(buffers, [&](auto& buffer) {
+    size_t size = buffer.size();
+    std::string str(buffer.data(), size);
+    file_->append(str);
+    return size;
+  });
+}
 static std::vector<DataSink::Factory>& factories() {
   static std::vector<DataSink::Factory> factories;
   return factories;
