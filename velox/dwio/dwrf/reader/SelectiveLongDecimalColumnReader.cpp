@@ -58,28 +58,34 @@ void SelectiveLongDecimalColumnReader::read(
 }
 
 namespace {
-  void scaleInt128(int128_t& value, uint32_t scale, uint32_t currentScale) {
-    if (scale > currentScale) {
-      while (scale > currentScale) {
-        uint32_t scaleAdjust =
-            std::min(SelectiveLongDecimalColumnReader::MAX_PRECISION_64, scale - currentScale);
-        value *= SelectiveLongDecimalColumnReader::POWERS_OF_TEN[scaleAdjust];
-        currentScale += scaleAdjust;
-      }
-    } else if (scale < currentScale) {
-      int128_t remainder;
-      while (currentScale > scale) {
-        uint32_t scaleAdjust =
-            std::min(SelectiveLongDecimalColumnReader::MAX_PRECISION_64, currentScale - scale);
-        // TODO: zuochunwei
-        // value = value.divide(SelectiveLongDecimalColumnReader::POWERS_OF_TEN[scaleAdjust], remainder);
-        currentScale -= scaleAdjust;
-      }
+void scaleInt128(int128_t& value, uint32_t scale, uint32_t currentScale) {
+  if (scale > currentScale) {
+    while (scale > currentScale) {
+      uint32_t scaleAdjust = std::min(
+          SelectiveLongDecimalColumnReader::MAX_PRECISION_64,
+          scale - currentScale);
+      value *= SelectiveLongDecimalColumnReader::POWERS_OF_TEN[scaleAdjust];
+      currentScale += scaleAdjust;
+    }
+  } else if (scale < currentScale) {
+    int128_t remainder;
+    while (currentScale > scale) {
+      uint32_t scaleAdjust = std::min(
+          SelectiveLongDecimalColumnReader::MAX_PRECISION_64,
+          currentScale - scale);
+      // TODO: zuochunwei
+      // value =
+      // value.divide(SelectiveLongDecimalColumnReader::POWERS_OF_TEN[scaleAdjust],
+      // remainder);
+      currentScale -= scaleAdjust;
     }
   }
 }
+} // namespace
 
-void SelectiveLongDecimalColumnReader::getValues(RowSet rows, VectorPtr* result) {
+void SelectiveLongDecimalColumnReader::getValues(
+    RowSet rows,
+    VectorPtr* result) {
   auto nullsPtr = nullsInReadRange_
       ? (returnReaderNulls_ ? nullsInReadRange_->as<uint64_t>()
                             : rawResultNulls_)

@@ -39,7 +39,6 @@ class SelectiveShortDecimalColumnReader
       DwrfParams& params,
       common::ScanSpec& scanSpec)
       : SelectiveColumnReader(nodeType, params, scanSpec, nodeType->type) {
-
     precision_ = dataType->asShortDecimal().precision();
     scale_ = dataType->asShortDecimal().scale();
 
@@ -49,7 +48,8 @@ class SelectiveShortDecimalColumnReader
 
     auto values = encodingKey.forKind(proto::Stream_Kind_DATA);
     auto scales = encodingKey.forKind(
-        proto::Stream_Kind_NANO_DATA); // equal to proto::orc::Stream_Kind_SECONDARY
+        proto::Stream_Kind_NANO_DATA); // equal to
+                                       // proto::orc::Stream_Kind_SECONDARY
 
     bool valuesVInts = stripe.getUseVInts(values);
     bool scalesVInts = stripe.getUseVInts(scales);
@@ -177,7 +177,8 @@ class SelectiveShortDecimalColumnReader
       }
     }
 
-    // 1.2 copy scales from values_(rawValues_) into scaleBuffer_ before reading values
+    // 1.2 copy scales from values_(rawValues_) into scaleBuffer_ before reading
+    // values
     velox::dwio::common::ensureCapacity<int64_t>(
         scaleBuffer_, numValues_, &memoryPool_);
     scaleBuffer_->setSize(numValues_ * sizeof(int64_t));

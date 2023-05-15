@@ -56,7 +56,9 @@ void SelectiveShortDecimalColumnReader::read(
   }
 }
 
-void SelectiveShortDecimalColumnReader::getValues(RowSet rows, VectorPtr* result) {
+void SelectiveShortDecimalColumnReader::getValues(
+    RowSet rows,
+    VectorPtr* result) {
   auto nullsPtr = nullsInReadRange_
       ? (returnReaderNulls_ ? nullsInReadRange_->as<uint64_t>()
                             : rawResultNulls_)
