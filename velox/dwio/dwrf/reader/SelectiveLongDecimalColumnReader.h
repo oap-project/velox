@@ -29,10 +29,6 @@ class SelectiveLongDecimalColumnReader
  public:
   using ValueType = int128_t;
 
-  static const uint32_t MAX_PRECISION_64 = 18;
-  static const uint32_t MAX_PRECISION_128 = 38;
-  static const int64_t POWERS_OF_TEN[MAX_PRECISION_64 + 1];
-
   SelectiveLongDecimalColumnReader(
       const std::shared_ptr<const dwio::common::TypeWithId>& nodeType,
       const TypePtr& dataType,

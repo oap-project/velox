@@ -15,6 +15,7 @@
  */
 
 #include "velox/dwio/dwrf/reader/SelectiveLongDecimalColumnReader.h"
+#include "velox/dwio/dwrf/reader/SelectiveShortDecimalColumnReader.h"
 #include "velox/dwio/common/BufferUtil.h"
 #include "velox/dwio/dwrf/common/DecoderUtil.h"
 
@@ -62,20 +63,20 @@ void scaleInt128(int128_t& value, uint32_t scale, uint32_t currentScale) {
   if (scale > currentScale) {
     while (scale > currentScale) {
       uint32_t scaleAdjust = std::min(
-          SelectiveLongDecimalColumnReader::MAX_PRECISION_64,
+          SelectiveShortDecimalColumnReader::MAX_PRECISION_64,
           scale - currentScale);
-      value *= SelectiveLongDecimalColumnReader::POWERS_OF_TEN[scaleAdjust];
+      value *= SelectiveShortDecimalColumnReader::POWERS_OF_TEN[scaleAdjust];
       currentScale += scaleAdjust;
     }
   } else if (scale < currentScale) {
     int128_t remainder;
     while (currentScale > scale) {
       uint32_t scaleAdjust = std::min(
-          SelectiveLongDecimalColumnReader::MAX_PRECISION_64,
+          SelectiveShortDecimalColumnReader::MAX_PRECISION_64,
           currentScale - scale);
-      // TODO: zuochunwei
+      // TODO: YYM
       // value =
-      // value.divide(SelectiveLongDecimalColumnReader::POWERS_OF_TEN[scaleAdjust],
+      // value.divide(SelectiveShortDecimalColumnReader::POWERS_OF_TEN[scaleAdjust],
       // remainder);
       currentScale -= scaleAdjust;
     }
@@ -115,30 +116,5 @@ void SelectiveLongDecimalColumnReader::getValues(
   getFlatValues<UnscaledLongDecimal, UnscaledLongDecimal>(
       rows, result, type_, true);
 }
-
-const uint32_t SelectiveLongDecimalColumnReader::MAX_PRECISION_64;
-const uint32_t SelectiveLongDecimalColumnReader::MAX_PRECISION_128;
-
-const int64_t
-    SelectiveLongDecimalColumnReader::POWERS_OF_TEN[MAX_PRECISION_64 + 1] = {
-        1,
-        10,
-        100,
-        1000,
-        10000,
-        100000,
-        1000000,
-        10000000,
-        100000000,
-        1000000000,
-        10000000000,
-        100000000000,
-        1000000000000,
-        10000000000000,
-        100000000000000,
-        1000000000000000,
-        10000000000000000,
-        100000000000000000,
-        1000000000000000000};
 
 } // namespace facebook::velox::dwrf

@@ -42,7 +42,7 @@ class SelectiveShortDecimalColumnReader
     precision_ = dataType->asShortDecimal().precision();
     scale_ = dataType->asShortDecimal().scale();
 
-    auto& stripe = params.stripeStreams();
+    const auto& stripe = params.stripeStreams();
 
     EncodingKey encodingKey{nodeType_->id, params.flatMapContext().sequence};
 
