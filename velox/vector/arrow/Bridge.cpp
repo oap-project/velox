@@ -243,7 +243,7 @@ const char* exportArrowFormatStr(
     case TypeKind::TIMESTAMP:
       // TODO: need to figure out how we'll map this since in Velox we currently
       // store timestamps as two int64s (epoch in sec and nanos).
-      return "tsn:"; // timestamp [nanoseconds]
+      return "tsu:"; // timestamp [microseconds]
     case TypeKind::DATE:
       return "tdD"; // date32[days]
     // Complex/nested types.
