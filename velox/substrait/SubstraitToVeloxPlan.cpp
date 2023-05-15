@@ -569,7 +569,7 @@ const core::WindowNode::Frame createWindowFrame(
     case core::WindowNode::BoundType::kPreceding:
       // TODO: support non-literal expression.
       frame.startValue = std::make_shared<core::ConstantTypedExpr>(
-          BIGINT(), variant(lower_bound.preceding().i64()));
+          BIGINT(), variant(lower_bound.preceding().offset()));
       break;
     default:
       frame.startValue = nullptr;
@@ -579,7 +579,7 @@ const core::WindowNode::Frame createWindowFrame(
     // TODO: support non-literal expression.
     case core::WindowNode::BoundType::kFollowing:
       frame.endValue = std::make_shared<core::ConstantTypedExpr>(
-          BIGINT(), variant(upper_bound.following());
+          BIGINT(), variant(upper_bound.following().offset()));
       break;
     default:
       frame.endValue = nullptr;
