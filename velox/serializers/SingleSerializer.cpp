@@ -13,24 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/serializers/SparkSerializer.h"
+#include "velox/serializers/SingleSerializer.h"
 #include "velox/common/base/Crc.h"
 #include "velox/common/memory/ByteStream.h"
-// #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
-// #include "velox/type/Date.h"
-// #include "velox/vector/BiasVector.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/VectorTypeUtils.h"
 
-namespace facebook::velox::serializer::spark {
+namespace facebook::velox::serializer {
 namespace {
 constexpr int8_t kCompressedBitMask = 1;
 constexpr int8_t kEncryptedBitMask = 2;
 constexpr int8_t kCheckSumBitMask = 4;
 
 int64_t computeChecksum(
-    SparkOutputStreamListener* listener,
+    SingleOutputStreamListener* listener,
     int codecMarker,
     int numRows,
     int uncompressedSize) {
@@ -160,7 +157,6 @@ VectorPtr readFlatVector(
     int32_t length,
     std::shared_ptr<const Type> type,
     velox::memory::MemoryPool* pool) {
-  // remove not need
   auto bodyBufferSize = source->read<int32_t>();
   VELOX_CHECK_EQ(bodyBufferSize, 2);
   auto nulls = readBuffer(source, pool);
@@ -309,9 +305,9 @@ void writeBool(OutputStream* out, bool value) {
 // time, call appendNull or appendNonNull first. Then call
 // appendLength if the type has a length. A null value has a length of
 // 0. Then call appendValue if the value was not null.
-class SparkVectorStream {
+class SingleVectorStream {
  public:
-  SparkVectorStream(
+  SingleVectorStream(
       const TypePtr type,
       StreamArena* streamArena,
       int32_t initialNumRows)
@@ -323,7 +319,7 @@ class SparkVectorStream {
         case TypeKind::MAP:
           children_.resize(type_->size());
           for (int32_t i = 0; i < type_->size(); ++i) {
-            children_[i] = std::make_unique<SparkVectorStream>(
+            children_[i] = std::make_unique<SingleVectorStream>(
                 type_->childAt(i), streamArena, initialNumRows);
           }
           break;
@@ -345,10 +341,6 @@ class SparkVectorStream {
     encoding_ = encoding;
   }
 
-  void appendLength(int32_t length) {
-    length_ = length;
-  }
-
   void setConstantIsVector(bool constantIsVector) {
     constantIsVector_ = constantIsVector;
   }
@@ -365,12 +357,12 @@ class SparkVectorStream {
     append(folly::Range(&value, 1));
   }
 
-  SparkVectorStream* childAt(int32_t index) {
+  SingleVectorStream* childAt(int32_t index) {
     return children_[index].get();
   }
 
   void newChild(const TypePtr type, int32_t initialNumRows) {
-    children_.emplace_back(std::make_unique<SparkVectorStream>(
+    children_.emplace_back(std::make_unique<SingleVectorStream>(
         type, streamArena_, initialNumRows));
   }
 
@@ -457,20 +449,18 @@ class SparkVectorStream {
 
   const TypePtr type_;
   StreamArena* streamArena_;
-  // ByteRange header_;
   VectorEncoding::Simple encoding_;
-  int32_t length_;
   std::optional<bool> constantIsVector_;
   bool constantIsNull_;
   ByteStream constValue_;
   // nulls, values or others
   std::vector<BufferPtr> bodyBuffers_;
   std::vector<BufferPtr> stringBuffers_;
-  std::vector<std::unique_ptr<SparkVectorStream>> children_;
+  std::vector<std::unique_ptr<SingleVectorStream>> children_;
 };
 
 template <>
-inline void SparkVectorStream::append(folly::Range<const StringView*> values) {
+inline void SingleVectorStream::append(folly::Range<const StringView*> values) {
   for (auto& value : values) {
     auto size = value.size();
     constValue_.appendOne<int32_t>(size);
@@ -478,11 +468,10 @@ inline void SparkVectorStream::append(folly::Range<const StringView*> values) {
   }
 }
 
-void serializeColumn(const BaseVector* vector, SparkVectorStream* stream);
+void serializeColumn(const BaseVector* vector, SingleVectorStream* stream);
 
 template <TypeKind kind>
-void serializeFlatVector(const BaseVector* vector, SparkVectorStream* stream) {
-  // using T = typename TypeTraits<kind>::NativeType;
+void serializeFlatVector(const BaseVector* vector, SingleVectorStream* stream) {
   using T = typename TypeTraits<kind>::NativeType;
   auto flatVector = dynamic_cast<const FlatVector<T>*>(vector);
   stream->appendBuffers(flatVector->nulls());
@@ -490,14 +479,16 @@ void serializeFlatVector(const BaseVector* vector, SparkVectorStream* stream) {
   stream->appendStringBuffers(flatVector->stringBuffers());
 }
 
-void serializeRowVector(const BaseVector* vector, SparkVectorStream* stream) {
+void serializeRowVector(const BaseVector* vector, SingleVectorStream* stream) {
   auto rowVector = dynamic_cast<const RowVector*>(vector);
   for (int32_t i = 0; i < rowVector->childrenSize(); ++i) {
     serializeColumn(rowVector->childAt(i).get(), stream->childAt(i));
   }
 }
 
-void serializeArrayVector(const BaseVector* vector, SparkVectorStream* stream) {
+void serializeArrayVector(
+    const BaseVector* vector,
+    SingleVectorStream* stream) {
   auto arrayVector = dynamic_cast<const ArrayVector*>(vector);
   stream->appendBuffers(arrayVector->nulls());
   stream->appendBuffers(arrayVector->offsets());
@@ -505,7 +496,7 @@ void serializeArrayVector(const BaseVector* vector, SparkVectorStream* stream) {
   serializeColumn(arrayVector->elements().get(), stream->childAt(0));
 }
 
-void serializeMapVector(const BaseVector* vector, SparkVectorStream* stream) {
+void serializeMapVector(const BaseVector* vector, SingleVectorStream* stream) {
   auto mapVector = dynamic_cast<const MapVector*>(vector);
   // Wait to serialize nullCount and sortedKeys
   stream->appendBuffers(mapVector->nulls());
@@ -517,7 +508,7 @@ void serializeMapVector(const BaseVector* vector, SparkVectorStream* stream) {
 }
 
 template <TypeKind kind>
-void serializeVariable(const BaseVector* vector, SparkVectorStream* stream) {
+void serializeVariable(const BaseVector* vector, SingleVectorStream* stream) {
   using T = typename KindToFlatVector<kind>::WrapperType;
   auto constVector = dynamic_cast<const ConstantVector<T>*>(vector);
   T value = constVector->valueAtFast(0);
@@ -534,7 +525,7 @@ void serializeVariable(const BaseVector* vector, SparkVectorStream* stream) {
 template <TypeKind kind>
 void serializeConstantVector(
     const BaseVector* vector,
-    SparkVectorStream* stream) {
+    SingleVectorStream* stream) {
   using T = typename KindToFlatVector<kind>::WrapperType;
   auto constVector = dynamic_cast<const ConstantVector<T>*>(vector);
 
@@ -561,7 +552,7 @@ void serializeConstantVector(
   }
 }
 
-void serializeColumn(const BaseVector* vector, SparkVectorStream* stream) {
+void serializeColumn(const BaseVector* vector, SingleVectorStream* stream) {
   stream->setEncoding(vector->encoding());
   switch (vector->encoding()) {
     case VectorEncoding::Simple::FLAT:
@@ -589,9 +580,9 @@ void serializeColumn(const BaseVector* vector, SparkVectorStream* stream) {
   }
 }
 
-class SparkVectorSerializer : public VectorSerializer {
+class SingleVectorSerializer : public VectorSerializer {
  public:
-  SparkVectorSerializer(
+  SingleVectorSerializer(
       std::shared_ptr<const RowType> rowType,
       int32_t numRows,
       StreamArena* streamArena) {
@@ -600,7 +591,7 @@ class SparkVectorSerializer : public VectorSerializer {
     streams_.resize(numTypes);
     for (int i = 0; i < numTypes; i++) {
       streams_[i] =
-          std::make_unique<SparkVectorStream>(types[i], streamArena, numRows);
+          std::make_unique<SingleVectorStream>(types[i], streamArena, numRows);
     }
   }
 
@@ -609,7 +600,7 @@ class SparkVectorSerializer : public VectorSerializer {
       const folly::Range<const IndexRange*>& /* ranges */) override {
     VELOX_CHECK(
         numRows_ == 0,
-        "SparkVectorSerializer can only append RowVector only once");
+        "SingleVectorSerializer can only append RowVector only once");
     if (vector->size() > 0) {
       numRows_ += vector->size();
       for (int32_t i = 0; i < vector->childrenSize(); ++i) {
@@ -635,7 +626,7 @@ class SparkVectorSerializer : public VectorSerializer {
 
   // Writes the contents to 'stream' in wire format
   void flushInternal(int32_t numRows, OutputStream* out) {
-    auto listener = dynamic_cast<SparkOutputStreamListener*>(out->listener());
+    auto listener = dynamic_cast<SingleOutputStreamListener*>(out->listener());
     // Reset CRC computation
     if (listener) {
       listener->reset();
@@ -697,11 +688,11 @@ class SparkVectorSerializer : public VectorSerializer {
   static const int32_t kHeaderSize{kSizeInBytesOffset + 4 + 4 + 8};
 
   int32_t numRows_{0};
-  std::vector<std::unique_ptr<SparkVectorStream>> streams_;
+  std::vector<std::unique_ptr<SingleVectorStream>> streams_;
 };
 } // namespace
 
-void SparkVectorSerde::estimateSerializedSize(
+void SingleVectorSerde::estimateSerializedSize(
     VectorPtr vector,
     const folly::Range<const IndexRange*>& /* ranges */,
     vector_size_t** sizes) {
@@ -711,15 +702,15 @@ void SparkVectorSerde::estimateSerializedSize(
   *(sizes[0]) += vector->estimateFlatSize();
 }
 
-std::unique_ptr<VectorSerializer> SparkVectorSerde::createSerializer(
+std::unique_ptr<VectorSerializer> SingleVectorSerde::createSerializer(
     std::shared_ptr<const RowType> type,
     int32_t numRows,
     StreamArena* streamArena,
     const Options* options) {
-  return std::make_unique<SparkVectorSerializer>(type, numRows, streamArena);
+  return std::make_unique<SingleVectorSerializer>(type, numRows, streamArena);
 }
 
-void SparkVectorSerde::deserialize(
+void SingleVectorSerde::deserialize(
     ByteStream* source,
     velox::memory::MemoryPool* pool,
     std::shared_ptr<const RowType> type,
@@ -754,8 +745,8 @@ void SparkVectorSerde::deserialize(
 }
 
 // static
-void SparkVectorSerde::registerVectorSerde() {
-  velox::registerVectorSerde(std::make_unique<SparkVectorSerde>());
+void SingleVectorSerde::registerVectorSerde() {
+  velox::registerVectorSerde(std::make_unique<SingleVectorSerde>());
 }
 
-} // namespace facebook::velox::serializer::spark
+} // namespace facebook::velox::serializer

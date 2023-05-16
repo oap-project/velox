@@ -13,12 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/serializers/SparkSerializer.h"
+#include "velox/serializers/SingleSerializer.h"
 #include <folly/Random.h>
 #include <gtest/gtest.h>
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/ByteStream.h"
-// #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
@@ -26,12 +25,12 @@
 using namespace facebook::velox;
 using namespace facebook::velox::test;
 
-class SparkSerializerTest : public ::testing::Test,
-                            public test::VectorTestBase {
+class SingleSerializerTest : public ::testing::Test,
+                             public test::VectorTestBase {
  protected:
   void SetUp() override {
     pool_ = memory::addDefaultLeafMemoryPool();
-    serde_ = std::make_unique<serializer::spark::SparkVectorSerde>();
+    serde_ = std::make_unique<serializer::SingleVectorSerde>();
     vectorMaker_ = std::make_unique<test::VectorMaker>(pool_.get());
   }
 
@@ -68,7 +67,7 @@ class SparkSerializerTest : public ::testing::Test,
 
     serializer->append(rowVector, folly::Range(rows.data(), numRows));
     vector_size_t size = serializer->maxSerializedSize();
-    facebook::velox::serializer::spark::SparkOutputStreamListener listener;
+    facebook::velox::serializer::SingleOutputStreamListener listener;
     OStreamOutputStream out(output, &listener);
     serializer->flush(&out);
     ASSERT_EQ(size, out.tellp());
@@ -131,11 +130,11 @@ class SparkSerializerTest : public ::testing::Test,
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;
-  std::unique_ptr<serializer::spark::SparkVectorSerde> serde_;
+  std::unique_ptr<serializer::SingleVectorSerde> serde_;
   std::unique_ptr<test::VectorMaker> vectorMaker_;
 };
 
-TEST_F(SparkSerializerTest, basic) {
+TEST_F(SingleSerializerTest, basic) {
   vector_size_t numRows = 5;
   auto rowVector = makeTestVector(numRows);
   testRoundTripRowVector(rowVector);
@@ -153,7 +152,7 @@ TEST_F(SparkSerializerTest, basic) {
   testRoundTripRowVector(stringVector);
 }
 
-TEST_F(SparkSerializerTest, constant) {
+TEST_F(SingleSerializerTest, constant) {
   auto constVector = makeRowVector({
       makeConstant<int64_t>(100, 5),
       makeConstant<StringView>("ALGERIA", 5),
@@ -184,7 +183,7 @@ TEST_F(SparkSerializerTest, constant) {
   testRoundTripRowVector(timeVector);
 }
 
-TEST_F(SparkSerializerTest, emptyPage) {
+TEST_F(SingleSerializerTest, emptyPage) {
   auto rowVector = vectorMaker_->rowVector(ROW({"a"}, {BIGINT()}), 0);
 
   std::ostringstream out;
@@ -195,7 +194,7 @@ TEST_F(SparkSerializerTest, emptyPage) {
   assertEqualVectors(deserialized, rowVector);
 }
 
-TEST_F(SparkSerializerTest, unscaledLongDecimal) {
+TEST_F(SingleSerializerTest, unscaledLongDecimal) {
   std::vector<int128_t> decimalValues(102);
   decimalValues[0] = UnscaledLongDecimal::min().unscaledValue();
   for (int row = 1; row < 101; row++) {

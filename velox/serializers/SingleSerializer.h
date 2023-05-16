@@ -17,8 +17,8 @@
 #include "velox/common/base/Crc.h"
 #include "velox/vector/VectorStream.h"
 
-namespace facebook::velox::serializer::spark {
-class SparkVectorSerde : public VectorSerde {
+namespace facebook::velox::serializer {
+class SingleVectorSerde : public VectorSerde {
  public:
   // Not use ranges, the first element in sizes is the total size
   void estimateSerializedSize(
@@ -42,7 +42,7 @@ class SparkVectorSerde : public VectorSerde {
   static void registerVectorSerde();
 };
 
-class SparkOutputStreamListener : public OutputStreamListener {
+class SingleOutputStreamListener : public OutputStreamListener {
  public:
   void onWrite(const char* s, std::streamsize count) override {
     if (not paused_) {
@@ -70,4 +70,4 @@ class SparkOutputStreamListener : public OutputStreamListener {
   bool paused_{false};
   bits::Crc32 crc_;
 };
-} // namespace facebook::velox::serializer::spark
+} // namespace facebook::velox::serializer
