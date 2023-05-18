@@ -18,9 +18,6 @@
 
 #include <chrono>
 
-#include "velox/common/file/FileSystems.h"
-#include "velox/connectors/hive/storage_adapters/hdfs/HdfsWriteFile.h"
-#include "velox/core/Context.h"
 #include "velox/dwio/common/Closeable.h"
 #include "velox/dwio/common/DataBuffer.h"
 #include "velox/dwio/common/IoStatistics.h"
@@ -160,50 +157,6 @@ class LocalFileSink : public DataSink {
 
  private:
   int file_;
-};
-
-class HDFSFileSink : public DataSink {
- public:
-  explicit HDFSFileSink(
-      const std::string& fullDestinationPath,
-      const MetricsLogPtr& metricLogger = MetricsLog::voidLog(),
-      IoStatistics* stats = nullptr)
-      : DataSink{"HDFSFileSink", metricLogger, stats} {
-    // Extract the host and port.
-    auto destinationPathStartPos = fullDestinationPath.substr(7).find("/", 0);
-    std::string destinationPath =
-        fullDestinationPath.substr(destinationPathStartPos + 7);
-    std::string hostAndPort =
-        fullDestinationPath.substr(7).substr(0, destinationPathStartPos);
-    auto portStartPos = hostAndPort.find(":", 0);
-    std::string host = hostAndPort.substr(0, portStartPos);
-    std::string port = hostAndPort.substr(portStartPos + 1);
-    std::unordered_map<std::string, std::string> configurationValues(
-        {{"hive.hdfs.host", host}, {"hive.hdfs.port", port}});
-    auto memConfig =
-        std::make_shared<const core::MemConfig>(configurationValues);
-    std::string hdfsFilePath = "hdfs://" + host + ":" + port + destinationPath;
-    auto hdfsFileSystem = filesystems::getFileSystem(hdfsFilePath, memConfig);
-    file_ = hdfsFileSystem->openFileForWrite(destinationPath);
-  }
-
-  ~HDFSFileSink() override {
-    destroy();
-  }
-
-  using DataSink::write;
-
-  void write(std::vector<DataBuffer<char>>& buffers) override;
-
-  static void registerFactory();
-
- protected:
-  void doClose() override {
-    file_->close();
-  }
-
- private:
-  std::unique_ptr<WriteFile> file_;
 };
 
 class MemorySink : public DataSink {
