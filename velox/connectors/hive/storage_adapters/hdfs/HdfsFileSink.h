@@ -34,21 +34,10 @@ class HdfsFileSink : public facebook::velox::dwio::common::DataSink {
             "HdfsFileSink",
             metricLogger,
             stats} {
-    // Extract the host and port.
     auto destinationPathStartPos = fullDestinationPath.substr(7).find("/", 0);
     std::string destinationPath =
         fullDestinationPath.substr(destinationPathStartPos + 7);
-    std::string hostAndPort =
-        fullDestinationPath.substr(7).substr(0, destinationPathStartPos);
-    auto portStartPos = hostAndPort.find(":", 0);
-    std::string host = hostAndPort.substr(0, portStartPos);
-    std::string port = hostAndPort.substr(portStartPos + 1);
-    std::unordered_map<std::string, std::string> configurationValues(
-        {{"hive.hdfs.host", host}, {"hive.hdfs.port", port}});
-    auto memConfig =
-        std::make_shared<const core::MemConfig>(configurationValues);
-    std::string hdfsFilePath = "hdfs://" + host + ":" + port + destinationPath;
-    auto hdfsFileSystem = filesystems::getFileSystem(hdfsFilePath, nullptr);
+    auto hdfsFileSystem = filesystems::getFileSystem(fullDestinationPath, nullptr);
     file_ = hdfsFileSystem->openFileForWrite(destinationPath);
   }
 
