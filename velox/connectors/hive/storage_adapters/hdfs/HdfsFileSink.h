@@ -15,7 +15,6 @@
  */
 #pragma once
 
-#include <hdfs/hdfs.h>
 #include "velox/common/file/FileSystems.h"
 #include "velox/connectors/hive/storage_adapters/hdfs/HdfsWriteFile.h"
 #include "velox/core/Context.h"
@@ -37,7 +36,8 @@ class HdfsFileSink : public facebook::velox::dwio::common::DataSink {
     auto destinationPathStartPos = fullDestinationPath.substr(7).find("/", 0);
     std::string destinationPath =
         fullDestinationPath.substr(destinationPathStartPos + 7);
-    auto hdfsFileSystem = filesystems::getFileSystem(fullDestinationPath, nullptr);
+    auto hdfsFileSystem =
+        filesystems::getFileSystem(fullDestinationPath, nullptr);
     file_ = hdfsFileSystem->openFileForWrite(destinationPath);
   }
 
