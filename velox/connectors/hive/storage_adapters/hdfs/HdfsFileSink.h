@@ -49,8 +49,6 @@ class HdfsFileSink : public facebook::velox::dwio::common::DataSink {
         std::make_shared<const core::MemConfig>(configurationValues);
     std::string hdfsFilePath = "hdfs://" + host + ":" + port + destinationPath;
     auto hdfsFileSystem = filesystems::getFileSystem(hdfsFilePath, memConfig);
-    // touch the local file and then put the local file to hdfs.
-
     file_ = hdfsFileSystem->openFileForWrite(destinationPath);
   }
 
