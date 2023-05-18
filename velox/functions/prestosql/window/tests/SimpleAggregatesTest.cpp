@@ -99,6 +99,11 @@ TEST_P(SimpleAggregatesTest, randomInput) {
   testWindowFunction({makeRandomInputVector(50)});
 }
 
+// Tests function with a randomly generated input dataset.
+TEST_P(SimpleAggregatesTest, rangeFrames) {
+    testKRangeFrames(function_);
+}
+
 // Instantiate all the above tests for each combination of aggregate function
 // and over clause.
 VELOX_INSTANTIATE_TEST_SUITE_P(
