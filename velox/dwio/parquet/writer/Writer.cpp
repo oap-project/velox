@@ -45,6 +45,7 @@ void Writer::write(const RowVectorPtr& data) {
   }
 
   PARQUET_THROW_NOT_OK(arrowWriter_->WriteTable(*table, 10000));
+  finalSink_->write(std::move(stream_->dataBuffer()));
 }
 
 void Writer::flush() {
