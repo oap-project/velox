@@ -168,7 +168,7 @@ void Window::initRangeValuesMap() {
   };
 
   hasKRangeFrames_ = false;
-  for (const auto frame : windowFrames_) {
+  for (const auto& frame : windowFrames_) {
     if (frame.type == core::WindowNode::WindowType::kRange &&
         (isKBoundFrame(frame.startType) || isKBoundFrame(frame.endType))) {
       hasKRangeFrames_ = true;
