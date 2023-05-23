@@ -30,8 +30,6 @@
 #include "velox/type/Type.h"
 #include "velox/type/tests/SubfieldFiltersBuilder.h"
 
-#include <iostream>
-
 using namespace facebook::velox;
 using namespace facebook::velox::connector::hive;
 using namespace facebook::velox::core;
@@ -2410,7 +2408,6 @@ TEST_F(TableScanTest, errorInLoadLazy) {
     assertQuery(planNode, {filePath}, "");
     FAIL() << "Excepted exception";
   } catch (VeloxException& ex) {
-    std::cout << "ex.context: " << ex.context() << ", path: " << filePath->path << std::endl;
     EXPECT_TRUE(ex.context().find(filePath->path, 0) != std::string::npos)
         << ex.context();
   }
