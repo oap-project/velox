@@ -205,5 +205,4 @@ struct CscFunction {
   }
 };
 
-
 } // namespace facebook::velox::functions::sparksql
