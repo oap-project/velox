@@ -26,6 +26,11 @@ class XxHash64Test : public SparkFunctionBaseTest {
   std::optional<int64_t> xxhash64(std::optional<T> arg) {
     return evaluateOnce<int64_t>("xxhash64(c0)", arg);
   }
+
+  template <typename T, typename Seed>
+  std::optional<int64_t> xxhash64WithSeed(std::optional<T> arg, Seed seed) {
+    return evaluateOnce<int64_t>("xxhash64(c0, c1)", arg, seed);
+  }
 };
 
 // The expected result was obtained by running SELECT xxhash64("Spark") query
@@ -118,5 +123,13 @@ TEST_F(XxHash64Test, float) {
   EXPECT_EQ(xxhash64<float>(limits::infinity()), -5940311692336719973);
   EXPECT_EQ(xxhash64<float>(-limits::infinity()), -7580553461823983095);
 }
+
+TEST_F(XxHash64Test, hashSeed) {
+  auto xxhash64 = [&](std::optional<int32_t> a) {
+    return evaluateOnce<int64_t>("xxhash64(42, c0)", a);
+  };
+  EXPECT_EQ(xxhash64(0xdeadbeef), -8041005359684616715);
+}
+
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test
