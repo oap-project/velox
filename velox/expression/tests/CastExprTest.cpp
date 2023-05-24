@@ -552,6 +552,13 @@ TEST_F(CastExprTest, allowDecimal) {
       "int", {"-.", "0.0", "125.5", "-128.3"}, {0, 0, 125, -128}, false, true);
 }
 
+TEST_F(CastExprTest, sparkSemantic) {
+  // Allow decimal.
+  setCastIntAllowDecimalAndByTruncate(true);
+  testCast<float, bool>(
+      "bool", {0.5, -0.5, 1, 0}, {true, true, true, false}, false, true);
+}
+
 constexpr vector_size_t kVectorSize = 1'000;
 
 TEST_F(CastExprTest, mapCast) {
