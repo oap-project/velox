@@ -424,19 +424,13 @@ TEST_F(CastExprTest, date) {
 
   // Wrong date format case.
   std::vector<std::optional<std::string>> inputWrongFormat{
-      "1970-01/01",
-      "2023/05/10",
-      "2023-/05-/10",
-      "20150318"
-  };
+      "1970-01/01", "2023/05/10", "2023-/05-/10", "20150318"};
   std::vector<std::optional<Date>> nullResult{
-    std::nullopt,
-    std::nullopt,
-    std::nullopt,
-    std::nullopt
-  };
-  testCast<std::string, Date>("date", inputWrongFormat, nullResult, false, true);
-  testCast<std::string, Date>("date", inputWrongFormat, nullResult, true, false);
+      std::nullopt, std::nullopt, std::nullopt, std::nullopt};
+  testCast<std::string, Date>(
+      "date", inputWrongFormat, nullResult, false, true);
+  testCast<std::string, Date>(
+      "date", inputWrongFormat, nullResult, true, false);
 }
 
 TEST_F(CastExprTest, invalidDate) {
