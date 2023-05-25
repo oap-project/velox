@@ -166,17 +166,85 @@ class DecimalUtilOp {
     }
   }
 
+  // Convert a number of scientific notation to normal.
+  inline static std::string getNormalNumber(const std::string& value) {
+    size_t dotPos = value.find('.');
+    size_t expPos = value.find('E');
+    if (expPos == std::string::npos) {
+      return value;
+    }
+
+    std::string ints;
+    std::string digits;
+    // Get the integers and digits from the base number.
+    if (dotPos == std::string::npos) {
+      ints = value.substr(0, expPos);
+      digits = "";
+    } else {
+      ints = value.substr(0, dotPos);
+      digits = value.substr(dotPos + 1, expPos - dotPos - 1);
+    }
+
+    size_t pos = value.find("E+");
+    // Handle number with positive exponent.
+    if (pos != std::string::npos) {
+      int exponent = std::stoi(value.substr(pos + 2, value.length()));
+      std::string number = ints;
+      if (exponent >= digits.length()) {
+        // Dot is not needed.
+        number = ints + digits;
+        for (int i = 0; i < exponent - digits.length(); i++) {
+          number += '0';
+        }
+      } else {
+        number += digits.substr(0, exponent) + '.' + digits.substr(exponent + 1, digits.length());
+      }
+      return number;
+    }
+    pos = value.find("E-");
+    if (pos != std::string::npos) {
+      int exponent = std::stoi(value.substr(pos + 2, value.length()));
+      std::string number;
+      if (exponent < ints.length()) {
+        number = ints.substr(0, ints.length() - exponent) + '.' +
+            ints.substr(ints.length() - exponent + 1, ints.length());
+      } else {
+        number = "0.";
+        for (int i = 0; i < exponent - ints.length(); i++) {
+          number += '0';
+        }
+        number += ints;
+        number += digits;
+      }
+      return number;
+    }
+    return value;
+  }
+
+  inline static double roundUp(double value, int decimalPlaces) {
+    const double multiplier = std::pow(10.0, decimalPlaces);
+    return std::ceil(value * multiplier) / multiplier;
+  }
+
   // return unscaled value and scale
   inline static std::pair<std::string, uint8_t> splitVarChar(
-      const StringView& value) {
-    std::string s = value.str();
+      const StringView& value, int toScale) {
+    std::string s = getNormalNumber(value.str());
     size_t pos = s.find('.');
     if (pos == std::string::npos) {
       return {s.substr(0, pos), 0};
-    } else {
+    } else if (toScale < scales.length()) {
+      // If toScale is less than scales.length(), the string scales will be cut and rounded.
+      std::string roundedValue = std::to_string(roundUp(std::stod(s), toScale));
+      std::string scales = roundedValue.substr(pos + 1, roundedValue.length());
       return {
-          s.substr(0, pos) + s.substr(pos + 1, s.length()),
-          s.length() - pos - 1};
+        roundedValue.substr(0, pos) + scales,
+        scales.length()};
+    } else {
+      std::string scales = s.substr(pos + 1, s.length());
+      return {
+          s.substr(0, pos) + scales,
+          scales.length()};
     }
   }
 
@@ -237,7 +305,7 @@ class DecimalUtilOp {
     static_assert(
         std::is_same_v<TOutput, UnscaledShortDecimal> ||
         std::is_same_v<TOutput, UnscaledLongDecimal>);
-    auto [unscaledStr, fromScale] = splitVarChar(inputValue);
+    auto [unscaledStr, fromScale] = splitVarChar(inputValue, toScale);
     uint8_t fromPrecision = unscaledStr.size();
     VELOX_CHECK_LE(
         fromPrecision, DecimalType<TypeKind::LONG_DECIMAL>::kMaxPrecision);
