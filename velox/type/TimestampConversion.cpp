@@ -203,7 +203,8 @@ bool tryParseDateString(
 
   // Fetch the separator.
   sep = buf[pos++];
-  if (sep != ' ' && sep != '-' && sep != '/' && sep != '\\') {
+  // For spark, "/" separtor is not supported.
+  if (sep != ' ' && sep != '-' && sep != '\\') {
     // Invalid separator.
     return false;
   }

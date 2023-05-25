@@ -598,15 +598,30 @@ struct Converter<TypeKind::DATE, void, TRUNCATE, ALLOW_DECIMAL> {
   }
 
   static T cast(folly::StringPiece v, bool& nullOutput) {
-    return fromDateString(v.data(), v.size());
+    try {
+      return fromDateString(v.data(), v.size());
+    } catch (const VeloxUserError& ve) {
+      nullOutput = true;
+      return (T)0;
+    }
   }
 
   static T cast(const StringView& v, bool& nullOutput) {
-    return fromDateString(v.data(), v.size());
+    try {
+      return fromDateString(v.data(), v.size());
+    } catch (const VeloxUserError& ve) {
+      nullOutput = true;
+      return (T)0;
+    }
   }
 
   static T cast(const std::string& v, bool& nullOutput) {
-    return fromDateString(v.data(), v.size());
+    try {
+      return fromDateString(v.data(), v.size());
+    } catch (const VeloxUserError& ve) {
+      nullOutput = true;
+      return (T)0;
+    }
   }
 
   static T cast(const Timestamp& t, bool& nullOutput) {
