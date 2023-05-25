@@ -197,7 +197,8 @@ class DecimalUtilOp {
           number += '0';
         }
       } else {
-        number += digits.substr(0, exponent) + '.' + digits.substr(exponent + 1, digits.length());
+        number += digits.substr(0, exponent) + '.' +
+            digits.substr(exponent + 1, digits.length());
       }
       return number;
     }
@@ -221,30 +222,38 @@ class DecimalUtilOp {
     return value;
   }
 
-  inline static double roundUp(double value, int decimalPlaces) {
-    const double multiplier = std::pow(10.0, decimalPlaces);
-    return std::ceil(value * multiplier) / multiplier;
+  // Round double to certain precision with half up.
+  inline static double roundTo(double value, int precision) {
+    int charsNeeded = 1 + snprintf(NULL, 0, "%.*f", (int)precision, value);
+    char* buffer = reinterpret_cast<char*>(malloc(charsNeeded));
+    double nextValue;
+    if (value < 0) {
+      nextValue = nextafter(value, value - 0.1);
+    } else {
+      nextValue = nextafter(value, value + 0.1);
+    }
+    snprintf(buffer, charsNeeded, "%.*f", (int)precision, nextValue);
+    return atof(buffer);
   }
 
   // return unscaled value and scale
   inline static std::pair<std::string, uint8_t> splitVarChar(
-      const StringView& value, int toScale) {
+      const StringView& value,
+      int toScale) {
     std::string s = getNormalNumber(value.str());
     size_t pos = s.find('.');
     if (pos == std::string::npos) {
       return {s.substr(0, pos), 0};
-    } else if (toScale < scales.length()) {
-      // If toScale is less than scales.length(), the string scales will be cut and rounded.
-      std::string roundedValue = std::to_string(roundUp(std::stod(s), toScale));
-      std::string scales = roundedValue.substr(pos + 1, roundedValue.length());
-      return {
-        roundedValue.substr(0, pos) + scales,
-        scales.length()};
+    } else if (toScale < s.length() - pos - 1) {
+      // If toScale is less than scales.length(), the string scales will be cut
+      // and rounded.
+      std::string roundedValue = std::to_string(roundTo(std::stod(s), toScale));
+      pos = roundedValue.find('.');
+      std::string scales = roundedValue.substr(pos + 1, toScale);
+      return {roundedValue.substr(0, pos) + scales, scales.length()};
     } else {
       std::string scales = s.substr(pos + 1, s.length());
-      return {
-          s.substr(0, pos) + scales,
-          scales.length()};
+      return {s.substr(0, pos) + scales, scales.length()};
     }
   }
 
