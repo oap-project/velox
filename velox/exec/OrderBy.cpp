@@ -244,7 +244,7 @@ void OrderBy::noMoreInput() {
     returningRows_.resize(numRows_);
     RowContainerIterator iter;
     data_->listRows(&iter, numRows_, returningRows_.data());
-    std::stable_sort(
+    gfx::timsort(
         returningRows_.begin(),
         returningRows_.end(),
         [this](const char* leftRow, const char* rightRow) {

@@ -19,6 +19,7 @@
 #include "velox/exec/Operator.h"
 #include "velox/exec/RowContainer.h"
 #include "velox/exec/Spiller.h"
+#include "velox/exec/timsort.hpp"
 
 namespace facebook::velox::exec {
 
