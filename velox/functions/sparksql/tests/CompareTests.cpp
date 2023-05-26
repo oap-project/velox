@@ -16,6 +16,8 @@
 
 #include "velox/functions/sparksql/tests/SparkFunctionBaseTest.h"
 
+#include <velox/vector/SimpleVector.h>
+
 namespace facebook::velox::functions::sparksql::test {
 namespace {
 
@@ -81,6 +83,69 @@ TEST_F(CompareTest, equalto) {
   EXPECT_EQ(equalto<double>(kNaN, kNaN), true);
 }
 
+TEST_F(CompareTest, testdictionary) {
+  // Identity mapping, however this will result in non-simd path.
+  auto makeDictionary = [&](const VectorPtr& base) {
+    auto indices = makeIndices(base->size(), [](auto row) { return row; });
+    return wrapInDictionary(indices, base->size(), base);
+  };
+
+  auto makeConstantDic = [&](const VectorPtr& base) {
+    return BaseVector::wrapInConstant(base->size(), 0, base);
+  };
+  // lhs: 0, null, 2, null, 4
+
+  auto lhs = makeFlatVector<int16_t>(
+      5, [](auto row) { return row; }, nullEvery(2, 1));
+  auto rhs = makeFlatVector<int16_t>({1, 0, 3, 0, 5});
+  auto lhsVector = makeDictionary(lhs);
+  auto rhsVector = makeDictionary(rhs);
+
+  auto rowVector = makeRowVector({lhsVector, rhsVector});
+  auto result = evaluate<SimpleVector<bool>>(
+      fmt::format("{}(c0, c1)", "greaterthan"), rowVector);
+  // result : false, null, false, null, false
+  facebook::velox::test::assertEqualVectors(
+      result,
+      makeFlatVector<bool>(
+          5, [](auto row) { return false; }, nullEvery(2, 1)));
+  auto constVector = makeConstant(100, 5);
+  auto testConstVector =
+      makeRowVector({makeDictionary(lhs), makeConstantDic(constVector)});
+  // lhs: 0, null, 2, null, 4
+  // rhs: const 100
+  // lessthanorequal result : true, null, true, null, true
+  auto constResult = evaluate<SimpleVector<bool>>(
+      fmt::format("{}(c0, c1)", "lessthanorequal"), testConstVector);
+  facebook::velox::test::assertEqualVectors(
+      constResult,
+      makeFlatVector<bool>(
+          5, [](auto row) { return true; }, nullEvery(2, 1)));
+  // lhs: const 100
+  // rhs: 0, null, 2, null, 4
+  // greaterthanorequal result : true, null, true, null, true
+  auto testConstVector1 =
+      makeRowVector({makeConstantDic(constVector), makeDictionary(lhs)});
+  auto constResult1 = evaluate<SimpleVector<bool>>(
+      fmt::format("{}(c0, c1)", "greaterthanorequal"), testConstVector1);
+  facebook::velox::test::assertEqualVectors(
+      constResult1,
+      makeFlatVector<bool>(
+          5, [](auto row) { return true; }, nullEvery(2, 1)));
+}
+
+TEST_F(CompareTest, testflat) {
+  auto vector0 = makeFlatVector<int32_t>({0, 1, 2, 3});
+  auto vector1 = makeFlatVector<int32_t>(
+      4, [](auto row) { return row + 1; }, nullEvery(2));
+
+  auto expectedResult = makeFlatVector<bool>(
+      4, [](auto row) { return true; }, nullEvery(2));
+  auto actualResult = evaluate<SimpleVector<bool>>(
+      "lessthan(c0, c1)", makeRowVector({vector0, vector1}));
+  facebook::velox::test::assertEqualVectors(expectedResult, actualResult);
+}
+
 TEST_F(CompareTest, lessthan) {
   EXPECT_EQ(lessthan<int64_t>(1, 1), false);
   EXPECT_EQ(lessthan<int32_t>(1, 2), true);
@@ -99,7 +164,8 @@ TEST_F(CompareTest, lessthanorequal) {
   EXPECT_EQ(lessthanorequal<int32_t>(1, 2), true);
   EXPECT_EQ(lessthanorequal<float>(std::nullopt, std::nullopt), std::nullopt);
   EXPECT_EQ(lessthanorequal<std::string>(std::nullopt, "abcs"), std::nullopt);
-  EXPECT_EQ(lessthanorequal<std::string>(std::nullopt, std::nullopt), std::nullopt);
+  EXPECT_EQ(
+      lessthanorequal<std::string>(std::nullopt, std::nullopt), std::nullopt);
   EXPECT_EQ(lessthanorequal<double>(1, std::nullopt), std::nullopt);
   EXPECT_EQ(lessthanorequal<double>(kNaN, std::nullopt), std::nullopt);
   EXPECT_EQ(lessthanorequal<double>(kNaN, 1), false);
@@ -123,9 +189,13 @@ TEST_F(CompareTest, greaterthan) {
 TEST_F(CompareTest, greaterthanorequal) {
   EXPECT_EQ(greaterthanorequal<int64_t>(1, 1), true);
   EXPECT_EQ(greaterthanorequal<int32_t>(1, 2), false);
-  EXPECT_EQ(greaterthanorequal<float>(std::nullopt, std::nullopt), std::nullopt);
-  EXPECT_EQ(greaterthanorequal<std::string>(std::nullopt, "abcs"), std::nullopt);
-  EXPECT_EQ(greaterthanorequal<std::string>(std::nullopt, std::nullopt), std::nullopt);
+  EXPECT_EQ(
+      greaterthanorequal<float>(std::nullopt, std::nullopt), std::nullopt);
+  EXPECT_EQ(
+      greaterthanorequal<std::string>(std::nullopt, "abcs"), std::nullopt);
+  EXPECT_EQ(
+      greaterthanorequal<std::string>(std::nullopt, std::nullopt),
+      std::nullopt);
   EXPECT_EQ(greaterthanorequal<double>(1, std::nullopt), std::nullopt);
   EXPECT_EQ(greaterthanorequal<double>(kNaN, std::nullopt), std::nullopt);
   EXPECT_EQ(greaterthanorequal<double>(kNaN, 1), true);
