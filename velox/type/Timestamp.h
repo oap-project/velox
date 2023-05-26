@@ -36,8 +36,16 @@ struct Timestamp {
   constexpr Timestamp() : seconds_(0), nanos_(0) {}
   Timestamp(int64_t seconds, uint64_t nanos) {
     constexpr const uint64_t kNanosPerSecond{1000000000};
-    seconds_ = seconds + nanos / kNanosPerSecond;
-    nanos_ = nanos - (nanos / kNanosPerSecond) * kNanosPerSecond;
+    uint64_t nanosRoundSec = nanos / kNanosPerSecond;
+    int64_t secondsMaxAdd = std::numeric_limits<int64_t>::max() - seconds_;
+    if (secondsMaxAdd - nanosRoundSec >= 0) {
+      seconds_ = seconds + nanos / kNanosPerSecond;
+      nanos_ = nanos - (nanos / kNanosPerSecond) * kNanosPerSecond;
+    } else {
+      // seconds_ will overflow if round all nanos to seconds
+      seconds_ = std::numeric_limits<int64_t>::max();
+      nanos_ = nanos - secondsMaxAdd * kNanosPerSecond;
+    }
   }
 
   // Returns the current unix timestamp (ms precision).
