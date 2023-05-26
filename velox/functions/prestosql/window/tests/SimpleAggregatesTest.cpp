@@ -127,5 +127,55 @@ TEST_F(StringAggregatesTest, nonFixedWidthAggregate) {
   testWindowFunction(input, "max(c2)", kOverClauses);
 }
 
+class KPreceedingFollowingTest : public WindowTestBase {};
+
+TEST_F(KPreceedingFollowingTest, rangeFrames) {
+    auto vectors = makeRowVector({
+      makeFlatVector<int64_t>({1, 1, 2147483650, 3, 2, 2147483650}),
+      makeFlatVector<std::string>({"1", "1", "1", "2", "1", "2"}),
+  });
+
+  const std::string overClause = "partition by c1 order by c0";
+  const std::vector<std::string> kRangeFrames1 = {
+      "range between current row and 2147483648 following",
+  };
+  testWindowFunction({vectors}, "count(c0)", {overClause}, kRangeFrames1);
+
+  const std::vector<std::string> kRangeFrames2 = {
+      "range between 2147483648 preceding and current row",
+  };
+  testWindowFunction({vectors}, "count(c0)", {overClause}, kRangeFrames2);
+}
+
+TEST_F(KPreceedingFollowingTest, rangeFramesFailure) {
+    auto vectors = makeRowVector({
+      makeFlatVector<int64_t>({5, 5, 4, 6, 3, 2}),
+      makeFlatVector<std::string>({"1", "2", "2", "2", "1", "2"}),
+  });
+
+  const std::string overClause = "partition by c1 order by c0";
+  const std::vector<std::string> kRangeFrames = {
+      "range between unbounded preceding and 1 following",
+  };
+  // workable.
+  // const std::vector<std::string> kRangeFrames = {
+  //     "range between current row and unbounded following",
+  // };
+  testWindowFunction({vectors}, "avg(c0)", {overClause}, kRangeFrames);
+}
+
+TEST_F(KPreceedingFollowingTest, rowsFrames) {
+    auto vectors = makeRowVector({
+      makeFlatVector<int64_t>({1, 1, 2147483650, 3, 2, 2147483650}),
+      makeFlatVector<std::string>({"1", "1", "1", "2", "1", "2"}),
+  });
+
+  const std::string overClause = "partition by c1 order by c0";
+  const std::vector<std::string> kRangeFrames = {
+      "rows between current row and 2147483647 following",
+  };
+  testWindowFunction({vectors}, "count(c0)", {overClause}, kRangeFrames);
+}
+
 }; // namespace
 }; // namespace facebook::velox::window::test

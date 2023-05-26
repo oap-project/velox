@@ -363,7 +363,20 @@ void Window::updateKRowsFrameBounds(
     auto constantOffset = frameArg.constant.value();
     auto startValue = startRow +
         (isKPreceding ? -constantOffset : constantOffset) - firstPartitionRow;
-    std::iota(rawFrameBounds, rawFrameBounds + numRows, startValue);
+    auto lastPartitionRow = partitionStartRows_[currentPartition_ + 1] - 1;
+    // if (startValue > lastPartitionRow) {
+    //   std::fill_n(rawFrameBounds, numRows, lastPartitionRow);
+    // }
+    // TODO: check first partition.
+    for (int i = 0; i < numRows; i++) {
+      if (startValue > lastPartitionRow) {
+        rawFrameBounds[i] = lastPartitionRow;
+      } else {
+        rawFrameBounds[i] = startValue;
+      }
+      startValue++;
+    }
+    // std::iota(rawFrameBounds, rawFrameBounds + numRows, startValue);
   } else {
     windowPartition_->extractColumn(
         frameArg.index, partitionOffset_, numRows, 0, frameArg.value);
@@ -379,6 +392,7 @@ void Window::updateKRowsFrameBounds(
     // moves ahead.
     int precedingFactor = isKPreceding ? -1 : 1;
     for (auto i = 0; i < numRows; i++) {
+      // TOOD: check whether the value is inside [firstPartitionRow, lastPartitionRow].
       rawFrameBounds[i] = (startRow + i) +
           vector_size_t(precedingFactor * offsets[i]) - firstPartitionRow;
     }
@@ -392,8 +406,9 @@ vector_size_t findIndex(
     const T value,
     vector_size_t leftBound,
     vector_size_t rightBound,
-    const FlatVectorPtr<T>& values) {
+    const FlatVectorPtr<T>& values, bool findStart) {
   vector_size_t originalRightBound = rightBound;
+  vector_size_t originalLeftBound = leftBound;
   while (leftBound < rightBound) {
     vector_size_t mid = round((leftBound + rightBound) / 2.0);
     auto midValue = values->valueAt(mid);
@@ -413,25 +428,35 @@ vector_size_t findIndex(
   // or the largest number less than value.
   // The semantics of this function are to always return the smallest larger
   // value (or rightBound if end of range).
-  if (value < values->valueAt(rightBound)) {
-    return rightBound;
+  if (findStart) {
+     if (value <= values->valueAt(rightBound)) {
+        //return std::max(originalLeftBound, rightBound);
+        return rightBound;
+     }
+     return std::min(originalRightBound, rightBound + 1);
   }
-  return std::min(originalRightBound, rightBound + 1);
+  if (value < values->valueAt(rightBound)) {
+    return std::max(originalLeftBound, rightBound - 1);
+  }
+  // std::max(originalLeftBound, rightBound)?
+  return std::min(originalRightBound, rightBound);
 }
 
 } // namespace
 
+// TODO: unify into one function.
 template <typename T>
 inline vector_size_t Window::kRangeStartBoundSearch(
     const T value,
     vector_size_t leftBound,
     vector_size_t rightBound,
     const FlatVectorPtr<T>& valuesVector) {
-  auto index = findIndex<T>(value, leftBound, rightBound, valuesVector);
+  auto index = findIndex<T>(value, leftBound, rightBound, valuesVector, true);
   // Since this is a kPreceding bound it includes the row at the index.
   return rangeValuesMap_.rowIndices[index];
 }
 
+// TODO: lastRightBoundRow looks useless.
 template <typename T>
 vector_size_t Window::kRangeEndBoundSearch(
     const T value,
@@ -439,21 +464,22 @@ vector_size_t Window::kRangeEndBoundSearch(
     vector_size_t rightBound,
     vector_size_t lastRightBoundRow,
     const FlatVectorPtr<T>& valuesVector) {
-  auto index = findIndex<T>(value, leftBound, rightBound, valuesVector);
+  auto index = findIndex<T>(value, leftBound, rightBound, valuesVector, false);
+  return rangeValuesMap_.rowIndices[index];
   // Since this is a kFollowing bound, it extends to the last row matching this
   // value (if it is found in the partition).
-  if (index < rightBound) {
-    if (value == valuesVector->valueAt(index)) {
-      return rangeValuesMap_.rowIndices[index + 1] - 1;
-    }
-    // If the value doesn't match the index, then it is the smallest
-    // number > value in the partition. So we exclude its row and only
-    // extend the frame until before it.
-    return rangeValuesMap_.rowIndices[index] - 1;
-  }
-  // The value is either equal or greater than the largest value in this
-  // partition. So return the lastRightBoundRow.
-  return lastRightBoundRow;
+  // if (index < rightBound) {
+  //   if (value == valuesVector->valueAt(index)) {
+  //     return rangeValuesMap_.rowIndices[index + 1] - 1;
+  //   }
+  //   // If the value doesn't match the index, then it is the smallest
+  //   // number > value in the partition. So we exclude its row and only
+  //   // extend the frame until before it.
+  //   return rangeValuesMap_.rowIndices[index] - 1;
+  // }
+  // // The value is either equal or greater than the largest value in this
+  // // partition. So return the lastRightBoundRow.
+  // return lastRightBoundRow;
 }
 
 void Window::updateKRangeFrameBounds(
@@ -521,6 +547,9 @@ void Window::updateKRangeFrameBounds(
           rightBound,
           lastPartitionRow,
           rangeIndexValues);
+      // if (rawFrameBounds[i] < 0) {
+      //   rawFrameBounds[i] = lastPartitionRow;
+      // }
     }
   }
 }
