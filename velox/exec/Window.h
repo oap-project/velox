@@ -161,7 +161,9 @@ class Window : public Operator {
       bool isStartBound,
       const FrameChannelArg& frameArg,
       vector_size_t numRows,
-      vector_size_t* rawFrameBounds);
+      vector_size_t* rawFrameBounds,
+      const vector_size_t* rawPeerStarts,
+      const vector_size_t* rawPeerEnds);
 
   // Helper function to update frame bounds.
   void updateFrameBounds(
@@ -178,7 +180,8 @@ class Window : public Operator {
       const T value,
       vector_size_t leftBound,
       vector_size_t rightBound,
-      const FlatVectorPtr<T>& valuesVector);
+      const FlatVectorPtr<T>& valuesVector,
+      const vector_size_t* rawPeerStarts);
 
   template <typename T>
   vector_size_t kRangeEndBoundSearch(
@@ -186,7 +189,8 @@ class Window : public Operator {
       vector_size_t leftBound,
       vector_size_t rightBound,
       vector_size_t lastRightBoundRow,
-      const FlatVectorPtr<T>& valuesVector);
+      const FlatVectorPtr<T>& valuesVector,
+      const vector_size_t* rawPeerEnds);
 
   bool finished_ = false;
   const vector_size_t numInputColumns_;

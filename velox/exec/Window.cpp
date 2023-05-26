@@ -320,12 +320,13 @@ void Window::computeRangeValuesMap() {
   rangeValuesMap_.rowIndices[0] = 0;
   int j = 1;
   for (auto i = firstPartitionRow + 1; i <= lastPartitionRow; i++) {
-    if (peerCompare(sortedRows_[i - 1], sortedRows_[i])) {
+    // Here, we removed the below check code, in order to keep raw values.
+    // if (peerCompare(sortedRows_[i - 1], sortedRows_[i])) {
       // The order by values are extracted from the Window partition which
       // starts from row number 0 for the firstPartitionRow. So the index
       // requires adjustment.
       rangeValuesMap_.rowIndices[j++] = i - firstPartitionRow;
-    }
+    // }
   }
 
   // If sort key is desc then reverse the rowIndices so that the range values
@@ -406,7 +407,8 @@ vector_size_t findIndex(
     const T value,
     vector_size_t leftBound,
     vector_size_t rightBound,
-    const FlatVectorPtr<T>& values, bool findStart) {
+    const FlatVectorPtr<T>& values,
+    bool findStart) {
   vector_size_t originalRightBound = rightBound;
   vector_size_t originalLeftBound = leftBound;
   while (leftBound < rightBound) {
@@ -450,10 +452,11 @@ inline vector_size_t Window::kRangeStartBoundSearch(
     const T value,
     vector_size_t leftBound,
     vector_size_t rightBound,
-    const FlatVectorPtr<T>& valuesVector) {
+    const FlatVectorPtr<T>& valuesVector,
+    const vector_size_t* rawPeerStarts) {
   auto index = findIndex<T>(value, leftBound, rightBound, valuesVector, true);
   // Since this is a kPreceding bound it includes the row at the index.
-  return rangeValuesMap_.rowIndices[index];
+  return rangeValuesMap_.rowIndices[rawPeerStarts[index]];
 }
 
 // TODO: lastRightBoundRow looks useless.
@@ -463,9 +466,10 @@ vector_size_t Window::kRangeEndBoundSearch(
     vector_size_t leftBound,
     vector_size_t rightBound,
     vector_size_t lastRightBoundRow,
-    const FlatVectorPtr<T>& valuesVector) {
+    const FlatVectorPtr<T>& valuesVector,
+    const vector_size_t* rawPeerEnds) {
   auto index = findIndex<T>(value, leftBound, rightBound, valuesVector, false);
-  return rangeValuesMap_.rowIndices[index];
+  return rangeValuesMap_.rowIndices[rawPeerEnds[index]];
   // Since this is a kFollowing bound, it extends to the last row matching this
   // value (if it is found in the partition).
   // if (index < rightBound) {
@@ -487,7 +491,9 @@ void Window::updateKRangeFrameBounds(
     bool isStartBound,
     const FrameChannelArg& frameArg,
     vector_size_t numRows,
-    vector_size_t* rawFrameBounds) {
+    vector_size_t* rawFrameBounds,
+    const vector_size_t* rawPeerStarts,
+    const vector_size_t* rawPeerEnds) {
   // Extract the order by key column to calculate the range values for the frame
   // boundaries.
   auto orderByValues = BaseVector::create(
@@ -537,7 +543,7 @@ void Window::updateKRangeFrameBounds(
   if (isStartBound) {
     for (auto i = 0; i < numRows; i++) {
       rawFrameBounds[i] = kRangeStartBoundSearch<int64_t>(
-          rawRangeValues[i], leftBound, rightBound, rangeIndexValues);
+          rawRangeValues[i], leftBound, rightBound, rangeIndexValues, rawPeerStarts);
     }
   } else {
     for (auto i = 0; i < numRows; i++) {
@@ -546,7 +552,9 @@ void Window::updateKRangeFrameBounds(
           leftBound,
           rightBound,
           lastPartitionRow,
-          rangeIndexValues);
+          rangeIndexValues,
+          rawPeerEnds
+          );
       // if (rawFrameBounds[i] < 0) {
       //   rawFrameBounds[i] = lastPartitionRow;
       // }
@@ -599,7 +607,8 @@ void Window::updateFrameBounds(
             true, frameArg.value(), startRow, numRows, rawFrameBounds);
       } else {
         updateKRangeFrameBounds(
-            true, isStartBound, frameArg.value(), numRows, rawFrameBounds);
+            true, isStartBound, frameArg.value(), numRows, rawFrameBounds,
+            rawPeerStarts, rawPeerEnds);
       }
       break;
     }
@@ -609,7 +618,8 @@ void Window::updateFrameBounds(
             false, frameArg.value(), startRow, numRows, rawFrameBounds);
       } else {
         updateKRangeFrameBounds(
-            false, isStartBound, frameArg.value(), numRows, rawFrameBounds);
+            false, isStartBound, frameArg.value(), numRows, rawFrameBounds,
+            rawPeerStarts, rawPeerEnds);
       }
       break;
     }
