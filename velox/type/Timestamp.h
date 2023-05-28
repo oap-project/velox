@@ -156,17 +156,21 @@ struct Timestamp {
 
   std::pair<int64_t, uint64_t> roundToSeconds() const {
     constexpr const uint64_t kNanosPerSecond{1000000000};
-    uint64_t nanosRoundSec = nanos_ / kNanosPerSecond;
-    int64_t secondsMaxAdd = std::numeric_limits<int64_t>::max() - seconds_;
-    if (secondsMaxAdd - nanosRoundSec >= 0) {
-      return {
-          seconds_ + nanos_ / kNanosPerSecond,
-          nanos_ - (nanos_ / kNanosPerSecond) * kNanosPerSecond};
+    constexpr const int64_t kMax{std::numeric_limits<int64_t>::max()};
+    auto nanosRoundSec = (int64_t)(nanos_ / kNanosPerSecond);
+    if (seconds_ < 0) {
+      // we can safely round nanos to seconds if seconds less than 0
+      return {seconds_ + nanosRoundSec, nanos_ - nanosRoundSec * kNanosPerSecond};
     } else {
-      // seconds_ will overflow if round all nanos to seconds
-      return {
-          std::numeric_limits<int64_t>::max(),
-          nanos_ - secondsMaxAdd * kNanosPerSecond};
+      int64_t secondsMaxAdd = kMax - seconds_;
+      if (secondsMaxAdd - nanosRoundSec > 0) {
+        return {
+            seconds_ + nanosRoundSec, nanos_ - nanosRoundSec * kNanosPerSecond};
+      } else {
+        // seconds_ will overflow if round all nanos to seconds
+        return {
+            seconds_ + secondsMaxAdd, nanos_ - secondsMaxAdd * kNanosPerSecond};
+      }
     }
   }
 
