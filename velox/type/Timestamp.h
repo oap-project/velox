@@ -160,7 +160,8 @@ struct Timestamp {
     auto nanosRoundSec = (int64_t)(nanos_ / kNanosPerSecond);
     if (seconds_ < 0) {
       // we can safely round nanos to seconds if seconds less than 0
-      return {seconds_ + nanosRoundSec, nanos_ - nanosRoundSec * kNanosPerSecond};
+      return {
+          seconds_ + nanosRoundSec, nanos_ - nanosRoundSec * kNanosPerSecond};
     } else {
       int64_t secondsMaxAdd = kMax - seconds_;
       if (secondsMaxAdd - nanosRoundSec > 0) {
