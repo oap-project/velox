@@ -156,6 +156,7 @@ class Window : public Operator {
       vector_size_t numRows,
       vector_size_t* rawFrameBounds);
 
+  template <TypeKind T>
   void updateKRangeFrameBounds(
       bool isKPreceding,
       bool isStartBound,

@@ -159,6 +159,13 @@ TEST_F(KPreceedingFollowingTest, rangeFrames2) {
       makeRowVector({
       makeFlatVector<int64_t>({5, 5, 4, 6, 3, 2, 8, 9, 9}),
       makeFlatVector<std::string>({"1", "1", "2", "2", "1", "2", "1", "1", "2"})}),
+      makeRowVector({
+      makeFlatVector<int64_t>({5, 5, 4, 6, 3, 2}),
+      makeFlatVector<std::string>({"1", "2", "2", "2", "1", "2"})}),
+      // Uses int32 for sort column.
+      makeRowVector({
+      makeFlatVector<int32_t>({5, 5, 4, 6, 3, 2}),
+      makeFlatVector<std::string>({"1", "2", "2", "2", "1", "2"})}),
       };
 
   const std::string overClause = "partition by c1 order by c0";
