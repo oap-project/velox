@@ -543,11 +543,21 @@ void Window::updateKRangeFrameBounds(
       rangeValuesMap_.rangeValues);
   if (isStartBound) {
     for (auto i = 0; i < numRows; i++) {
+      // Handle null.
+      if (rangeValuesFlatVector->mayHaveNulls() && rangeValuesFlatVector->isNullAt(i)) {
+        rawFrameBounds[i] = i;
+        continue;
+      }
       rawFrameBounds[i] = kRangeStartBoundSearch<NativeType>(
           rawRangeValues[i], leftBound, rightBound, rangeIndexValues, rawPeerStarts);
     }
   } else {
     for (auto i = 0; i < numRows; i++) {
+      // Handle null.
+      if (rangeValuesFlatVector->mayHaveNulls() && rangeValuesFlatVector->isNullAt(i)) {
+        rawFrameBounds[i] = i;
+        continue;
+      }
       rawFrameBounds[i] = kRangeEndBoundSearch<NativeType>(
           rawRangeValues[i],
           leftBound,
