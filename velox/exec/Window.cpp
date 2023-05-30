@@ -485,11 +485,6 @@ void Window::updateKRangeFrameBounds(
   auto orderByValues = BaseVector::create(sortKeyType, numRows, pool());
   windowPartition_->extractColumn(
       sortKeyInfo_[0].first, partitionOffset_, numRows, 0, orderByValues);
-  // TODO : Check if this is genuinely an error criteria.
-  VELOX_USER_CHECK_EQ(
-      orderByValues->getNullCount().value_or(0),
-      0,
-      "frame bound cannot have nulls");
   auto* rangeValuesFlatVector = orderByValues->asFlatVector<NativeType>();
   auto* rawRangeValues = rangeValuesFlatVector->mutableRawValues();
 
