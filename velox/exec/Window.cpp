@@ -365,10 +365,7 @@ void Window::updateKRowsFrameBounds(
     auto startValue = startRow +
         (isKPreceding ? -constantOffset : constantOffset) - firstPartitionRow;
     auto lastPartitionRow = partitionStartRows_[currentPartition_ + 1] - 1;
-    // if (startValue > lastPartitionRow) {
-    //   std::fill_n(rawFrameBounds, numRows, lastPartitionRow);
-    // }
-    // TODO: check first partition.
+    // TODO: check first partition boundary and validate the frame.
     for (int i = 0; i < numRows; i++) {
       if (startValue > lastPartitionRow) {
         rawFrameBounds[i] = lastPartitionRow;
@@ -470,20 +467,6 @@ vector_size_t Window::kRangeEndBoundSearch(
     const vector_size_t* rawPeerEnds) {
   auto index = findIndex<T>(value, leftBound, rightBound, valuesVector, false);
   return rangeValuesMap_.rowIndices[rawPeerEnds[index]];
-  // Since this is a kFollowing bound, it extends to the last row matching this
-  // value (if it is found in the partition).
-  // if (index < rightBound) {
-  //   if (value == valuesVector->valueAt(index)) {
-  //     return rangeValuesMap_.rowIndices[index + 1] - 1;
-  //   }
-  //   // If the value doesn't match the index, then it is the smallest
-  //   // number > value in the partition. So we exclude its row and only
-  //   // extend the frame until before it.
-  //   return rangeValuesMap_.rowIndices[index] - 1;
-  // }
-  // // The value is either equal or greater than the largest value in this
-  // // partition. So return the lastRightBoundRow.
-  // return lastRightBoundRow;
 }
 
 template <TypeKind T>
@@ -507,7 +490,6 @@ void Window::updateKRangeFrameBounds(
       orderByValues->getNullCount().value_or(0),
       0,
       "frame bound cannot have nulls");
-  // TODO : Figure how to do this in a generic way for any numeric or date type.
   auto* rangeValuesFlatVector = orderByValues->asFlatVector<NativeType>();
   auto* rawRangeValues = rangeValuesFlatVector->mutableRawValues();
 
@@ -544,6 +526,7 @@ void Window::updateKRangeFrameBounds(
   if (isStartBound) {
     for (auto i = 0; i < numRows; i++) {
       // Handle null.
+      // Different with duckDB result. May need to separate the handling for spark & presto.
       if (rangeValuesFlatVector->mayHaveNulls() && rangeValuesFlatVector->isNullAt(i)) {
         rawFrameBounds[i] = i;
         continue;
@@ -554,6 +537,7 @@ void Window::updateKRangeFrameBounds(
   } else {
     for (auto i = 0; i < numRows; i++) {
       // Handle null.
+      // Different with duckDB result. May need to separate the handling for spark & presto.
       if (rangeValuesFlatVector->mayHaveNulls() && rangeValuesFlatVector->isNullAt(i)) {
         rawFrameBounds[i] = i;
         continue;
@@ -566,9 +550,6 @@ void Window::updateKRangeFrameBounds(
           rangeIndexValues,
           rawPeerEnds
           );
-      // if (rawFrameBounds[i] < 0) {
-      //   rawFrameBounds[i] = lastPartitionRow;
-      // }
     }
   }
 }
