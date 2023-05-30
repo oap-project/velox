@@ -61,6 +61,10 @@ struct UnsafeRowStaticUtilities {
       return TypeKind::TIMESTAMP;
     } else if constexpr (std::is_same_v<SqlType, DateType>) {
       return TypeKind::DATE;
+    } else if constexpr (std::is_same_v<SqlType, ShortDecimalType>) {
+      return TypeKind::SHORT_DECIMAL;
+    } else if constexpr (std::is_same_v<SqlType, LongDecimalType>) {
+      return TypeKind::LONG_DECIMAL;
     } else {
       return TypeKind::INVALID;
     }
