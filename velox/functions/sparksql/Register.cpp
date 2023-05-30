@@ -137,7 +137,9 @@ void registerFunctions(const std::string& prefix) {
   exec::registerStatefulVectorFunction(
       prefix + "lessthanorequal", comparisonSignatures(), makeLessThanOrEqual);
   exec::registerStatefulVectorFunction(
-      prefix + "greaterthanorequal", comparisonSignatures(), makeGreaterThanOrEqual);
+      prefix + "greaterthanorequal",
+      comparisonSignatures(),
+      makeGreaterThanOrEqual);
   // Compare nullsafe functions
   exec::registerStatefulVectorFunction(
       prefix + "equalnullsafe", equalNullSafeSignatures(), makeEqualNullSafe);

@@ -66,7 +66,6 @@ struct Equal {
 template <typename T>
 struct LessOrEqual {
   constexpr bool operator()(const T& a, const T& b) const {
-    std::cout << "calling SparkSQL LessOrEqual." << std::endl;
     Less<T> less;
     Equal<T> equal;
     return less(a, b) || equal(a, b);
@@ -95,7 +94,7 @@ struct GreaterOrEqual : private Less<T> {
 
 /// Special cases:
 /// NaN in Spark is handled differently from standard floating point semantics.
-/// It is considered larger than any other numeric values. 
+/// It is considered larger than any other numeric values.
 
 std::shared_ptr<exec::VectorFunction> makeEqualTo(
     const std::string& name,
