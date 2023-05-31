@@ -101,7 +101,7 @@ TEST_P(SimpleAggregatesTest, randomInput) {
 
 // Tests function with a randomly generated input dataset.
 TEST_P(SimpleAggregatesTest, rangeFrames) {
-    testKRangeFrames(function_);
+  testKRangeFrames(function_);
 }
 
 // Instantiate all the above tests for each combination of aggregate function
@@ -130,7 +130,7 @@ TEST_F(StringAggregatesTest, nonFixedWidthAggregate) {
 class KPreceedingFollowingTest : public WindowTestBase {};
 
 TEST_F(KPreceedingFollowingTest, rangeFrames1) {
-    auto vectors = makeRowVector({
+  auto vectors = makeRowVector({
       makeFlatVector<int64_t>({1, 1, 2147483650, 3, 2, 2147483650}),
       makeFlatVector<std::string>({"1", "1", "1", "2", "1", "2"}),
   });
@@ -148,25 +148,27 @@ TEST_F(KPreceedingFollowingTest, rangeFrames1) {
 }
 
 TEST_F(KPreceedingFollowingTest, rangeFrames2) {
-    const std::vector<RowVectorPtr> vectors = {
-      makeRowVector({
-      makeFlatVector<int64_t>({5, 6, 8, 9, 10, 2, 8, 9, 3}),
-      makeFlatVector<std::string>({"1", "1", "1", "1", "1", "2", "2", "2", "2"})}),
+  const std::vector<RowVectorPtr> vectors = {
+      makeRowVector(
+          {makeFlatVector<int64_t>({5, 6, 8, 9, 10, 2, 8, 9, 3}),
+           makeFlatVector<std::string>(
+               {"1", "1", "1", "1", "1", "2", "2", "2", "2"})}),
       // Has repeated sort key.
-      makeRowVector({
-      makeFlatVector<int64_t>({5, 5, 3, 2, 8}),
-      makeFlatVector<std::string>({"1", "1", "1", "2", "1"})}),
-      makeRowVector({
-      makeFlatVector<int64_t>({5, 5, 4, 6, 3, 2, 8, 9, 9}),
-      makeFlatVector<std::string>({"1", "1", "2", "2", "1", "2", "1", "1", "2"})}),
-      makeRowVector({
-      makeFlatVector<int64_t>({5, 5, 4, 6, 3, 2}),
-      makeFlatVector<std::string>({"1", "2", "2", "2", "1", "2"})}),
+      makeRowVector(
+          {makeFlatVector<int64_t>({5, 5, 3, 2, 8}),
+           makeFlatVector<std::string>({"1", "1", "1", "2", "1"})}),
+      makeRowVector(
+          {makeFlatVector<int64_t>({5, 5, 4, 6, 3, 2, 8, 9, 9}),
+           makeFlatVector<std::string>(
+               {"1", "1", "2", "2", "1", "2", "1", "1", "2"})}),
+      makeRowVector(
+          {makeFlatVector<int64_t>({5, 5, 4, 6, 3, 2}),
+           makeFlatVector<std::string>({"1", "2", "2", "2", "1", "2"})}),
       // Uses int32 for sort column.
-      makeRowVector({
-      makeFlatVector<int32_t>({5, 5, 4, 6, 3, 2}),
-      makeFlatVector<std::string>({"1", "2", "2", "2", "1", "2"})}),
-      };
+      makeRowVector(
+          {makeFlatVector<int32_t>({5, 5, 4, 6, 3, 2}),
+           makeFlatVector<std::string>({"1", "2", "2", "2", "1", "2"})}),
+  };
 
   const std::string overClause = "partition by c1 order by c0";
   const std::vector<std::string> kRangeFrames = {
@@ -178,8 +180,7 @@ TEST_F(KPreceedingFollowingTest, rangeFrames2) {
       "range between 3 preceding and unbounded following",
       "range between 1 preceding and 3 following",
       "range between 3 preceding and 1 following",
-      "range between 2 preceding and 2 following"
-  };
+      "range between 2 preceding and 2 following"};
   for (int i = 0; i < vectors.size(); i++) {
     testWindowFunction({vectors[i]}, "avg(c0)", {overClause}, kRangeFrames);
     testWindowFunction({vectors[i]}, "sum(c0)", {overClause}, kRangeFrames);
@@ -188,7 +189,7 @@ TEST_F(KPreceedingFollowingTest, rangeFrames2) {
 }
 
 TEST_F(KPreceedingFollowingTest, rowsFrames) {
-    auto vectors = makeRowVector({
+  auto vectors = makeRowVector({
       makeFlatVector<int64_t>({1, 1, 2147483650, 3, 2, 2147483650}),
       makeFlatVector<std::string>({"1", "1", "1", "2", "1", "2"}),
   });

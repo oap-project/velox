@@ -322,10 +322,10 @@ void Window::computeRangeValuesMap() {
   for (auto i = firstPartitionRow + 1; i <= lastPartitionRow; i++) {
     // Here, we removed the below check code, in order to keep raw values.
     // if (peerCompare(sortedRows_[i - 1], sortedRows_[i])) {
-      // The order by values are extracted from the Window partition which
-      // starts from row number 0 for the firstPartitionRow. So the index
-      // requires adjustment.
-      rangeValuesMap_.rowIndices[j++] = i - firstPartitionRow;
+    // The order by values are extracted from the Window partition which
+    // starts from row number 0 for the firstPartitionRow. So the index
+    // requires adjustment.
+    rangeValuesMap_.rowIndices[j++] = i - firstPartitionRow;
     // }
   }
 
@@ -390,7 +390,8 @@ void Window::updateKRowsFrameBounds(
     // moves ahead.
     int precedingFactor = isKPreceding ? -1 : 1;
     for (auto i = 0; i < numRows; i++) {
-      // TOOD: check whether the value is inside [firstPartitionRow, lastPartitionRow].
+      // TOOD: check whether the value is inside [firstPartitionRow,
+      // lastPartitionRow].
       rawFrameBounds[i] = (startRow + i) +
           vector_size_t(precedingFactor * offsets[i]) - firstPartitionRow;
     }
@@ -428,11 +429,11 @@ vector_size_t findIndex(
   // The semantics of this function are to always return the smallest larger
   // value (or rightBound if end of range).
   if (findStart) {
-     if (value <= values->valueAt(rightBound)) {
-        //return std::max(originalLeftBound, rightBound);
-        return rightBound;
-     }
-     return std::min(originalRightBound, rightBound + 1);
+    if (value <= values->valueAt(rightBound)) {
+      // return std::max(originalLeftBound, rightBound);
+      return rightBound;
+    }
+    return std::min(originalRightBound, rightBound + 1);
   }
   if (value < values->valueAt(rightBound)) {
     return std::max(originalLeftBound, rightBound - 1);
@@ -481,7 +482,8 @@ void Window::updateKRangeFrameBounds(
   using NativeType = typename TypeTraits<T>::NativeType;
   // Extract the order by key column to calculate the range values for the frame
   // boundaries.
-  std::shared_ptr<const Type> sortKeyType = outputType_->childAt(sortKeyInfo_[0].first);
+  std::shared_ptr<const Type> sortKeyType =
+      outputType_->childAt(sortKeyInfo_[0].first);
   auto orderByValues = BaseVector::create(sortKeyType, numRows, pool());
   windowPartition_->extractColumn(
       sortKeyInfo_[0].first, partitionOffset_, numRows, 0, orderByValues);
@@ -521,19 +523,27 @@ void Window::updateKRangeFrameBounds(
   if (isStartBound) {
     for (auto i = 0; i < numRows; i++) {
       // Handle null.
-      // Different with duckDB result. May need to separate the handling for spark & presto.
-      if (rangeValuesFlatVector->mayHaveNulls() && rangeValuesFlatVector->isNullAt(i)) {
+      // Different with duckDB result. May need to separate the handling for
+      // spark & presto.
+      if (rangeValuesFlatVector->mayHaveNulls() &&
+          rangeValuesFlatVector->isNullAt(i)) {
         rawFrameBounds[i] = i;
         continue;
       }
       rawFrameBounds[i] = kRangeStartBoundSearch<NativeType>(
-          rawRangeValues[i], leftBound, rightBound, rangeIndexValues, rawPeerStarts);
+          rawRangeValues[i],
+          leftBound,
+          rightBound,
+          rangeIndexValues,
+          rawPeerStarts);
     }
   } else {
     for (auto i = 0; i < numRows; i++) {
       // Handle null.
-      // Different with duckDB result. May need to separate the handling for spark & presto.
-      if (rangeValuesFlatVector->mayHaveNulls() && rangeValuesFlatVector->isNullAt(i)) {
+      // Different with duckDB result. May need to separate the handling for
+      // spark & presto.
+      if (rangeValuesFlatVector->mayHaveNulls() &&
+          rangeValuesFlatVector->isNullAt(i)) {
         rawFrameBounds[i] = i;
         continue;
       }
@@ -543,8 +553,7 @@ void Window::updateKRangeFrameBounds(
           rightBound,
           lastPartitionRow,
           rangeIndexValues,
-          rawPeerEnds
-          );
+          rawPeerEnds);
     }
   }
 }
@@ -595,26 +604,46 @@ void Window::updateFrameBounds(
       } else {
         // Sort key type.
         auto sortKeyTypePtr = outputType_->childAt(sortKeyInfo_[0].first);
-        switch(sortKeyTypePtr->kind()) {
+        switch (sortKeyTypePtr->kind()) {
           case TypeKind::TINYINT:
             updateKRangeFrameBounds<TypeKind::TINYINT>(
-            true, isStartBound, frameArg.value(), numRows, rawFrameBounds,
-            rawPeerStarts, rawPeerEnds);
+                true,
+                isStartBound,
+                frameArg.value(),
+                numRows,
+                rawFrameBounds,
+                rawPeerStarts,
+                rawPeerEnds);
             break;
           case TypeKind::SMALLINT:
             updateKRangeFrameBounds<TypeKind::SMALLINT>(
-            true, isStartBound, frameArg.value(), numRows, rawFrameBounds,
-            rawPeerStarts, rawPeerEnds);
+                true,
+                isStartBound,
+                frameArg.value(),
+                numRows,
+                rawFrameBounds,
+                rawPeerStarts,
+                rawPeerEnds);
             break;
           case TypeKind::INTEGER:
             updateKRangeFrameBounds<TypeKind::INTEGER>(
-            true, isStartBound, frameArg.value(), numRows, rawFrameBounds,
-            rawPeerStarts, rawPeerEnds);
+                true,
+                isStartBound,
+                frameArg.value(),
+                numRows,
+                rawFrameBounds,
+                rawPeerStarts,
+                rawPeerEnds);
             break;
           case TypeKind::BIGINT:
             updateKRangeFrameBounds<TypeKind::BIGINT>(
-            true, isStartBound, frameArg.value(), numRows, rawFrameBounds,
-            rawPeerStarts, rawPeerEnds);
+                true,
+                isStartBound,
+                frameArg.value(),
+                numRows,
+                rawFrameBounds,
+                rawPeerStarts,
+                rawPeerEnds);
             break;
           default:
             VELOX_USER_FAIL("Not supported type for sort key!");
@@ -629,26 +658,46 @@ void Window::updateFrameBounds(
       } else {
         // Sort key type.
         auto sortKeyTypePtr = outputType_->childAt(sortKeyInfo_[0].first);
-        switch(sortKeyTypePtr->kind()) {
+        switch (sortKeyTypePtr->kind()) {
           case TypeKind::TINYINT:
             updateKRangeFrameBounds<TypeKind::TINYINT>(
-            false, isStartBound, frameArg.value(), numRows, rawFrameBounds,
-            rawPeerStarts, rawPeerEnds);
+                false,
+                isStartBound,
+                frameArg.value(),
+                numRows,
+                rawFrameBounds,
+                rawPeerStarts,
+                rawPeerEnds);
             break;
           case TypeKind::SMALLINT:
             updateKRangeFrameBounds<TypeKind::SMALLINT>(
-            false, isStartBound, frameArg.value(), numRows, rawFrameBounds,
-            rawPeerStarts, rawPeerEnds);
+                false,
+                isStartBound,
+                frameArg.value(),
+                numRows,
+                rawFrameBounds,
+                rawPeerStarts,
+                rawPeerEnds);
             break;
           case TypeKind::INTEGER:
             updateKRangeFrameBounds<TypeKind::INTEGER>(
-            false, isStartBound, frameArg.value(), numRows, rawFrameBounds,
-            rawPeerStarts, rawPeerEnds);
+                false,
+                isStartBound,
+                frameArg.value(),
+                numRows,
+                rawFrameBounds,
+                rawPeerStarts,
+                rawPeerEnds);
             break;
           case TypeKind::BIGINT:
             updateKRangeFrameBounds<TypeKind::BIGINT>(
-            false, isStartBound, frameArg.value(), numRows, rawFrameBounds,
-            rawPeerStarts, rawPeerEnds);
+                false,
+                isStartBound,
+                frameArg.value(),
+                numRows,
+                rawFrameBounds,
+                rawPeerStarts,
+                rawPeerEnds);
             break;
           default:
             VELOX_USER_FAIL("Not supported type for sort key!");
