@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/sparksql/tests/SparkFunctionBaseTest.h"
 
 #include <velox/vector/SimpleVector.h>
@@ -81,6 +82,57 @@ TEST_F(CompareTest, equalto) {
   EXPECT_EQ(equalto<double>(kNaN, 1), false);
   EXPECT_EQ(lessthan<double>(0, kNaN), true);
   EXPECT_EQ(equalto<double>(kNaN, kNaN), true);
+}
+
+TEST_F(CompareTest, testdecimal) {
+  auto runAndCompare = [&](const std::string& exprStr,
+                           std::vector<VectorPtr>& input,
+                           VectorPtr expectedResult) {
+    auto actual = evaluate<SimpleVector<bool>>(exprStr, makeRowVector(input));
+    facebook::velox::test::assertEqualVectors(actual, expectedResult);
+  };
+  std::vector<VectorPtr> inputs = {
+      makeNullableShortDecimalFlatVector(
+          {1, std::nullopt, 3, -2, std::nullopt, 4}, DECIMAL(10, 5)),
+      makeNullableShortDecimalFlatVector(
+          {0, 2, 3, -3, std::nullopt, 5}, DECIMAL(10, 5))};
+  auto expected = makeNullableFlatVector<bool>(
+      {true, std::nullopt, false, true, std::nullopt, false});
+  runAndCompare(fmt::format("{}(c0, c1)", "greaterthan"), inputs, expected);
+  std::vector<VectorPtr> longDecimalsInputs = {
+      makeNullableLongDecimalFlatVector(
+          {UnscaledLongDecimal::max().unscaledValue(),
+           std::nullopt,
+           3,
+           UnscaledLongDecimal::min().unscaledValue() + 1,
+           std::nullopt,
+           4},
+          DECIMAL(38, 5)),
+      makeNullableLongDecimalFlatVector(
+          {UnscaledLongDecimal::max().unscaledValue() - 1,
+           2,
+           3,
+           UnscaledLongDecimal::min().unscaledValue(),
+           std::nullopt,
+           5},
+          DECIMAL(38, 5))};
+  auto expectedGteLte = makeNullableFlatVector<bool>(
+      {true, std::nullopt, true, true, std::nullopt, false});
+  runAndCompare(
+      fmt::format("{}(c1, c0)", "lessthanorequal"),
+      longDecimalsInputs,
+      expectedGteLte);
+
+  // Test with different data types.
+  std::vector<VectorPtr> invalidInputs = {
+      makeNullableShortDecimalFlatVector({1}, DECIMAL(10, 5)),
+      makeNullableShortDecimalFlatVector({1}, DECIMAL(10, 4))};
+  auto invalidResult = makeNullableFlatVector<bool>({true});
+  VELOX_ASSERT_THROW(
+      runAndCompare(
+          fmt::format("{}(c1, c0)", "equalto"), invalidInputs, invalidResult),
+      "Scalar function signature is not supported: "
+      "equalto(DECIMAL(10,4), DECIMAL(10,5))");
 }
 
 TEST_F(CompareTest, testdictionary) {

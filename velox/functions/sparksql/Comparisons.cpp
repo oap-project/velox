@@ -147,7 +147,6 @@ std::shared_ptr<exec::VectorFunction> makeImpl(
   for (size_t i = 1; i < args.size(); i++) {
     VELOX_CHECK(*args[i].type == *args[0].type);
   }
-
   switch (args[0].type->kind()) {
 #define SCALAR_CASE(kind)                            \
   case TypeKind::kind:                               \
@@ -165,6 +164,8 @@ std::shared_ptr<exec::VectorFunction> makeImpl(
     SCALAR_CASE(VARBINARY)
     SCALAR_CASE(TIMESTAMP)
     SCALAR_CASE(DATE)
+    SCALAR_CASE(SHORT_DECIMAL)
+    SCALAR_CASE(LONG_DECIMAL)
 #undef SCALAR_CASE
     default:
       VELOX_NYI(
