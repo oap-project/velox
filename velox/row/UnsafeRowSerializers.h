@@ -825,7 +825,7 @@ struct UnsafeRowSerializer {
     }
 
     std::optional<size_t> serializedDataSize =
-        VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+        VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH_ALL(
             serializeSimpleVector,
             type->kind(),
             nullSet,
