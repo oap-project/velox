@@ -368,7 +368,7 @@ void Window::updateKRowsFrameBounds(
     // TODO: check first partition boundary and validate the frame.
     for (int i = 0; i < numRows; i++) {
       if (startValue > lastPartitionRow) {
-        rawFrameBounds[i] = lastPartitionRow;
+        rawFrameBounds[i] = lastPartitionRow + 1;
       } else {
         rawFrameBounds[i] = startValue;
       }
