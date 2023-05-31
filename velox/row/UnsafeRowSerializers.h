@@ -1060,7 +1060,7 @@ struct UnsafeRowSerializer {
       }
       return fieldsSize + UnsafeRow::alignToFieldWidth(elementsSize);
     } else {
-      size_t serializedDataSize = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+      size_t serializedDataSize = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH_ALL(
           getSizeSimpleVector, type->kind(), size, vector.get());
       return serializedDataSize;
     }
