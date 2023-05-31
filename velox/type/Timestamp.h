@@ -22,6 +22,7 @@
 #include <folly/dynamic.h>
 
 #include "velox/common/base/CheckedArithmetic.h"
+#include "velox/dwio/common/IntCodecCommon.h"
 #include "velox/type/StringView.h"
 
 namespace date {
@@ -34,8 +35,20 @@ struct Timestamp {
  public:
   enum class Precision : int { kMilliseconds = 3, kNanoseconds = 9 };
   constexpr Timestamp() : seconds_(0), nanos_(0) {}
-  constexpr Timestamp(int64_t seconds, uint64_t nanos)
-      : seconds_(seconds), nanos_(nanos) {}
+  Timestamp(int64_t seconds, uint64_t nanos) {
+    VELOX_CHECK_GE(
+        seconds,
+        dwio::common::MIN_SECONDS,
+        "Expect seconds >= {} in Timestamp",
+        dwio::common::MIN_SECONDS);
+    VELOX_CHECK_LE(
+        nanos,
+        dwio::common::MAX_NANOS,
+        "Expect nanos <= {} in Timestamp",
+        dwio::common::MAX_NANOS);
+    seconds_ = seconds;
+    nanos_ = nanos;
+  }
 
   // Returns the current unix timestamp (ms precision).
   static Timestamp now();
@@ -115,64 +128,31 @@ struct Timestamp {
   void toTimezone(int16_t tzID);
 
   bool operator==(const Timestamp& b) const {
-    auto [seconds, nanos] = roundToSeconds();
-    auto [otherSeconds, otherNanos] = b.roundToSeconds();
-    return seconds == otherSeconds && nanos == otherNanos;
+    return seconds_ == b.seconds_ && nanos_ == b.nanos_;
   }
 
   bool operator!=(const Timestamp& b) const {
-    auto [seconds, nanos] = roundToSeconds();
-    auto [otherSeconds, otherNanos] = b.roundToSeconds();
-    return seconds != otherSeconds || nanos != otherNanos;
+    return seconds_ != b.seconds_ || nanos_ != b.nanos_;
   }
 
   bool operator<(const Timestamp& b) const {
-    auto [seconds, nanos] = roundToSeconds();
-    auto [otherSeconds, otherNanos] = b.roundToSeconds();
-    return seconds < otherSeconds ||
-        (seconds == otherSeconds && nanos < otherNanos);
+    return seconds_ < b.seconds_ ||
+        (seconds_ == b.seconds_ && nanos_ < b.nanos_);
   }
 
   bool operator<=(const Timestamp& b) const {
-    auto [seconds, nanos] = roundToSeconds();
-    auto [otherSeconds, otherNanos] = b.roundToSeconds();
-    return seconds < otherSeconds ||
-        (seconds == otherSeconds && nanos <= otherNanos);
+    return seconds_ < b.seconds_ ||
+        (seconds_ == b.seconds_ && nanos_ <= b.nanos_);
   }
 
   bool operator>(const Timestamp& b) const {
-    auto [seconds, nanos] = roundToSeconds();
-    auto [otherSeconds, otherNanos] = b.roundToSeconds();
-    return seconds > otherSeconds ||
-        (seconds == otherSeconds && nanos > otherNanos);
+    return seconds_ > b.seconds_ ||
+        (seconds_ == b.seconds_ && nanos_ > b.nanos_);
   }
 
   bool operator>=(const Timestamp& b) const {
-    auto [seconds, nanos] = roundToSeconds();
-    auto [otherSeconds, otherNanos] = b.roundToSeconds();
-    return seconds > otherSeconds ||
-        (seconds == otherSeconds && nanos >= otherNanos);
-  }
-
-  std::pair<int64_t, uint64_t> roundToSeconds() const {
-    constexpr const uint64_t kNanosPerSecond{1000000000};
-    constexpr const int64_t kMax{std::numeric_limits<int64_t>::max()};
-    auto nanosRoundSec = (int64_t)(nanos_ / kNanosPerSecond);
-    if (seconds_ < 0) {
-      // we can safely round nanos to seconds if seconds less than 0
-      return {
-          seconds_ + nanosRoundSec, nanos_ - nanosRoundSec * kNanosPerSecond};
-    } else {
-      int64_t secondsMaxAdd = kMax - seconds_;
-      if (secondsMaxAdd - nanosRoundSec > 0) {
-        return {
-            seconds_ + nanosRoundSec, nanos_ - nanosRoundSec * kNanosPerSecond};
-      } else {
-        // seconds_ will overflow if round all nanos to seconds
-        return {
-            seconds_ + secondsMaxAdd, nanos_ - secondsMaxAdd * kNanosPerSecond};
-      }
-    }
+    return seconds_ > b.seconds_ ||
+        (seconds_ == b.seconds_ && nanos_ >= b.nanos_);
   }
 
   // Needed for serialization of FlatVector<Timestamp>

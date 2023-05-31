@@ -228,7 +228,7 @@ TEST_F(DateTimeTest, year) {
 
   EXPECT_EQ(std::nullopt, year(std::nullopt));
   EXPECT_EQ(1969, year(Timestamp(0, 0)));
-  EXPECT_EQ(1969, year(Timestamp(-1, 12300000000)));
+  EXPECT_EQ(1969, year(Timestamp(-1, dwio::common::MAX_NANOS)));
   EXPECT_EQ(2096, year(Timestamp(4000000000, 0)));
   EXPECT_EQ(2096, year(Timestamp(4000000000, 123000000)));
   EXPECT_EQ(2001, year(Timestamp(998474645, 321000000)));
@@ -291,7 +291,7 @@ TEST_F(DateTimeTest, quarter) {
 
   EXPECT_EQ(std::nullopt, quarter(std::nullopt));
   EXPECT_EQ(4, quarter(Timestamp(0, 0)));
-  EXPECT_EQ(4, quarter(Timestamp(-1, 12300000000)));
+  EXPECT_EQ(4, quarter(Timestamp(-1, dwio::common::MAX_NANOS)));
   EXPECT_EQ(4, quarter(Timestamp(4000000000, 0)));
   EXPECT_EQ(4, quarter(Timestamp(4000000000, 123000000)));
   EXPECT_EQ(2, quarter(Timestamp(990000000, 321000000)));
@@ -359,7 +359,7 @@ TEST_F(DateTimeTest, month) {
 
   EXPECT_EQ(std::nullopt, month(std::nullopt));
   EXPECT_EQ(12, month(Timestamp(0, 0)));
-  EXPECT_EQ(12, month(Timestamp(-1, 12300000000)));
+  EXPECT_EQ(12, month(Timestamp(-1, dwio::common::MAX_NANOS)));
   EXPECT_EQ(10, month(Timestamp(4000000000, 0)));
   EXPECT_EQ(10, month(Timestamp(4000000000, 123000000)));
   EXPECT_EQ(8, month(Timestamp(998474645, 321000000)));
@@ -424,7 +424,7 @@ TEST_F(DateTimeTest, hour) {
 
   EXPECT_EQ(std::nullopt, hour(std::nullopt));
   EXPECT_EQ(13, hour(Timestamp(0, 0)));
-  EXPECT_EQ(12, hour(Timestamp(-1, 12300000000)));
+  EXPECT_EQ(12, hour(Timestamp(-1, dwio::common::MAX_NANOS)));
   // Disabled for now because the TZ for Pacific/Apia in 2096 varies between
   // systems.
   // EXPECT_EQ(21, hour(Timestamp(4000000000, 0)));
@@ -850,7 +850,7 @@ TEST_F(DateTimeTest, second) {
   EXPECT_EQ(0, second(Timestamp(0, 0)));
   EXPECT_EQ(40, second(Timestamp(4000000000, 0)));
   EXPECT_EQ(59, second(Timestamp(-1, 123000000)));
-  EXPECT_EQ(59, second(Timestamp(-1, 12300000000)));
+  EXPECT_EQ(59, second(Timestamp(-1, dwio::common::MAX_NANOS)));
 }
 
 TEST_F(DateTimeTest, secondDate) {
@@ -907,7 +907,7 @@ TEST_F(DateTimeTest, millisecond) {
   EXPECT_EQ(0, millisecond(Timestamp(0, 0)));
   EXPECT_EQ(0, millisecond(Timestamp(4000000000, 0)));
   EXPECT_EQ(123, millisecond(Timestamp(-1, 123000000)));
-  EXPECT_EQ(12300, millisecond(Timestamp(-1, 12300000000)));
+  EXPECT_EQ(999, millisecond(Timestamp(-1, dwio::common::MAX_NANOS)));
 }
 
 TEST_F(DateTimeTest, millisecondDate) {
