@@ -254,9 +254,10 @@ struct UnsafeRowSerializer {
       const velox::UnscaledLongDecimal& data,
       char* buffer,
       size_t idx = 0) {
-    auto out = DecimalUtil::ToByteArray(data.unscaledValue());
+    int32_t size;
+    auto out = DecimalUtil::ToByteArray(data.unscaledValue(), &size);
     memcpy(buffer, &out[0], 16);
-    return 16;
+    return size;
   }
 
   /// Serializes a LongDecimal to UnsafeRow string format plus the padding

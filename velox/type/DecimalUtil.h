@@ -375,7 +375,7 @@ class DecimalUtil {
   /*
    *  This method refer to the BigInterger#toByteArray() method in Java side.
    */
-  inline static char* ToByteArray(int128_t value) {
+  inline static char* ToByteArray(int128_t value, int32_t* length = nullptr) {
     int128_t new_value;
     int32_t sig;
     if (value > 0) {
@@ -420,6 +420,9 @@ class DecimalUtil {
       }
 
       out[i] = (uint8_t)next_int;
+    }
+    if (length) {
+      *length = byte_length;
     }
     return out;
   }
