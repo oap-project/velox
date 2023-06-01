@@ -242,6 +242,45 @@ struct UnsafeRowSerializer {
     return serializeStringView(simple.valueAt(idx), buffer, idx);
   }
 
+  /// Serializes a LongDecimal to UnsafeRow string format plus the padding
+  /// required.
+  /// \param data
+  /// \param buffer Pre allocated buffer for the return value
+  /// \param idx This argument is ignored because data is not a Vector.
+  /// \return size of variable length data written, 0 if no variable length data
+  /// is written or only fixed data length data is written, std::nullopt
+  /// otherwise
+  inline static std::optional<size_t> serializeLongDecimal(
+      const velox::UnscaledLongDecimal& data,
+      char* buffer,
+      size_t idx = 0) {
+    auto out = DecimalUtil::ToByteArray(data.unscaledValue());
+    memcpy(buffer, &out[0], 16);
+    return 16;
+  }
+
+  /// Serializes a LongDecimal to UnsafeRow string format plus the padding
+  /// required.
+  /// \param data
+  /// \param buffer Pre allocated buffer for the return value
+  /// \param idx
+  /// \return size of variable length data written, 0 if no variable length data
+  /// is written or only fixed data length data is written, std::nullopt
+  /// otherwise
+  inline static std::optional<size_t>
+  serializeLongDecimal(const VectorPtr& data, char* buffer, size_t idx) {
+    auto* rawData = data->loadedVector();
+
+    VELOX_CHECK(data->isIndexInRange(idx));
+    const auto& simple =
+        static_cast<const SimpleVector<velox::UnscaledLongDecimal>&>(*rawData);
+
+    if (simple.isNullAt(idx)) {
+      return std::nullopt;
+    }
+    return serializeLongDecimal(simple.valueAt(idx), buffer, idx);
+  }
+
   /// Template definition for unsupported types.
   template <typename T>
   inline static std::optional<size_t>
@@ -767,7 +806,10 @@ struct UnsafeRowSerializer {
       FIXED_WIDTH(DOUBLE);
       FIXED_WIDTH(TIMESTAMP);
       FIXED_WIDTH(DATE);
+      FIXED_WIDTH(SHORT_DECIMAL);
 #undef FIXED_WIDTH
+      case TypeKind::LONG_DECIMAL:
+        return serializeLongDecimal(data, buffer, idx);
       case TypeKind::VARCHAR:
       case TypeKind::VARBINARY:
         return serializeStringView(data, buffer, idx);
