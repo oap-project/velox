@@ -21,7 +21,9 @@
 
 namespace facebook::velox::functions::sparksql::test {
 namespace {
-
+static constexpr double kInf = std::numeric_limits<double>::infinity();
+static constexpr float kInfF = std::numeric_limits<float>::infinity();
+static constexpr auto kNaN = std::numeric_limits<double>::quiet_NaN();
 class CompareTest : public SparkFunctionBaseTest {
  protected:
   template <typename T>
@@ -57,8 +59,6 @@ class CompareTest : public SparkFunctionBaseTest {
   }
 };
 
-static constexpr auto kNaN = std::numeric_limits<double>::quiet_NaN();
-
 TEST_F(CompareTest, equaltonullsafe) {
   EXPECT_EQ(equaltonullsafe<int64_t>(1, 1), true);
   EXPECT_EQ(equaltonullsafe<int32_t>(1, 2), false);
@@ -80,8 +80,16 @@ TEST_F(CompareTest, equalto) {
   EXPECT_EQ(equalto<double>(1, std::nullopt), std::nullopt);
   EXPECT_EQ(equalto<double>(kNaN, std::nullopt), std::nullopt);
   EXPECT_EQ(equalto<double>(kNaN, 1), false);
-  EXPECT_EQ(lessthan<double>(0, kNaN), true);
+  EXPECT_EQ(equalto<double>(0, kNaN), false);
   EXPECT_EQ(equalto<double>(kNaN, kNaN), true);
+  EXPECT_EQ(equalto<double>(kInf, kInf), true);
+  EXPECT_EQ(equalto<float>(kInfF, kInfF), true);
+  EXPECT_EQ(equalto<double>(kInf, 2.0), false);
+  EXPECT_EQ(equalto<double>(-kInf, 2.0), false);
+  EXPECT_EQ(equalto<float>(kInfF, 1.0), false);
+  EXPECT_EQ(equalto<float>(-kInfF, 1.0), false);
+  EXPECT_EQ(equalto<float>(kInfF, -kInfF), false);
+  EXPECT_EQ(equalto<double>(kInf, kNaN), false);
 }
 
 TEST_F(CompareTest, testdecimal) {
@@ -209,6 +217,14 @@ TEST_F(CompareTest, lessthan) {
   EXPECT_EQ(lessthan<double>(kNaN, 1), false);
   EXPECT_EQ(lessthan<double>(0, kNaN), true);
   EXPECT_EQ(lessthan<double>(kNaN, kNaN), false);
+  EXPECT_EQ(lessthan<double>(kInf, kInf), false);
+  EXPECT_EQ(lessthan<float>(kInfF, kInfF), false);
+  EXPECT_EQ(lessthan<double>(kInf, 2.0), false);
+  EXPECT_EQ(lessthan<double>(-kInf, 2.0), true);
+  EXPECT_EQ(lessthan<float>(kInfF, 1.0), false);
+  EXPECT_EQ(lessthan<float>(-kInfF, 1.0), true);
+  EXPECT_EQ(lessthan<float>(kInfF, -kInfF), false);
+  EXPECT_EQ(lessthan<double>(kInf, kNaN), true);
 }
 
 TEST_F(CompareTest, lessthanorequal) {
@@ -223,6 +239,14 @@ TEST_F(CompareTest, lessthanorequal) {
   EXPECT_EQ(lessthanorequal<double>(kNaN, 1), false);
   EXPECT_EQ(lessthanorequal<double>(0, kNaN), true);
   EXPECT_EQ(lessthanorequal<double>(kNaN, kNaN), true);
+  EXPECT_EQ(lessthanorequal<double>(kInf, kInf), true);
+  EXPECT_EQ(lessthanorequal<float>(kInfF, kInfF), true);
+  EXPECT_EQ(lessthanorequal<double>(kInf, 2.0), false);
+  EXPECT_EQ(lessthanorequal<double>(-kInf, 2.0), true);
+  EXPECT_EQ(lessthanorequal<float>(kInfF, 1.0), false);
+  EXPECT_EQ(lessthanorequal<float>(-kInfF, 1.0), true);
+  EXPECT_EQ(lessthanorequal<float>(kInfF, -kInfF), false);
+  EXPECT_EQ(lessthanorequal<double>(kInf, kNaN), true);
 }
 
 TEST_F(CompareTest, greaterthan) {
@@ -236,6 +260,14 @@ TEST_F(CompareTest, greaterthan) {
   EXPECT_EQ(greaterthan<double>(kNaN, 1), true);
   EXPECT_EQ(greaterthan<double>(0, kNaN), false);
   EXPECT_EQ(greaterthan<double>(kNaN, kNaN), false);
+  EXPECT_EQ(greaterthan<double>(kInf, kInf), false);
+  EXPECT_EQ(greaterthan<float>(kInfF, kInfF), false);
+  EXPECT_EQ(greaterthan<double>(kInf, 2.0), true);
+  EXPECT_EQ(greaterthan<double>(-kInf, 2.0), false);
+  EXPECT_EQ(greaterthan<float>(kInfF, 1.0), true);
+  EXPECT_EQ(greaterthan<float>(-kInfF, 1.0), false);
+  EXPECT_EQ(greaterthan<float>(kInfF, -kInfF), true);
+  EXPECT_EQ(greaterthan<float>(kInf, kNaN), false);
 }
 
 TEST_F(CompareTest, greaterthanorequal) {
@@ -253,6 +285,14 @@ TEST_F(CompareTest, greaterthanorequal) {
   EXPECT_EQ(greaterthanorequal<double>(kNaN, 1), true);
   EXPECT_EQ(greaterthanorequal<double>(0, kNaN), false);
   EXPECT_EQ(greaterthanorequal<double>(kNaN, kNaN), true);
+  EXPECT_EQ(greaterthanorequal<double>(kInf, kInf), true);
+  EXPECT_EQ(greaterthanorequal<float>(kInfF, kInfF), true);
+  EXPECT_EQ(greaterthanorequal<double>(kInf, 2.0), true);
+  EXPECT_EQ(greaterthanorequal<double>(-kInf, 2.0), false);
+  EXPECT_EQ(greaterthanorequal<float>(kInfF, 1.0), true);
+  EXPECT_EQ(greaterthanorequal<float>(-kInfF, 1.0), false);
+  EXPECT_EQ(greaterthanorequal<float>(kInfF, -kInfF), true);
+  EXPECT_EQ(greaterthanorequal<float>(kInf, kNaN), false);
 }
 } // namespace
 }; // namespace facebook::velox::functions::sparksql::test
