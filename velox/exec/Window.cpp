@@ -645,6 +645,16 @@ void Window::updateFrameBounds(
                 rawPeerStarts,
                 rawPeerEnds);
             break;
+          case TypeKind::DATE:
+            updateKRangeFrameBounds<TypeKind::DATE>(
+                true,
+                isStartBound,
+                frameArg.value(),
+                numRows,
+                rawFrameBounds,
+                rawPeerStarts,
+                rawPeerEnds);
+            break;
           default:
             VELOX_USER_FAIL("Not supported type for sort key!");
         }
@@ -691,6 +701,16 @@ void Window::updateFrameBounds(
             break;
           case TypeKind::BIGINT:
             updateKRangeFrameBounds<TypeKind::BIGINT>(
+                false,
+                isStartBound,
+                frameArg.value(),
+                numRows,
+                rawFrameBounds,
+                rawPeerStarts,
+                rawPeerEnds);
+            break;
+          case TypeKind::DATE:
+            updateKRangeFrameBounds<TypeKind::DATE>(
                 false,
                 isStartBound,
                 frameArg.value(),
