@@ -21,8 +21,6 @@
 #include "velox/exec/Spiller.h"
 #include "velox/exec/timsort.hpp"
 
-#include <boost/sort/sort.hpp>
-
 namespace facebook::velox::exec {
 
 /// OrderBy operator implementation: OrderBy stores all its inputs in a

@@ -244,7 +244,7 @@ void OrderBy::noMoreInput() {
     returningRows_.resize(numRows_);
     RowContainerIterator iter;
     data_->listRows(&iter, numRows_, returningRows_.data());
-    boost::sort::parallel_stable_sort(
+    gfx::timsort(
         returningRows_.begin(),
         returningRows_.end(),
         [this](const char* leftRow, const char* rightRow) {
@@ -255,7 +255,7 @@ void OrderBy::noMoreInput() {
             }
           }
           return false;
-        }, 16);
+        });
 
   } else {
     // Finish spill, and we shouldn't get any rows from non-spilled partition as
