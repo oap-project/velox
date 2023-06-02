@@ -28,7 +28,11 @@ class ComparisonFunction final : public exec::VectorFunction {
   using T = typename TypeTraits<kind>::NativeType;
 
   bool isDefaultNullBehavior() const override {
-    return false;
+    return true;
+  }
+
+  bool supportsFlatNoNullsFastPath() const override {
+    return true;
   }
 
   void apply(
@@ -38,103 +42,36 @@ class ComparisonFunction final : public exec::VectorFunction {
       exec::EvalCtx& context,
       VectorPtr& result) const override {
     exec::DecodedArgs decodedArgs(rows, args, context);
-
     DecodedVector* decoded0 = decodedArgs.at(0);
     DecodedVector* decoded1 = decodedArgs.at(1);
     context.ensureWritable(rows, BOOLEAN(), result);
     auto* flatResult = result->asFlatVector<bool>();
     flatResult->mutableRawValues<uint64_t>();
     const Cmp cmp;
-    if (!args[0]->mayHaveNulls() && !args[1]->mayHaveNulls()) {
-      // When there is no nulls, it reduces to normal compare function
-      if (decoded0->isIdentityMapping() && decoded1->isIdentityMapping()) {
-        auto decoded0Values = *args[0]->as<FlatVector<T>>();
-        auto decoded1Values = *args[1]->as<FlatVector<T>>();
-        rows.applyToSelected([&](vector_size_t i) {
-          flatResult->set(
-              i, cmp(decoded0Values.valueAt(i), decoded1Values.valueAt(i)));
-        });
-      } else if (
-          decoded0->isIdentityMapping() && decoded1->isConstantMapping()) {
-        auto decoded0Values = *args[0]->as<FlatVector<T>>();
-        auto constantValue = decoded1->valueAt<T>(0);
-        rows.applyToSelected([&](vector_size_t i) {
-          flatResult->set(i, cmp(decoded0Values.valueAt(i), constantValue));
-        });
-      } else if (
-          decoded0->isConstantMapping() && decoded1->isIdentityMapping()) {
-        auto constantValue = decoded0->valueAt<T>(0);
-        auto decoded1Values = *args[1]->as<FlatVector<T>>();
-        rows.applyToSelected([&](vector_size_t i) {
-          flatResult->set(i, cmp(constantValue, decoded1Values.valueAt(i)));
-        });
-      } else {
-        rows.applyToSelected([&](vector_size_t i) {
-          flatResult->set(
-              i, cmp(decoded0->valueAt<T>(i), decoded1->valueAt<T>(i)));
-        });
-      }
-
+    if (decoded0->isIdentityMapping() && decoded1->isIdentityMapping()) {
+      auto decoded0Values = *args[0]->as<FlatVector<T>>();
+      auto decoded1Values = *args[1]->as<FlatVector<T>>();
+      rows.applyToSelected([&](vector_size_t i) {
+        flatResult->set(
+            i, cmp(decoded0Values.valueAt(i), decoded1Values.valueAt(i)));
+      });
+    } else if (decoded0->isIdentityMapping() && decoded1->isConstantMapping()) {
+      auto decoded0Values = *args[0]->as<FlatVector<T>>();
+      auto constantValue = decoded1->valueAt<T>(0);
+      rows.applyToSelected([&](vector_size_t i) {
+        flatResult->set(i, cmp(decoded0Values.valueAt(i), constantValue));
+      });
+    } else if (decoded0->isConstantMapping() && decoded1->isIdentityMapping()) {
+      auto constantValue = decoded0->valueAt<T>(0);
+      auto decoded1Values = *args[1]->as<FlatVector<T>>();
+      rows.applyToSelected([&](vector_size_t i) {
+        flatResult->set(i, cmp(constantValue, decoded1Values.valueAt(i)));
+      });
     } else {
-      if (decoded0->isIdentityMapping() && decoded1->isIdentityMapping()) {
-        auto decoded0Values = *args[0]->as<FlatVector<T>>();
-        auto decoded1Values = *args[1]->as<FlatVector<T>>();
-        rows.applyToSelected([&](vector_size_t i) {
-          auto* rawNulls0 = decoded0->nulls();
-          auto* rawNulls1 = decoded1->nulls();
-          auto isNull0 = rawNulls0 && bits::isBitNull(rawNulls0, i);
-          auto isNull1 = rawNulls1 && bits::isBitNull(rawNulls1, i);
-          flatResult->setNull(i, (isNull0 || isNull1) ? true : false);
-          if (isNull0 || isNull1) {
-            return;
-          }
-          flatResult->set(
-              i, cmp(decoded0Values.valueAt(i), decoded1Values.valueAt(i)));
-        });
-      } else if (
-          decoded0->isIdentityMapping() && decoded1->isConstantMapping()) {
-        auto decoded0Values = *args[0]->as<FlatVector<T>>();
-        auto constantValue = decoded1->valueAt<T>(0);
-        rows.applyToSelected([&](vector_size_t i) {
-          auto* rawNulls0 = decoded0->nulls();
-          auto* rawNulls1 = decoded1->nulls();
-          auto isNull0 = rawNulls0 && bits::isBitNull(rawNulls0, i);
-          auto isNull1 = rawNulls1 && bits::isBitNull(rawNulls1, i);
-          flatResult->setNull(i, (isNull0 || isNull1) ? true : false);
-          if (isNull0 || isNull1) {
-            return;
-          }
-          flatResult->set(i, cmp(decoded0Values.valueAt(i), constantValue));
-        });
-      } else if (
-          decoded0->isConstantMapping() && decoded1->isIdentityMapping()) {
-        auto constantValue = decoded0->valueAt<T>(0);
-        auto decoded1Values = *args[1]->as<FlatVector<T>>();
-        rows.applyToSelected([&](vector_size_t i) {
-          auto* rawNulls0 = decoded0->nulls();
-          auto* rawNulls1 = decoded1->nulls();
-          auto isNull0 = rawNulls0 && bits::isBitNull(rawNulls0, i);
-          auto isNull1 = rawNulls1 && bits::isBitNull(rawNulls1, i);
-          flatResult->setNull(i, (isNull0 || isNull1) ? true : false);
-          if (isNull0 || isNull1) {
-            return;
-          }
-          flatResult->set(i, cmp(constantValue, decoded1Values.valueAt(i)));
-        });
-      } else {
-        rows.applyToSelected([&](vector_size_t i) {
-          auto* rawNulls0 = decoded0->nulls();
-          auto* rawNulls1 = decoded1->nulls();
-          auto isNull0 = rawNulls0 && bits::isBitNull(rawNulls0, i);
-          auto isNull1 = rawNulls1 && bits::isBitNull(rawNulls1, i);
-          flatResult->setNull(i, (isNull0 || isNull1) ? true : false);
-          if (isNull0 || isNull1) {
-            return;
-          }
-          flatResult->set(
-              i, cmp(decoded0->valueAt<T>(i), decoded1->valueAt<T>(i)));
-        });
-      }
+      rows.applyToSelected([&](vector_size_t i) {
+        flatResult->set(
+            i, cmp(decoded0->valueAt<T>(i), decoded1->valueAt<T>(i)));
+      });
     }
   }
 };
