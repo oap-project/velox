@@ -1851,7 +1851,7 @@ ListColumnReader::ListColumnReader(
     VELOX_CHECK(stripe.format() == DwrfFormat::kOrc);
     // Count the number of selected sub-columns.
     vers = convertRleVersion(stripe.getEncodingOrc(encodingKey).kind());
-    auto lenId = encodingKey.forKind(proto::orc::Stream_Kind_LENGTH);
+    lenId = encodingKey.forKind(proto::orc::Stream_Kind_LENGTH);
   }
 
   length = createRleDecoder</*isSigned*/ false>(
