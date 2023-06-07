@@ -152,21 +152,18 @@ ColumnReader::ColumnReader(
       memoryPool_(stripe.getMemoryPool()),
       flatMapContext_(std::move(flatMapContext)) {
   EncodingKey encodingKey{nodeType_->id, flatMapContext_.sequence};
+
+  DwrfStreamIdentifier id;
   if (stripe.format() == DwrfFormat::kDwrf) {
-    std::unique_ptr<dwio::common::SeekableInputStream> stream =
-        stripe.getStream(
-            encodingKey.forKind(proto::Stream_Kind_PRESENT), false);
-    if (stream) {
-      notNullDecoder_ = createBooleanRleDecoder(std::move(stream), encodingKey);
-    }
+    id = encodingKey.forKind(proto::Stream_Kind_PRESENT);
   } else {
     VELOX_CHECK(stripe.format() == DwrfFormat::kOrc);
-    std::unique_ptr<dwio::common::SeekableInputStream> stream =
-        stripe.getStream(
-            encodingKey.forKind(proto::orc::Stream_Kind_PRESENT), false);
-    if (stream) {
-      notNullDecoder_ = createBooleanRleDecoder(std::move(stream), encodingKey);
-    }
+    id = encodingKey.forKind(proto::orc::Stream_Kind_PRESENT);
+  }
+
+  auto stream = stripe.getStream(id, false);
+  if (stream) {
+    notNullDecoder_ = createBooleanRleDecoder(std::move(stream), encodingKey);
   }
 }
 
@@ -232,17 +229,16 @@ class ByteRleColumnReader : public ColumnReader {
       : ColumnReader(std::move(nodeType), stripe, std::move(flatMapContext)),
         requestedType_{std::move(requestedType)} {
     EncodingKey encodingKey{nodeType_->id, flatMapContext_.sequence};
+    DwrfStreamIdentifier id;
+
     if (stripe.format() == DwrfFormat::kDwrf) {
-      rle = creator(
-          stripe.getStream(encodingKey.forKind(proto::Stream_Kind_DATA), true),
-          encodingKey);
+      id = encodingKey.forKind(proto::Stream_Kind_DATA);
     } else {
       VELOX_CHECK(stripe.format() == DwrfFormat::kOrc);
-      rle = creator(
-          stripe.getStream(
-              encodingKey.forKind(proto::orc::Stream_Kind_DATA), true),
-          encodingKey);
+      id = encodingKey.forKind(proto::orc::Stream_Kind_DATA);
     }
+
+    rle = creator(stripe.getStream(id, true), encodingKey);
   }
 
   ~ByteRleColumnReader() override = default;
@@ -418,16 +414,18 @@ IntegerDirectColumnReader<ReqT>::IntegerDirectColumnReader(
 
   if (stripe.format() == DwrfFormat::kDwrf) {
     auto data = encodingKey.forKind(proto::Stream_Kind_DATA);
-    bool dataVInts = stripe.getUseVInts(data);
     ints = createDirectDecoder</*isSigned*/ true>(
-        stripe.getStream(data, true), dataVInts, numBytes);
+        stripe.getStream(data, true), stripe.getUseVInts(data), numBytes);
   } else {
     auto data = encodingKey.forKind(proto::orc::Stream_Kind_DATA);
-    bool dataVInts = stripe.getUseVInts(data);
     auto encoding = stripe.getEncodingOrc(encodingKey);
-    RleVersion vers = convertRleVersion(encoding.kind());
+    auto vers = convertRleVersion(encoding.kind());
     ints = createRleDecoder</*isSigned*/ true>(
-        stripe.getStream(data, true), vers, memoryPool_, dataVInts, numBytes);
+        stripe.getStream(data, true),
+        vers,
+        memoryPool_,
+        stripe.getUseVInts(data),
+        numBytes);
   }
 }
 
@@ -668,45 +666,33 @@ TimestampColumnReader::TimestampColumnReader(
     : ColumnReader(std::move(nodeType), stripe, std::move(flatMapContext)) {
   EncodingKey encodingKey{nodeType_->id, flatMapContext_.sequence};
 
+  RleVersion vers;
+  DwrfStreamIdentifier data, nanoData;
+
   if (stripe.format() == DwrfFormat::kDwrf) {
-    RleVersion vers = convertRleVersion(stripe.getEncoding(encodingKey).kind());
-    auto data = encodingKey.forKind(proto::Stream_Kind_DATA);
-    bool vints = stripe.getUseVInts(data);
-    seconds = createRleDecoder</*isSigned*/ true>(
-        stripe.getStream(data, true),
-        vers,
-        memoryPool_,
-        vints,
-        dwio::common::LONG_BYTE_SIZE);
-    auto nanoData = encodingKey.forKind(proto::Stream_Kind_NANO_DATA);
-    bool nanoVInts = stripe.getUseVInts(nanoData);
-    nano = createRleDecoder</*isSigned*/ false>(
-        stripe.getStream(nanoData, true),
-        vers,
-        memoryPool_,
-        nanoVInts,
-        dwio::common::LONG_BYTE_SIZE);
+    vers = convertRleVersion(stripe.getEncoding(encodingKey).kind());
+    data = encodingKey.forKind(proto::Stream_Kind_DATA);
+    nanoData = encodingKey.forKind(proto::Stream_Kind_NANO_DATA);
   } else {
     VELOX_CHECK(stripe.format() == DwrfFormat::kOrc);
-    RleVersion vers =
-        convertRleVersion(stripe.getEncodingOrc(encodingKey).kind());
-    auto data = encodingKey.forKind(proto::orc::Stream_Kind_DATA);
-    bool vints = stripe.getUseVInts(data);
-    seconds = createRleDecoder</*isSigned*/ true>(
-        stripe.getStream(data, true),
-        vers,
-        memoryPool_,
-        vints,
-        dwio::common::LONG_BYTE_SIZE);
-    auto nanoData = encodingKey.forKind(proto::orc::Stream_Kind_SECONDARY);
-    bool nanoVInts = stripe.getUseVInts(nanoData);
-    nano = createRleDecoder</*isSigned*/ false>(
-        stripe.getStream(nanoData, true),
-        vers,
-        memoryPool_,
-        nanoVInts,
-        dwio::common::LONG_BYTE_SIZE);
+    vers = convertRleVersion(stripe.getEncodingOrc(encodingKey).kind());
+    data = encodingKey.forKind(proto::orc::Stream_Kind_DATA);
+    nanoData = encodingKey.forKind(proto::orc::Stream_Kind_SECONDARY);
   }
+
+  seconds = createRleDecoder</*isSigned*/ true>(
+      stripe.getStream(data, true),
+      vers,
+      memoryPool_,
+      stripe.getUseVInts(data),
+      dwio::common::LONG_BYTE_SIZE);
+
+  nano = createRleDecoder</*isSigned*/ false>(
+      stripe.getStream(nanoData, true),
+      vers,
+      memoryPool_,
+      stripe.getUseVInts(nanoData),
+      dwio::common::LONG_BYTE_SIZE);
 }
 
 uint64_t TimestampColumnReader::skip(uint64_t numValues) {
@@ -1543,34 +1529,31 @@ StringDirectColumnReader::StringDirectColumnReader(
     FlatMapContext flatMapContext)
     : ColumnReader(std::move(nodeType), stripe, std::move(flatMapContext)) {
   EncodingKey encodingKey{nodeType_->id, flatMapContext_.sequence};
+
+  RleVersion rleVersion;
+  DwrfStreamIdentifier lenId;
+
   if (stripe.format() == DwrfFormat::kDwrf) {
-    RleVersion rleVersion =
-        convertRleVersion(stripe.getEncoding(encodingKey).kind());
-    auto lenId = encodingKey.forKind(proto::Stream_Kind_LENGTH);
-    bool lenVInts = stripe.getUseVInts(lenId);
-    length = createRleDecoder</*isSigned*/ false>(
-        stripe.getStream(lenId, true),
-        rleVersion,
-        memoryPool_,
-        lenVInts,
-        dwio::common::INT_BYTE_SIZE);
+    rleVersion = convertRleVersion(stripe.getEncoding(encodingKey).kind());
+    lenId = encodingKey.forKind(proto::Stream_Kind_LENGTH);
+
     blobStream =
         stripe.getStream(encodingKey.forKind(proto::Stream_Kind_DATA), true);
   } else {
     VELOX_CHECK(stripe.format() == DwrfFormat::kOrc);
-    RleVersion rleVersion =
-        convertRleVersion(stripe.getEncodingOrc(encodingKey).kind());
-    auto lenId = encodingKey.forKind(proto::orc::Stream_Kind_LENGTH);
-    bool lenVInts = stripe.getUseVInts(lenId);
-    length = createRleDecoder</*isSigned*/ false>(
-        stripe.getStream(lenId, true),
-        rleVersion,
-        memoryPool_,
-        lenVInts,
-        dwio::common::INT_BYTE_SIZE);
+    rleVersion = convertRleVersion(stripe.getEncodingOrc(encodingKey).kind());
+    lenId = encodingKey.forKind(proto::orc::Stream_Kind_LENGTH);
+
     blobStream = stripe.getStream(
         encodingKey.forKind(proto::orc::Stream_Kind_DATA), true);
   }
+
+  length = createRleDecoder</*isSigned*/ false>(
+      stripe.getStream(lenId, true),
+      rleVersion,
+      memoryPool_,
+      stripe.getUseVInts(lenId),
+      dwio::common::INT_BYTE_SIZE);
 }
 
 uint64_t StringDirectColumnReader::skip(uint64_t numValues) {
@@ -1857,33 +1840,26 @@ ListColumnReader::ListColumnReader(
   DWIO_ENSURE_EQ(nodeType_->id, dataType->id, "working on the same node");
   EncodingKey encodingKey{nodeType_->id, flatMapContext_.sequence};
 
-  if (stripe.format() == DwrfFormat::kDwrf) {
-    // count the number of selected sub-columns
-    RleVersion vers = convertRleVersion(stripe.getEncoding(encodingKey).kind());
+  RleVersion vers;
+  DwrfStreamIdentifier lenId;
 
-    auto lenId = encodingKey.forKind(proto::Stream_Kind_LENGTH);
-    bool vints = stripe.getUseVInts(lenId);
-    length = createRleDecoder</*isSigned*/ false>(
-        stripe.getStream(lenId, true),
-        vers,
-        memoryPool_,
-        vints,
-        dwio::common::INT_BYTE_SIZE);
+  if (stripe.format() == DwrfFormat::kDwrf) {
+    // Count the number of selected sub-columns.
+    vers = convertRleVersion(stripe.getEncoding(encodingKey).kind());
+    lenId = encodingKey.forKind(proto::Stream_Kind_LENGTH);
   } else {
     VELOX_CHECK(stripe.format() == DwrfFormat::kOrc);
-    // count the number of selected sub-columns
-    RleVersion vers =
-        convertRleVersion(stripe.getEncodingOrc(encodingKey).kind());
-
+    // Count the number of selected sub-columns.
+    vers = convertRleVersion(stripe.getEncodingOrc(encodingKey).kind());
     auto lenId = encodingKey.forKind(proto::orc::Stream_Kind_LENGTH);
-    bool vints = stripe.getUseVInts(lenId);
-    length = createRleDecoder</*isSigned*/ false>(
-        stripe.getStream(lenId, true),
-        vers,
-        memoryPool_,
-        vints,
-        dwio::common::INT_BYTE_SIZE);
   }
+
+  length = createRleDecoder</*isSigned*/ false>(
+      stripe.getStream(lenId, true),
+      vers,
+      memoryPool_,
+      stripe.getUseVInts(lenId),
+      dwio::common::INT_BYTE_SIZE);
 
   const auto& cs = stripe.getColumnSelector();
   auto& childType = requestedType_->childAt(0);
@@ -2036,35 +2012,26 @@ MapColumnReader::MapColumnReader(
   DWIO_ENSURE_EQ(nodeType_->id, dataType->id, "working on the same node");
   EncodingKey encodingKey{nodeType_->id, flatMapContext_.sequence};
 
+  RleVersion vers;
+  DwrfStreamIdentifier lenId;
+
   if (stripe.format() == DwrfFormat::kDwrf) {
-    // Determine if the key and/or value columns are selected
-    RleVersion vers = convertRleVersion(stripe.getEncoding(encodingKey).kind());
-
-    auto lenId = encodingKey.forKind(proto::Stream_Kind_LENGTH);
-    bool vints = stripe.getUseVInts(lenId);
-    length = createRleDecoder</*isSigned*/ false>(
-        stripe.getStream(lenId, true),
-        vers,
-        memoryPool_,
-        vints,
-        dwio::common::INT_BYTE_SIZE);
-
+    // Determine if the key and/or value columns are selected.
+    vers = convertRleVersion(stripe.getEncoding(encodingKey).kind());
+    lenId = encodingKey.forKind(proto::Stream_Kind_LENGTH);
   } else {
     VELOX_CHECK(stripe.format() == DwrfFormat::kOrc);
-
-    // Determine if the key and/or value columns are selected
-    RleVersion vers =
-        convertRleVersion(stripe.getEncodingOrc(encodingKey).kind());
-
-    auto lenId = encodingKey.forKind(proto::orc::Stream_Kind_LENGTH);
-    bool vints = stripe.getUseVInts(lenId);
-    length = createRleDecoder</*isSigned*/ false>(
-        stripe.getStream(lenId, true),
-        vers,
-        memoryPool_,
-        vints,
-        dwio::common::INT_BYTE_SIZE);
+    // Determine if the key and/or value columns are selected.
+    vers = convertRleVersion(stripe.getEncodingOrc(encodingKey).kind());
+    lenId = encodingKey.forKind(proto::orc::Stream_Kind_LENGTH);
   }
+
+  length = createRleDecoder</*isSigned*/ false>(
+      stripe.getStream(lenId, true),
+      vers,
+      memoryPool_,
+      stripe.getUseVInts(lenId),
+      dwio::common::INT_BYTE_SIZE);
 
   const auto& cs = stripe.getColumnSelector();
   auto& keyType = requestedType_->childAt(0);

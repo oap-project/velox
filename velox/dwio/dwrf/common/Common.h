@@ -59,7 +59,7 @@ constexpr WriterVersion WriterVersion_CURRENT = WriterVersion::DWRF_7_0;
  */
 std::string writerVersionToString(WriterVersion kind);
 
-// Stream Kind of Dwrf
+// Stream kind of dwrf.
 enum StreamKind {
   StreamKind_PRESENT = 0,
   StreamKind_DATA = 1,
@@ -75,7 +75,7 @@ enum StreamKind {
   StreamKind_IN_MAP = 11
 };
 
-// Stream Kind of Orc
+// Stream kind of orc.
 enum StreamKindOrc {
   StreamKindOrc_PRESENT = 0,
   StreamKindOrc_DATA = 1,
@@ -101,7 +101,8 @@ inline bool isIndexStream(StreamKind kind) {
 
 inline bool isIndexStream(StreamKindOrc kind) {
   return kind == StreamKindOrc::StreamKindOrc_ROW_INDEX ||
-      kind == StreamKindOrc::StreamKindOrc_ENCRYPTED_INDEX;
+      kind == StreamKindOrc::StreamKindOrc_BLOOM_FILTER ||
+      kind == StreamKindOrc::StreamKindOrc_BLOOM_FILTER_UTF8;
 }
 
 /**
