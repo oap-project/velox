@@ -527,6 +527,7 @@ void Window::updateKRangeFrameBounds(
   vector_size_t indexFound;
   if (isStartBound) {
     vector_size_t dynamicLeftBound = leftBound;
+    vector_size_t dynamicRightBound = 0;
     for (auto i = 0; i < numRows; i++) {
       // Handle null.
       // Different with duckDB result. May need to separate the handling for
@@ -536,10 +537,14 @@ void Window::updateKRangeFrameBounds(
         rawFrameBounds[i] = i;
         continue;
       }
+      // It is supposed the index being found is always on the left of the
+      // current handling position if we only consider positive lower value
+      // offset (>= 1).
+      dynamicRightBound = i;
       rawFrameBounds[i] = kRangeStartBoundSearch<NativeType>(
           rawRangeValues[i],
           dynamicLeftBound,
-          rightBound,
+          dynamicRightBound,
           rangeIndexValues,
           rawPeerStarts,
           indexFound);
@@ -547,6 +552,7 @@ void Window::updateKRangeFrameBounds(
     }
   } else {
     vector_size_t dynamicRightBound = rightBound;
+    vector_size_t dynamicLeftBound = 0;
     for (auto i = 0; i < numRows; i++) {
       // Handle null.
       // Different with duckDB result. May need to separate the handling for
@@ -556,9 +562,13 @@ void Window::updateKRangeFrameBounds(
         rawFrameBounds[i] = i;
         continue;
       }
+      // It is supposed the index being found is always on the right of the
+      // current handling position if we only consider positive higher value
+      // offset (>= 1).
+      dynamicLeftBound = i;
       rawFrameBounds[i] = kRangeEndBoundSearch<NativeType>(
           rawRangeValues[i],
-          leftBound,
+          dynamicLeftBound,
           dynamicRightBound,
           lastPartitionRow,
           rangeIndexValues,
