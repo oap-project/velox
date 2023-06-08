@@ -451,8 +451,10 @@ inline vector_size_t Window::kRangeStartBoundSearch(
     vector_size_t leftBound,
     vector_size_t rightBound,
     const FlatVectorPtr<T>& valuesVector,
-    const vector_size_t* rawPeerStarts) {
+    const vector_size_t* rawPeerStarts,
+    vector_size_t& indexFound) {
   auto index = findIndex<T>(value, leftBound, rightBound, valuesVector, true);
+  indexFound = index;
   // Since this is a kPreceding bound it includes the row at the index.
   return rangeValuesMap_.rowIndices[rawPeerStarts[index]];
 }
@@ -465,8 +467,10 @@ vector_size_t Window::kRangeEndBoundSearch(
     vector_size_t rightBound,
     vector_size_t lastRightBoundRow,
     const FlatVectorPtr<T>& valuesVector,
-    const vector_size_t* rawPeerEnds) {
+    const vector_size_t* rawPeerEnds,
+    vector_size_t& indexFound) {
   auto index = findIndex<T>(value, leftBound, rightBound, valuesVector, false);
+  indexFound = index;
   return rangeValuesMap_.rowIndices[rawPeerEnds[index]];
 }
 
@@ -515,12 +519,14 @@ void Window::updateKRangeFrameBounds(
   }
 
   // Set the frame bounds from looking up the rangeValues index.
-  auto leftBound = 0;
-  auto rightBound = rangeValuesMap_.rowIndices.size() - 1;
+  vector_size_t leftBound = 0;
+  vector_size_t rightBound = rangeValuesMap_.rowIndices.size() - 1;
   auto lastPartitionRow = partitionStartRows_[currentPartition_ + 1] - 1;
   auto rangeIndexValues = std::dynamic_pointer_cast<FlatVector<NativeType>>(
       rangeValuesMap_.rangeValues);
+  vector_size_t indexFound;
   if (isStartBound) {
+    vector_size_t dynamicLeftBound = leftBound;
     for (auto i = 0; i < numRows; i++) {
       // Handle null.
       // Different with duckDB result. May need to separate the handling for
@@ -532,12 +538,15 @@ void Window::updateKRangeFrameBounds(
       }
       rawFrameBounds[i] = kRangeStartBoundSearch<NativeType>(
           rawRangeValues[i],
-          leftBound,
+          dynamicLeftBound,
           rightBound,
           rangeIndexValues,
-          rawPeerStarts);
+          rawPeerStarts,
+          indexFound);
+      dynamicLeftBound = indexFound;
     }
   } else {
+    vector_size_t dynamicRightBound = rightBound;
     for (auto i = 0; i < numRows; i++) {
       // Handle null.
       // Different with duckDB result. May need to separate the handling for
@@ -550,10 +559,12 @@ void Window::updateKRangeFrameBounds(
       rawFrameBounds[i] = kRangeEndBoundSearch<NativeType>(
           rawRangeValues[i],
           leftBound,
-          rightBound,
+          dynamicRightBound,
           lastPartitionRow,
           rangeIndexValues,
-          rawPeerEnds);
+          rawPeerEnds,
+          indexFound);
+      dynamicRightBound = rightBound;
     }
   }
 }
