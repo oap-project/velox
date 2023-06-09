@@ -545,12 +545,13 @@ struct TranslateFunction {
   // ASCII input always produces ASCII result.
   static constexpr bool is_default_ascii_behavior = true;
 
-  FOLLY_ALWAYS_INLINE void call(
-      out_type<Varchar>& result,
-      const arg_type<Varchar>& input,
+  using MapType = std::unordered_map<std::string_view, std::string_view>;
+  std::optional<MapType> dict_;
+
+  FOLLY_ALWAYS_INLINE MapType buildDict(
       const arg_type<Varchar>& matchStr,
       const arg_type<Varchar>& replaceStr) {
-    std::unordered_map<std::string_view, std::string_view> dict;
+    MapType dict;
     int i = 0, j = 0;
     while (i < matchStr.size()) {
       std::string_view replacePiece;
@@ -568,7 +569,28 @@ struct TranslateFunction {
       dict[matchPiece] = replacePiece;
       i = i + matchCharCount;
     }
+    return dict;
+  }
 
+  FOLLY_ALWAYS_INLINE void initialize(
+      const core::QueryConfig& /*config*/,
+      const arg_type<Varchar>* /*string*/,
+      const arg_type<Varchar>* matchStr,
+      const arg_type<Varchar>* replaceStr) {
+    if (matchStr != nullptr && replaceStr != nullptr) {
+      dict_ = buildDict(*matchStr, *replaceStr);
+    }
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Varchar>& result,
+      const arg_type<Varchar>& input,
+      const arg_type<Varchar>& matchStr,
+      const arg_type<Varchar>& replaceStr) {
+    if (!dict_.has_value()) {
+      dict_ = buildDict(matchStr, replaceStr);
+    }
+    MapType dict = dict_.value();
     // No need to do the replacement.
     if (dict.empty()) {
       result.setNoCopy(StringView(input.data(), input.size()));
