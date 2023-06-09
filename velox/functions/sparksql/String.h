@@ -538,4 +538,57 @@ struct SubstrFunction {
   }
 };
 
+template <typename T>
+struct TranslateFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  // ASCII input always produces ASCII result.
+  static constexpr bool is_default_ascii_behavior = true;
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Varchar>& result,
+      const arg_type<Varchar>& input,
+      const arg_type<Varchar>& matchStr,
+      const arg_type<Varchar>& replaceStr) {
+    std::unordered_map<std::string_view, std::string_view> dict;
+    int i = 0, j = 0;
+    while (i < matchStr.size()) {
+      std::string_view replacePiece;
+      if (j >= replaceStr.size()) {
+        replacePiece = std::string_view("\u0000");
+      } else {
+        int replaceCharCount = utf8proc_char_length(replaceStr.data() + j);
+        replacePiece =
+            std::string_view(replaceStr.data() + j, replaceCharCount);
+        j = j + replaceCharCount;
+      }
+      int matchCharCount = utf8proc_char_length(matchStr.data() + i);
+      std::string_view matchPiece =
+          std::string_view(matchStr.data() + i, matchCharCount);
+      dict[matchPiece] = replacePiece;
+      i = i + matchCharCount;
+    }
+
+    // No need to do the replacement.
+    if (dict.empty()) {
+      result.setNoCopy(StringView(input.data(), input.size()));
+    }
+    int k = 0;
+    while (k < input.size()) {
+      int inputCharCount = utf8proc_char_length(input.data() + k);
+      std::string_view inputPiece =
+          std::string_view(input.data() + k, inputCharCount);
+      if (dict.find(inputPiece) == dict.end()) {
+        result.append(inputPiece);
+      } else {
+        auto newPiece = dict[inputPiece];
+        if (newPiece.compare("\u0000") != 0) {
+          result.append(newPiece);
+        }
+      }
+      k = k + inputCharCount;
+    }
+  }
+};
+
 } // namespace facebook::velox::functions::sparksql

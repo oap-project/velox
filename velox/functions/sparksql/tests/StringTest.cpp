@@ -148,6 +148,14 @@ class StringTest : public SparkFunctionBaseTest {
     return evaluateOnce<std::string>(
         "replace(c0, c1, c2)", str, replaced, replacement);
   }
+
+  std::optional<std::string> translate(
+      std::optional<std::string> str,
+      std::optional<std::string> matchStr,
+      std::optional<std::string> replaceStr) {
+    return evaluateOnce<std::string>(
+        "translate(c0, c1, c2)", str, matchStr, replaceStr);
+  }
 };
 
 TEST_F(StringTest, Ascii) {
@@ -476,5 +484,17 @@ TEST_F(StringTest, replace) {
       "123\u6570data");
 }
 
+TEST_F(StringTest, translate) {
+  EXPECT_EQ(translate("ab[cd]", "[]", "##"), "ab#cd#");
+  EXPECT_EQ(translate("ab[cd]", "[]", "#"), "ab#cd");
+  EXPECT_EQ(translate("ab[cd]", "[]", "#@$"), "ab#cd@");
+  EXPECT_EQ(translate("ab[cd]", "[]", "  "), "ab cd ");
+  EXPECT_EQ(translate("ab\u2028", "\u2028", "\u2029"), "ab\u2029");
+  EXPECT_EQ(translate("abc", "", ""), "abc");
+  // Test null input.
+  EXPECT_EQ(translate("abc", std::nullopt, "\u2029"), std::nullopt);
+  EXPECT_EQ(translate("abc", "\u2028", std::nullopt), std::nullopt);
+  EXPECT_EQ(translate(std::nullopt, "\u2028", "\u2029"), std::nullopt);
+}
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test
