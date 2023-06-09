@@ -570,6 +570,7 @@ TEST_F(AsyncDataCacheTest, outOfCapacity) {
     }
     pins.pop_front();
   }
+  ASSERT_EQ(1025, pins.size());
   memory::Allocation allocation;
   ASSERT_FALSE(cache_->allocateNonContiguous(kSizeInPages, allocation));
   // One 4 page entry below the max size of 4K 4 page entries in 16MB of
