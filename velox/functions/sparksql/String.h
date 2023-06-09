@@ -19,6 +19,7 @@
 #include "velox/functions/Macros.h"
 #include "velox/functions/UDFOutputString.h"
 #include "velox/functions/lib/string/StringImpl.h"
+#include <iostream>
 
 namespace facebook::velox::functions::sparksql {
 
@@ -578,6 +579,7 @@ struct TranslateFunction {
       const arg_type<Varchar>* matchStr,
       const arg_type<Varchar>* replaceStr) {
     if (matchStr != nullptr && replaceStr != nullptr) {
+      std::cout << "##### do init\n";
       dict_ = buildDict(*matchStr, *replaceStr);
     }
   }
@@ -588,6 +590,7 @@ struct TranslateFunction {
       const arg_type<Varchar>& matchStr,
       const arg_type<Varchar>& replaceStr) {
     if (!dict_.has_value()) {
+      std::cout << "##### build dict\n";
       dict_ = buildDict(matchStr, replaceStr);
     }
     MapType dict = dict_.value();
