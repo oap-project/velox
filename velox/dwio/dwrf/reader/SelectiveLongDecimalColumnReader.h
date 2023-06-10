@@ -115,8 +115,6 @@ class SelectiveLongDecimalColumnReader
  private:
   template <bool dense>
   void processValueHook(RowSet rows, ValueHook* hook) {
-    // std::cout << "long decimal hook: %s" << hook->toString() << std::endl;
-
     switch (hook->kind()) {
       case aggregate::AggregationHook::kLongDecimalMax:
         readHelper<dense, velox::common::AlwaysTrue>(

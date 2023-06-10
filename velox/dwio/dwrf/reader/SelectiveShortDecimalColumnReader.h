@@ -121,8 +121,6 @@ class SelectiveShortDecimalColumnReader
  private:
   template <bool dense>
   void processValueHook(RowSet rows, ValueHook* hook) {
-    // std::cout << "short decimal hook: %s" << hook->toString() << std::endl;
-
     switch (hook->kind()) {
       case aggregate::AggregationHook::kShortDecimalMax:
         readHelper<dense, velox::common::AlwaysTrue>(
