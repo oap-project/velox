@@ -491,6 +491,8 @@ TEST_F(StringTest, translate) {
   EXPECT_EQ(translate("ab[cd]", "[]", "  "), "ab cd ");
   EXPECT_EQ(translate("ab\u2028", "\u2028", "\u2029"), "ab\u2029");
   EXPECT_EQ(translate("abc", "", ""), "abc");
+  EXPECT_EQ(translate("translate", "rnlt", "123"), "1a2s3ae");
+  EXPECT_EQ(translate("translate", "rnlt", ""), "asae");
   // Test null input.
   EXPECT_EQ(translate("abc", std::nullopt, "\u2029"), std::nullopt);
   EXPECT_EQ(translate("abc", "\u2028", std::nullopt), std::nullopt);
