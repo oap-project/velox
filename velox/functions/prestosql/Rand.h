@@ -54,6 +54,11 @@ struct RandFunction {
       checkBound(InputType input) {
     VELOX_USER_CHECK_GT(input, 0, "bound must be positive");
   }
+
+  FOLLY_ALWAYS_INLINE void call(double& result, const int64_t& sed) {
+    folly::ThreadLocalPRNG rng{sed};
+    result = folly::Random::randDouble01(rng);
+  }
 };
 
 } // namespace facebook::velox::functions
