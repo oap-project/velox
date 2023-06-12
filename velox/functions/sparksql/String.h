@@ -587,10 +587,12 @@ struct TranslateFunction {
       const arg_type<Varchar>& input,
       const arg_type<Varchar>& matchStr,
       const arg_type<Varchar>& replaceStr) {
-    if (!dict_.has_value()) {
-      dict_ = buildDict(matchStr, replaceStr);
+    MapType dict;
+    if (dict_.has_value()) {
+      dict = dict_.value();
+    } else {
+      dict = buildDict(matchStr, replaceStr);
     }
-    MapType dict = dict_.value();
     // No need to do the replacement.
     if (dict.empty()) {
       result.setNoCopy(StringView(input.data(), input.size()));
