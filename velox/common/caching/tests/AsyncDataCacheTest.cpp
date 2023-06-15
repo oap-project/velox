@@ -570,12 +570,11 @@ TEST_F(AsyncDataCacheTest, outOfCapacity) {
     }
     pins.pop_front();
   }
+  ASSERT_EQ(kMaxBytes / kSize + 1, pins.size());
   memory::Allocation allocation;
   ASSERT_FALSE(cache_->allocateNonContiguous(kSizeInPages, allocation));
-  // One 4 page entry below the max size of 4K 4 page entries in 16MB of
-  // capacity.
-  ASSERT_EQ(4092, cache_->incrementCachedPages(0));
-  ASSERT_EQ(4092, cache_->incrementPrefetchPages(0));
+  ASSERT_EQ(4096, cache_->incrementCachedPages(0));
+  ASSERT_EQ(4096, cache_->incrementPrefetchPages(0));
   pins.clear();
 
   // We allocate the full capacity and expect the cache entries to go.
@@ -587,7 +586,7 @@ TEST_F(AsyncDataCacheTest, outOfCapacity) {
   }
   EXPECT_EQ(0, cache_->incrementCachedPages(0));
   EXPECT_EQ(0, cache_->incrementPrefetchPages(0));
-  EXPECT_EQ(4092, cache_->numAllocated());
+  EXPECT_EQ(4096, cache_->numAllocated());
   clearAllocations(allocations);
 }
 

@@ -554,7 +554,7 @@ bool AsyncDataCache::makeSpace(
     isCounted = true;
   }
   for (auto nthAttempt = 0; nthAttempt < kMaxAttempts; ++nthAttempt) {
-    if (allocator_->numAllocated() + numPages <
+    if (allocator_->numAllocated() + numPages <=
         maxBytes_ / memory::AllocationTraits::kPageSize) {
       try {
         if (allocate()) {
