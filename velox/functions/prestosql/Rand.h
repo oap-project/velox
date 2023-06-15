@@ -56,7 +56,8 @@ struct RandFunction {
   }
 
   FOLLY_ALWAYS_INLINE void call(double& result, const int64_t& sed) {
-    folly::ThreadLocalPRNG rng{sed};
+    std::mt19937 rng;
+    rng.seed(sed);
     result = folly::Random::randDouble01(rng);
   }
 };
