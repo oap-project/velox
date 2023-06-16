@@ -699,5 +699,15 @@ TEST_F(ArithmeticTest, truncate) {
   EXPECT_DOUBLE_EQ(truncate(123456789012345678901.23, -21).value(), 0.0);
 }
 
+TEST_F(ArithmeticTest, rand) {
+  const auto rand = [&](std::optional<int64_t> seed) {
+    return evaluateOnce<double>("random(c0)", seed);
+  };
+
+  EXPECT_EQ(rand(0), rand(0));
+  EXPECT_EQ(rand(1.5), rand(1.5));
+  EXPECT_EQ(rand(-2), rand(-2));
+}
+
 } // namespace
 } // namespace facebook::velox
