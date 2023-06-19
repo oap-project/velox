@@ -283,7 +283,7 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
           schemaElement.name,
           std::nullopt,
           maxRepeat,
-          maxDefine);
+          maxDefine - 1);
     }
     return leafTypePtr;
   }

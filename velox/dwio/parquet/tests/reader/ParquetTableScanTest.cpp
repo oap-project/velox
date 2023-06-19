@@ -225,21 +225,21 @@ TEST_F(ParquetTableScanTest, map) {
 }
 
 // Array reader result has missing result.
-// TEST_F(ParquetTableScanTest, array) {
-//   auto vector = makeArrayVector<int32_t>({{1, 2, 3}});
+TEST_F(ParquetTableScanTest, array) {
+  auto vector = makeArrayVector<int32_t>({{1, 2, 3}});
 
-//   loadData(
-//       getExampleFilePath("old-repeated-int.parquet"),
-//       ROW({"repeatedInt"}, {ARRAY(INTEGER())}),
-//       makeRowVector(
-//           {"repeatedInt"},
-//           {
-//               vector,
-//           }));
+  loadData(
+      getExampleFilePath("old-repeated-int.parquet"),
+      ROW({"repeatedInt"}, {ARRAY(INTEGER())}),
+      makeRowVector(
+          {"repeatedInt"},
+          {
+              vector,
+          }));
 
-//   assertSelectWithFilter({"repeatedInt"}, {}, "", "SELECT repeatedInt FROM
-//   tmp");
-// }
+  assertSelectWithFilter(
+      {"repeatedInt"}, {}, "", "SELECT repeatedInt FROM tmp");
+}
 
 // Failed unit test on Velox map reader.
 // TEST_F(ParquetTableScanTest, nestedMapWithStruct) {
