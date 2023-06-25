@@ -1045,6 +1045,7 @@ bool SubstraitToVeloxPlanValidator::validate(
   std::unordered_set<std::string> supportedFuncs = {
       "sum",
       "sum_merge",
+      "collect_set",
       "count",
       "count_merge",
       "avg",

@@ -133,6 +133,7 @@ class SubstraitParser {
       {"bit_or_merge", "bitwise_or_agg_merge"},
       {"bit_and", "bitwise_and_agg"},
       {"bit_and_merge", "bitwise_and_agg_merge"},
+      {"collect_set", "array_distinct"},
       {"modulus", "mod"} /*Presto functions.*/};
 
   // The map is uesd for mapping substrait type.
