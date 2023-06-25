@@ -47,7 +47,10 @@ void Writer::write(const RowVectorPtr& data) {
   }
 
   PARQUET_THROW_NOT_OK(arrowWriter_->WriteTable(*table, 10000));
-  flush();
+
+  if (queryCtx_->queryConfig().dataBufferGrowRatio() > 1) {
+    flush(); // No performance drop on 1TB dataset.
+  }
 }
 
 void Writer::flush() {
