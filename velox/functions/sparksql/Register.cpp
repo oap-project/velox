@@ -244,6 +244,9 @@ void registerFunctions(const std::string& prefix) {
   registerFunction<DateAddFunction, Date, Date, int16_t>({"date_add"});
   registerFunction<DateAddFunction, Date, Date, int8_t>({"date_add"});
   registerFunction<DateDiffFunction, int32_t, Date, Date>({"date_diff"});
+  registerFunction<DateSubFunction, Date, Date, int32_t>({"date_sub"});
+  registerFunction<DateSubFunction, Date, Date, int16_t>({"date_sub"});
+  registerFunction<DateSubFunction, Date, Date, int8_t>({"date_sub"});
   registerFunction<UnscaledValueFunction, int64_t, UnscaledShortDecimal>(
       {prefix + "unscaled_value"});
 
