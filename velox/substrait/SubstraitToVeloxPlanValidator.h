@@ -132,6 +132,11 @@ class SubstraitToVeloxPlanValidator {
 
   /// Create DecimalType based on the type information in string.
   TypePtr getDecimalType(const std::string& decimalType);
+
+  /// Add necessary log for fallback
+  void logValidateMsg(const std::string& log) {
+      this.validateLog_.emplace_back(log);
+  }
 };
 
 } // namespace facebook::velox::substrait
