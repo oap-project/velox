@@ -545,8 +545,8 @@ struct TranslateFunction {
   // ASCII input always produces ASCII result.
   static constexpr bool is_default_ascii_behavior = true;
 
-  using MapType = std::unordered_map<std::string_view, std::string_view>;
-  std::optional<MapType> dict_;
+  using MapType = std::unordered_map<StringView, StringView>;
+  std::optional<MapType> dict_ = std::nullopt;
 
   FOLLY_ALWAYS_INLINE MapType buildDict(
       const arg_type<Varchar>& matchStr,
@@ -554,18 +554,16 @@ struct TranslateFunction {
     MapType dict;
     int i = 0, j = 0;
     while (i < matchStr.size()) {
-      std::string_view replacePiece;
+      StringView replacePiece;
       if (j >= replaceStr.size()) {
-        replacePiece = std::string_view("\u0000");
+        replacePiece = StringView("");
       } else {
         int replaceCharCount = utf8proc_char_length(replaceStr.data() + j);
-        replacePiece =
-            std::string_view(replaceStr.data() + j, replaceCharCount);
+        replacePiece = StringView(replaceStr.data() + j, replaceCharCount);
         j = j + replaceCharCount;
       }
       int matchCharCount = utf8proc_char_length(matchStr.data() + i);
-      std::string_view matchPiece =
-          std::string_view(matchStr.data() + i, matchCharCount);
+      StringView matchPiece = StringView(matchStr.data() + i, matchCharCount);
       dict[matchPiece] = replacePiece;
       i = i + matchCharCount;
     }
@@ -600,13 +598,12 @@ struct TranslateFunction {
     int k = 0;
     while (k < input.size()) {
       int inputCharCount = utf8proc_char_length(input.data() + k);
-      std::string_view inputPiece =
-          std::string_view(input.data() + k, inputCharCount);
+      StringView inputPiece = StringView(input.data() + k, inputCharCount);
       if (dict.find(inputPiece) == dict.end()) {
         result.append(inputPiece);
       } else {
         auto newPiece = dict[inputPiece];
-        if (newPiece.compare("\u0000") != 0) {
+        if (newPiece.compare("") != 0) {
           result.append(newPiece);
         }
       }
