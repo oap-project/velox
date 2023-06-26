@@ -135,7 +135,7 @@ class SubstraitToVeloxPlanValidator {
 
   /// Add necessary log for fallback
   void logValidateMsg(const std::string& log) {
-      this.validateLog_.emplace_back(log);
+    this->validateLog_.emplace_back(log);
   }
 };
 

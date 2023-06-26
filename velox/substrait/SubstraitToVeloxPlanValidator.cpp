@@ -124,8 +124,7 @@ bool SubstraitToVeloxPlanValidator::validateExtractExpr(
     std::string from = variant.value<std::string>();
     // Hour causes incorrect result.
     if (from == "HOUR") {
-      logValidateMsg(
-          "native validation failed due to: {extract from hour}.");
+      logValidateMsg("native validation failed due to: {extract from hour}.");
       return false;
     }
     return true;
