@@ -546,7 +546,8 @@ struct TranslateFunction {
   static constexpr bool is_default_ascii_behavior = true;
 
   using MapType = std::unordered_map<StringView, StringView>;
-  std::optional<MapType> dict_ = std::nullopt;
+  MapType dict_;
+  bool isConstantTranslationMap = false;
 
   FOLLY_ALWAYS_INLINE MapType buildDict(
       const arg_type<Varchar>& matchStr,
@@ -577,6 +578,7 @@ struct TranslateFunction {
       const arg_type<Varchar>* replaceStr) {
     if (matchStr != nullptr && replaceStr != nullptr) {
       dict_ = buildDict(*matchStr, *replaceStr);
+      isConstantTranslationMap = true;
     }
   }
 
@@ -585,24 +587,21 @@ struct TranslateFunction {
       const arg_type<Varchar>& input,
       const arg_type<Varchar>& matchStr,
       const arg_type<Varchar>& replaceStr) {
-    MapType dict;
-    if (dict_.has_value()) {
-      dict = dict_.value();
-    } else {
-      dict = buildDict(matchStr, replaceStr);
+    if (!isConstantTranslationMap) {
+      dict_ = buildDict(matchStr, replaceStr);
     }
     // No need to do the replacement.
-    if (dict.empty()) {
+    if (dict_.empty()) {
       result.setNoCopy(StringView(input.data(), input.size()));
     }
     int k = 0;
     while (k < input.size()) {
       int inputCharCount = utf8proc_char_length(input.data() + k);
       StringView inputPiece = StringView(input.data() + k, inputCharCount);
-      if (dict.find(inputPiece) == dict.end()) {
+      if (dict_.find(inputPiece) == dict_.end()) {
         result.append(inputPiece);
       } else {
-        auto newPiece = dict[inputPiece];
+        auto newPiece = dict_[inputPiece];
         if (newPiece.compare("") != 0) {
           result.append(newPiece);
         }
