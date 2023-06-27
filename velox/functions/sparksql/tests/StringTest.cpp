@@ -493,6 +493,7 @@ TEST_F(StringTest, translate) {
   EXPECT_EQ(translate("abc", "", ""), "abc");
   EXPECT_EQ(translate("translate", "rnlt", "123"), "1a2s3ae");
   EXPECT_EQ(translate("translate", "rnlt", ""), "asae");
+  EXPECT_EQ(translate("abcd", "aba", "123"), "12cd");
   // Test null input.
   EXPECT_EQ(translate("abc", std::nullopt, "\u2029"), std::nullopt);
   EXPECT_EQ(translate("abc", "\u2028", std::nullopt), std::nullopt);

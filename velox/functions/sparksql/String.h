@@ -565,7 +565,7 @@ struct TranslateFunction {
       }
       int matchCharCount = utf8proc_char_length(matchStr.data() + i);
       StringView matchPiece = StringView(matchStr.data() + i, matchCharCount);
-      dict[matchPiece] = replacePiece;
+      dict.try_emplace(matchPiece, replacePiece);
       i = i + matchCharCount;
     }
     return dict;
