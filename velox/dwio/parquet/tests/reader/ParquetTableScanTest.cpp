@@ -241,6 +241,28 @@ TEST_F(ParquetTableScanTest, array) {
       {"repeatedInt"}, {}, "", "SELECT repeatedInt FROM tmp");
 }
 
+// Failed unit test on Velox array reader.
+// Optional array with required elements.
+// TEST_F(ParquetTableScanTest, optionalArray) {
+//   auto vector = makeArrayVector<StringView>({
+//       {"a", "b"},
+//       {"c", "d"},
+//       {"e", "f"},
+//   });
+
+//   loadData(
+//       getExampleFilePath("part-r-0.parquet"),
+//       ROW({"_1"}, {ARRAY(VARCHAR())}),
+//       makeRowVector(
+//           {"_1"},
+//           {
+//               vector,
+//           }));
+
+//   assertSelectWithFilter(
+//       {"_1"}, {}, "", "SELECT _1 FROM tmp");
+// }
+
 // Failed unit test on Velox map reader.
 // TEST_F(ParquetTableScanTest, nestedMapWithStruct) {
 //   auto vector = makeArrayVector<int32_t>({{1, 2, 3}});
