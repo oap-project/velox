@@ -427,7 +427,6 @@ bool HashBuild::reserveMemory(const RowVectorPtr& input) {
     return false;
   }
 
-
   const auto currentUsage = pool()->getCurrentBytes();
   if ((spillMemoryThreshold_ != 0 && currentUsage > spillMemoryThreshold_) ||
       pool()->highUsage()) {
