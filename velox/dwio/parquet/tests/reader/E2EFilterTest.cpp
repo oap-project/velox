@@ -487,6 +487,10 @@ TEST_F(E2EFilterTest, list) {
 }
 
 TEST_F(E2EFilterTest, metadataFilter) {
+  // Follow the batch size in `E2EFiltersTestBase`,
+  // so that each batch can produce a row group.
+  writerProperties_ =
+      ::parquet::WriterProperties::Builder().max_row_group_length(10)->build();
   testMetadataFilter();
 }
 
@@ -561,6 +565,24 @@ TEST_F(E2EFilterTest, largeMetadata) {
       std::make_shared<InMemoryReadFile>(data), readerOpts.getMemoryPool());
   auto reader = makeReader(readerOpts, std::move(input));
   EXPECT_EQ(1000, reader->numberOfRows());
+}
+
+TEST_F(E2EFilterTest, combineRowGroup) {
+  rowType_ = ROW({INTEGER()});
+  std::vector<RowVectorPtr> batches;
+  for (int i = 0; i < 5; i++) {
+    batches.push_back(std::static_pointer_cast<RowVector>(
+        test::BatchMaker::createBatch(rowType_, 1, *leafPool_, nullptr, 0)));
+  }
+  writeToMemory(rowType_, batches, false);
+  std::string_view data(sinkPtr_->getData(), sinkPtr_->size());
+  dwio::common::ReaderOptions readerOpts{leafPool_.get()};
+  auto input = std::make_unique<BufferedInput>(
+      std::make_shared<InMemoryReadFile>(data), readerOpts.getMemoryPool());
+  auto reader = makeReader(readerOpts, std::move(input));
+  auto parquetReader = dynamic_cast<ParquetReader&>(*reader.get());
+  EXPECT_EQ(parquetReader.numberOfRowGroups(), 1);
+  EXPECT_EQ(parquetReader.numberOfRows(), 5);
 }
 
 // Define main so that gflags get processed.
