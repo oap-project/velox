@@ -839,6 +839,14 @@ TEST_F(ExprTest, shortCircuit) {
   assertEqualVectors(expectedResult, result);
 }
 
+TEST_F(ExprTest, round) {
+  vector_size_t size = 4;
+  auto a = makeConstant(-1.0249999999999999, size);
+  auto result = evaluate("round(c0, cast (3 as int))", makeRowVector({a}));
+  auto expectedResult = makeConstant(-1.025, size);
+  assertEqualVectors(expectedResult, result);
+}
+
 // Test common sub-expression (CSE) optimization with encodings.
 // CSE evaluation may happen in different contexts, e.g. original input rows
 // on first evaluation and base vectors uncovered through peeling of encodings
