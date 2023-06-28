@@ -294,7 +294,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
         parent_, "Only root memory pool allows to set high-usage callback");
     highUsageCallback_ = func;
   }
-  
+
   /// TODO: deprecate this after the integration with memory arbitrator.
   using GrowCallback = std::function<bool(int64_t size, MemoryPool& pool)>;
   virtual void setGrowCallback(GrowCallback func) {
@@ -509,7 +509,7 @@ class MemoryPoolImpl : public MemoryPool {
 
   int64_t capacity() const override;
 
-bool highUsage() override;
+  bool highUsage() override;
 
   int64_t getCurrentBytes() const override {
     std::lock_guard<std::mutex> l(mutex_);
@@ -559,7 +559,7 @@ bool highUsage() override;
   MemoryAllocator* testingAllocator() const {
     return allocator_;
   }
-  
+
   MemoryAllocator* getAllocator() {
     return allocator_;
   }
@@ -567,6 +567,7 @@ bool highUsage() override;
   void setAllocator(MemoryAllocator* allocator) {
     allocator_ = allocator;
   }
+
  private:
   static constexpr uint64_t kMB = 1 << 20;
 
