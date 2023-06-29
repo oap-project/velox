@@ -434,33 +434,52 @@ void Expr::evalSimplifiedImpl(
     return;
   }
 
-  MutableRemainingRows remainingRows(rows, context);
+  SelectivityVector remainingRows = rows;
+  inputValues_.resize(inputs_.size());
   const bool defaultNulls = vectorFunction_->isDefaultNullBehavior();
-  auto evalArg = [&](int32_t i) {
+
+  for (int32_t i = 0; i < inputs_.size(); ++i) {
     auto& inputValue = inputValues_[i];
-    inputs_[i]->evalSimplified(remainingRows.rows(), context, inputValue);
+    inputs_[i]->evalSimplified(remainingRows, context, inputValue);
+
+    // Do not continue evaluation for rows with errors.
+    context.deselectErrors(remainingRows);
+    if (!remainingRows.hasSelections()) {
+      releaseInputValues(context);
+      result =
+          BaseVector::createNullConstant(type(), rows.size(), context.pool());
+      return;
+    }
+
     BaseVector::flattenVector(inputValue, rows.end());
     VELOX_CHECK(
         inputValue->encoding() == VectorEncoding::Simple::FLAT ||
         inputValue->encoding() == VectorEncoding::Simple::ARRAY ||
         inputValue->encoding() == VectorEncoding::Simple::MAP ||
         inputValue->encoding() == VectorEncoding::Simple::ROW);
-  };
 
-  if (defaultNulls) {
-    if (!evalArgsDefaultNulls(remainingRows, evalArg, context, result)) {
-      return;
-    }
-  } else {
-    if (!evalArgsWithNulls(remainingRows, evalArg, context, result)) {
-      return;
+    // If the resulting vector has nulls, merge them into our current remaining
+    // rows bitmap.
+    if (defaultNulls && inputValue->mayHaveNulls()) {
+      if (auto* rawNulls = inputValue->rawNulls()) {
+        remainingRows.deselectNulls(
+            rawNulls, remainingRows.begin(), remainingRows.end());
+
+        // All rows are null, return a null constant.
+        if (!remainingRows.hasSelections()) {
+          releaseInputValues(context);
+          result = BaseVector::createNullConstant(
+              type(), rows.size(), context.pool());
+          return;
+        }
+      }
     }
   }
 
   // Apply the actual function.
   try {
     vectorFunction_->apply(
-        remainingRows.rows(), inputValues_, type(), context, result);
+        remainingRows, inputValues_, type(), context, result);
   } catch (const VeloxException& ve) {
     throw;
   } catch (const std::exception& e) {
@@ -468,7 +487,7 @@ void Expr::evalSimplifiedImpl(
   }
 
   // Make sure the returned vector has its null bitmap properly set.
-  addNulls(rows, remainingRows.rows().asRange().bits(), context, result);
+  addNulls(rows, remainingRows.asRange().bits(), context, result);
   releaseInputValues(context);
 }
 
@@ -1277,29 +1296,33 @@ void Expr::evalAllImpl(
   // Tracks what subset of rows shall un-evaluated inputs and current expression
   // evaluates. Initially points to rows.
   MutableRemainingRows remainingRows(rows, context);
-  if (defaultNulls) {
-    if (!evalArgsDefaultNulls(
-            remainingRows,
-            [&](auto i) {
-              inputs_[i]->eval(remainingRows.rows(), context, inputValues_[i]);
-              tryPeelArgs =
-                  tryPeelArgs && isPeelable(inputValues_[i]->encoding());
-            },
-            context,
-            result)) {
+
+  inputValues_.resize(inputs_.size());
+  for (int32_t i = 0; i < inputs_.size(); ++i) {
+    inputs_[i]->eval(remainingRows.rows(), context, inputValues_[i]);
+    tryPeelArgs =
+        tryPeelArgs && PeeledEncoding::isPeelable(inputValues_[i]->encoding());
+
+    // Do not continue evaluation for rows with errors.
+    if (context.errors() && !remainingRows.deselectErrors()) {
+      // All rows are either null or have an error.
+      releaseInputValues(context);
+      setAllNulls(rows, context, result);
       return;
     }
-  } else {
-    if (!evalArgsWithNulls(
-            remainingRows,
-            [&](auto i) {
-              inputs_[i]->eval(remainingRows.rows(), context, inputValues_[i]);
-              tryPeelArgs =
-                  tryPeelArgs && isPeelable(inputValues_[i]->encoding());
-            },
-            context,
-            result)) {
-      return;
+
+    // Avoid subsequent computation on rows with known null output.
+    if (defaultNulls && inputValues_[i]->mayHaveNulls()) {
+      LocalDecodedVector decoded(
+          context, *inputValues_[i], remainingRows.rows());
+
+      if (auto* rawNulls = decoded->nulls()) {
+        if (!remainingRows.deselectNulls(rawNulls)) {
+          releaseInputValues(context);
+          setAllNulls(rows, context, result);
+          return;
+        }
+      }
     }
   }
 
