@@ -45,6 +45,11 @@ class TypeWithId : public velox::Tree<std::shared_ptr<const TypeWithId>> {
     return childAt(type->as<velox::TypeKind::ROW>().getChildIdx(name));
   }
 
+  bool containsChild(const std::string& name) const {
+    VELOX_CHECK_EQ(type->kind(), velox::TypeKind::ROW);
+    return type->as<velox::TypeKind::ROW>().containsChild(name);
+  }
+
   const std::vector<std::shared_ptr<const TypeWithId>>& getChildren() const {
     return children_;
   }

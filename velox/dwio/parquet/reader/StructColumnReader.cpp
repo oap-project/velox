@@ -19,13 +19,40 @@
 
 namespace facebook::velox::parquet {
 
+namespace {
+RowTypePtr typeNameInLowerCase(const RowTypePtr& rowTypePtr) {
+  std::vector<std::string> names;
+  std::vector<TypePtr> types = rowTypePtr->children();
+  names.reserve(rowTypePtr->names().size());
+  for (const auto& name : rowTypePtr->names()) {
+    auto nameInLowerCase = name;
+    folly::toLowerAscii(nameInLowerCase);
+    names.emplace_back(nameInLowerCase);
+  }
+  return std::make_shared<RowType>(std::move(names), std::move(types));
+}
+} // namespace
+
 StructColumnReader::StructColumnReader(
     const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
     ParquetParams& params,
     common::ScanSpec& scanSpec,
-    bool caseSensitive)
+    bool caseSensitive,
+    const TypePtr& colType,
+    memory::MemoryPool& pool)
     : SelectiveStructColumnReader(dataType, dataType, params, scanSpec) {
+  // Column type could be null because some tests do not set the output type.
+  RowTypePtr rowTypePtr = nullptr;
+  if (colType) {
+    rowTypePtr = asRowType(colType);
+    VELOX_CHECK_NOT_NULL(rowTypePtr);
+  }
+
   auto& childSpecs = scanSpec_->children();
+  if (rowTypePtr && !caseSensitive) {
+    rowTypePtr = typeNameInLowerCase(rowTypePtr);
+  }
+  int numOfMissingFields = 0;
   for (auto i = 0; i < childSpecs.size(); ++i) {
     if (childSpecs[i]->isConstant()) {
       continue;
@@ -34,12 +61,32 @@ StructColumnReader::StructColumnReader(
     if (!caseSensitive) {
       folly::toLowerAscii(fieldName);
     }
+    // Set null constant for the missing child field of output type.
+    if (rowTypePtr && !nodeType_->containsChild(fieldName)) {
+      childSpecs[i]->setConstantValue(BaseVector::createNullConstant(
+          rowTypePtr->findChild(fieldName), 1, &pool));
+      numOfMissingFields += 1;
+      continue;
+    }
+
     auto childDataType = nodeType_->childByName(fieldName);
 
     addChild(ParquetColumnReader::build(
-        childDataType, params, *childSpecs[i], caseSensitive));
+        childDataType,
+        params,
+        *childSpecs[i],
+        caseSensitive,
+        rowTypePtr ? rowTypePtr->findChild(fieldName) : nullptr,
+        pool));
     childSpecs[i]->setSubscript(children_.size() - 1);
   }
+  // Set the struct as null if all the children fields are missing.
+  if (rowTypePtr && childSpecs.size() > 1 &&
+      numOfMissingFields == childSpecs.size()) {
+    scanSpec_->setConstantValue(
+        BaseVector::createNullConstant(rowTypePtr, 1, &pool));
+  }
+
   auto type = reinterpret_cast<const ParquetTypeWithId*>(nodeType_.get());
   if (type->parent) {
     levelMode_ = reinterpret_cast<const ParquetTypeWithId*>(nodeType_.get())
@@ -50,6 +97,10 @@ StructColumnReader::StructColumnReader(
     auto child = childForRepDefs_;
     for (;;) {
       assert(child);
+      if (child == nullptr) {
+        levelMode_ = LevelMode::kNulls;
+        break;
+      }
       if (child->type()->kind() == TypeKind::ARRAY ||
           child->type()->kind() == TypeKind::MAP) {
         levelMode_ = LevelMode::kStructOverLists;

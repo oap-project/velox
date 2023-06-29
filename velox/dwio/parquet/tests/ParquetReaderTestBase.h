@@ -136,6 +136,7 @@ class ParquetReaderTestBase : public testing::Test {
 
     auto rowReaderOpts = getReaderOpts(fileSchema);
     rowReaderOpts.setScanSpec(scanSpec);
+    rowReaderOpts.setOutputType(fileSchema);
     auto rowReader = reader->createRowReader(rowReaderOpts);
     assertReadExpected(*rowReader, expected);
   }

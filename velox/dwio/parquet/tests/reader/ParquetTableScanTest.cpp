@@ -294,6 +294,36 @@ TEST_F(ParquetTableScanTest, singleRowStruct) {
   assertSelectWithFilter({"s"}, {}, "", "SELECT (0, 1)");
 }
 
+TEST_F(ParquetTableScanTest, prune) {
+  auto vector = makeArrayVector<StringView>({{}});
+  loadData(
+      getExampleFilePath("contacts.parquet"),
+      ROW({"name"},
+          {ROW(
+              {"first", "middle", "last"}, {VARCHAR(), VARCHAR(), VARCHAR()})}),
+      makeRowVector(
+          {"t"},
+          {
+              vector,
+          }));
+
+  assertSelectWithFilter({"name"}, {}, "", "SELECT ('Janet', null, 'Jones')");
+}
+
+TEST_F(ParquetTableScanTest, missingField) {
+  auto vector = makeArrayVector<StringView>({{}});
+  loadData(
+      getExampleFilePath("contacts.parquet"),
+      ROW({"name"}, {ROW({"middle"}, {VARCHAR()})}),
+      makeRowVector(
+          {"t"},
+          {
+              vector,
+          }));
+
+  assertSelectWithFilter({"name"}, {}, "", "SELECT row(null)");
+}
+
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
   folly::init(&argc, &argv, false);

@@ -31,6 +31,9 @@ PageReader* FOLLY_NULLABLE readLeafRepDefs(
       return nullptr;
     }
     auto pageReader = reader->formatData().as<ParquetData>().reader();
+    if (pageReader == nullptr) {
+      return nullptr;
+    }
     pageReader->decodeRepDefs(numTop);
     return pageReader;
   }
@@ -112,18 +115,32 @@ MapColumnReader::MapColumnReader(
     std::shared_ptr<const dwio::common::TypeWithId> requestedType,
     ParquetParams& params,
     common::ScanSpec& scanSpec,
-    bool caseSensitive)
+    bool caseSensitive,
+    const TypePtr& colType,
+    memory::MemoryPool& pool)
     : dwio::common::SelectiveMapColumnReader(
           requestedType,
           requestedType,
           params,
           scanSpec) {
+  const std::shared_ptr<const MapType>& mapTypePtr =
+      std::dynamic_pointer_cast<const MapType>(colType);
   auto& keyChildType = requestedType->childAt(0);
   auto& elementChildType = requestedType->childAt(1);
   keyReader_ = ParquetColumnReader::build(
-      keyChildType, params, *scanSpec.children()[0], caseSensitive);
+      keyChildType,
+      params,
+      *scanSpec.children()[0],
+      caseSensitive,
+      mapTypePtr ? mapTypePtr->keyType() : nullptr,
+      pool);
   elementReader_ = ParquetColumnReader::build(
-      elementChildType, params, *scanSpec.children()[1], caseSensitive);
+      elementChildType,
+      params,
+      *scanSpec.children()[1],
+      caseSensitive,
+      mapTypePtr ? mapTypePtr->valueType() : nullptr,
+      pool);
   reinterpret_cast<const ParquetTypeWithId*>(requestedType.get())
       ->makeLevelInfo(levelInfo_);
   children_ = {keyReader_.get(), elementReader_.get()};
@@ -221,15 +238,24 @@ ListColumnReader::ListColumnReader(
     std::shared_ptr<const dwio::common::TypeWithId> requestedType,
     ParquetParams& params,
     common::ScanSpec& scanSpec,
-    bool caseSensitive)
+    bool caseSensitive,
+    const TypePtr& colType,
+    memory::MemoryPool& pool)
     : dwio::common::SelectiveListColumnReader(
           requestedType,
           requestedType,
           params,
           scanSpec) {
   auto& childType = requestedType->childAt(0);
+  const std::shared_ptr<const ArrayType>& arrayTypePtr =
+      std::dynamic_pointer_cast<const ArrayType>(colType);
   child_ = ParquetColumnReader::build(
-      childType, params, *scanSpec.children()[0], caseSensitive);
+      childType,
+      params,
+      *scanSpec.children()[0],
+      caseSensitive,
+      arrayTypePtr ? arrayTypePtr->elementType() : nullptr,
+      pool);
   reinterpret_cast<const ParquetTypeWithId*>(requestedType.get())
       ->makeLevelInfo(levelInfo_);
   children_ = {child_.get()};

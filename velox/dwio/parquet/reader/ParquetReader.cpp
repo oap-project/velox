@@ -59,6 +59,11 @@ void ReaderBase::loadFileMetaData() {
     stream = input_->read(
         fileLength_ - readSize, readSize, dwio::common::LogType::FOOTER);
   }
+  if (stream == nullptr) {
+    preloadFile_ = false;
+    stream = input_->read(
+        fileLength_ - readSize, readSize, dwio::common::LogType::FOOTER);
+  }
 
   std::vector<char> copy(readSize);
   const char* bufferStart = nullptr;
@@ -556,7 +561,9 @@ ParquetRowReader::ParquetRowReader(
       readerBase_->schemaWithId(), // Id is schema id
       params,
       *options_.getScanSpec(),
-      caseSensitive);
+      caseSensitive,
+      options_.getOutputType(),
+      pool_);
 
   filterRowGroups();
   if (!rowGroupIds_.empty()) {
