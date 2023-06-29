@@ -73,7 +73,7 @@ class E2EFilterTest : public E2EFilterTestBase {
       std::unique_ptr<dwio::common::BufferedInput> input) override {
     return std::make_unique<ParquetReader>(std::move(input), opts);
   }
-
+  int a = 0;
   std::unique_ptr<facebook::velox::parquet::Writer> writer_;
   std::shared_ptr<::parquet::WriterProperties> writerProperties_;
   int32_t rowGroupSize_{10000};
