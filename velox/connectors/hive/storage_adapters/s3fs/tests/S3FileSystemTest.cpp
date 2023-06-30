@@ -101,6 +101,16 @@ class S3FileSystemTest : public testing::Test {
 
 std::shared_ptr<MinioServer> S3FileSystemTest::minioServer_ = nullptr;
 
+std::string removeRequestID(std::string input) {
+  std::string requestId = ", RequestID:";
+  auto start = input.find(requestId);
+  if (start != std::string::npos) {
+    input.erase(start);
+  }
+
+  return input;
+}
+
 TEST_F(S3FileSystemTest, writeAndRead) {
   const char* bucketName = "data";
   const char* file = "test.txt";
@@ -242,7 +252,7 @@ TEST_F(S3FileSystemTest, missingFile) {
     FAIL() << "Expected VeloxException";
   } catch (VeloxException const& err) {
     EXPECT_EQ(
-        err.message(),
+        removeRequestID(err.message()),
         std::string(
             "Failed to get metadata for S3 object due to: 'Resource not found'. Path:'s3://data1/i-do-not-exist.txt', SDK Error Type:16, HTTP Status Code:404, S3 Service:'MinIO', Message:'No response body.'"));
   }
@@ -258,7 +268,7 @@ TEST_F(S3FileSystemTest, missingBucket) {
     FAIL() << "Expected VeloxException";
   } catch (VeloxException const& err) {
     EXPECT_EQ(
-        err.message(),
+        removeRequestID(err.message()),
         std::string(
             "Failed to get metadata for S3 object due to: 'Resource not found'. Path:'s3://dummy/foo.txt', SDK Error Type:16, HTTP Status Code:404, S3 Service:'MinIO', Message:'No response body.'"));
   }
@@ -276,7 +286,7 @@ TEST_F(S3FileSystemTest, invalidAccessKey) {
     FAIL() << "Expected VeloxException";
   } catch (VeloxException const& err) {
     EXPECT_EQ(
-        err.message(),
+        removeRequestID(err.message()),
         std::string(
             "Failed to get metadata for S3 object due to: 'Access denied'. Path:'s3://dummy/foo.txt', SDK Error Type:15, HTTP Status Code:403, S3 Service:'MinIO', Message:'No response body.'"));
   }
@@ -294,7 +304,7 @@ TEST_F(S3FileSystemTest, invalidSecretKey) {
     FAIL() << "Expected VeloxException";
   } catch (VeloxException const& err) {
     EXPECT_EQ(
-        err.message(),
+        removeRequestID(err.message()),
         std::string(
             "Failed to get metadata for S3 object due to: 'Access denied'. Path:'s3://dummy/foo.txt', SDK Error Type:15, HTTP Status Code:403, S3 Service:'MinIO', Message:'No response body.'"));
   }
@@ -313,7 +323,7 @@ TEST_F(S3FileSystemTest, noBackendServer) {
     FAIL() << "Expected VeloxException";
   } catch (VeloxException const& err) {
     EXPECT_EQ(
-        err.message(),
+        removeRequestID(err.message()),
         std::string(
             "Failed to get metadata for S3 object due to: 'Network connection'. Path:'s3://dummy/foo.txt', SDK Error Type:99, HTTP Status Code:-1, S3 Service:'Unknown', Message:'curlCode: 7, Couldn't connect to server'"));
   }

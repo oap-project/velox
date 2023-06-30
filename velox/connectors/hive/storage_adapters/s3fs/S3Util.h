@@ -122,22 +122,36 @@ inline std::string getS3BackendService(
   }
   return "Unknown";
 }
+
+inline std::string getRequestID(
+    const Aws::Http::HeaderValueCollection& headers) {
+  std::vector<std::string> requestIds{"x-amz-request-id", "x-oss-request-id"};
+
+  for (const auto& requestId : requestIds) {
+    const auto it = headers.find(requestId);
+    if (it != headers.end()) {
+      return it->second;
+    }
+  }
+  return "";
+}
 } // namespace
 
-#define VELOX_CHECK_AWS_OUTCOME(outcome, errorMsgPrefix, bucket, key)                                          \
-  {                                                                                                            \
-    if (!outcome.IsSuccess()) {                                                                                \
-      auto error = outcome.GetError();                                                                         \
-      VELOX_FAIL(                                                                                              \
-          "{} due to: '{}'. Path:'{}', SDK Error Type:{}, HTTP Status Code:{}, S3 Service:'{}', Message:'{}'", \
-          errorMsgPrefix,                                                                                      \
-          getErrorStringFromS3Error(error),                                                                    \
-          s3URI(bucket, key),                                                                                  \
-          error.GetErrorType(),                                                                                \
-          error.GetResponseCode(),                                                                             \
-          getS3BackendService(error.GetResponseHeaders()),                                                     \
-          error.GetMessage());                                                                                 \
-    }                                                                                                          \
+#define VELOX_CHECK_AWS_OUTCOME(outcome, errorMsgPrefix, bucket, key)                                                          \
+  {                                                                                                                            \
+    if (!outcome.IsSuccess()) {                                                                                                \
+      auto error = outcome.GetError();                                                                                         \
+      VELOX_FAIL(                                                                                                              \
+          "{} due to: '{}'. Path:'{}', SDK Error Type:{}, HTTP Status Code:{}, S3 Service:'{}', Message:'{}', RequestID:'{}'", \
+          errorMsgPrefix,                                                                                                      \
+          getErrorStringFromS3Error(error),                                                                                    \
+          s3URI(bucket, key),                                                                                                  \
+          error.GetErrorType(),                                                                                                \
+          error.GetResponseCode(),                                                                                             \
+          getS3BackendService(error.GetResponseHeaders()),                                                                     \
+          error.GetMessage(),                                                                                                  \
+          getRequestID(error.GetResponseHeaders()))                                                                            \
+    }                                                                                                                          \
   }
 
 } // namespace facebook::velox
