@@ -173,8 +173,6 @@ void registerFunctions(const std::string& prefix) {
   exec::registerStatefulVectorFunction(
       prefix + "decimal_round", roundDecimalSignatures(), makeRoundDecimal);
   exec::registerStatefulVectorFunction(
-      prefix + "abs", absSignatures(), makeAbs);
-  exec::registerStatefulVectorFunction(
       prefix + "unscaled_value", unscaledValueSignatures(), makeUnscaledValue);
   // Register date functions.
   registerFunction<YearFunction, int32_t, Timestamp>({prefix + "year"});
