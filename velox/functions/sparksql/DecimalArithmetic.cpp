@@ -335,7 +335,6 @@ class Addition {
     auto multiplier = DecimalUtil::kPowersOfTen[higher_scale];
     if (aRightScaled >= multiplier - bRightScaled) {
       right = R(aRightScaled - (multiplier - bRightScaled));
-      std::cout << "carry to 1" << std::endl;
       carry_to_left = 1;
     } else {
       right = R(aRightScaled + bRightScaled);
