@@ -145,6 +145,32 @@ class DecimalUtilOp {
     return std::min(x_lz, y_lz);
   }
 
+  template <class T, typename = std::enable_if_t<std::is_same_v<T, int64_t>>>
+  FOLLY_ALWAYS_INLINE static int64_t
+  multiply(int64_t a, int64_t b, bool* overflow) {
+    int64_t value;
+    *overflow = __builtin_mul_overflow(a, b, &value);
+    if (!*overflow && value >= velox::DecimalUtil::kShortDecimalMin &&
+        value <= velox::DecimalUtil::kShortDecimalMax) {
+      return value;
+    }
+    *overflow = true;
+    return -1;
+  }
+
+  template <class T, typename = std::enable_if_t<std::is_same_v<T, int128_t>>>
+  FOLLY_ALWAYS_INLINE static int128_t
+  multiply(int128_t a, int128_t b, bool* overflow) {
+    int128_t value;
+    *overflow = __builtin_mul_overflow(a, b, &value);
+    if (!*overflow && value >= velox::DecimalUtil::kLongDecimalMin &&
+        value <= velox::DecimalUtil::kLongDecimalMax) {
+      return value;
+    }
+    *overflow = true;
+    return -1;
+  }
+
   template <typename R, typename A, typename B>
   inline static R divideWithRoundUp(
       R& r,
@@ -175,8 +201,10 @@ class DecimalUtilOp {
     }
     auto bitsRequiredAfterScaling = maxBitsRequiredAfterScaling<A>(a, aRescale);
     if (bitsRequiredAfterScaling <= 127) {
-      unsignedDividendRescaled = checkedMultiply<R>(
-          unsignedDividendRescaled, R(DecimalUtil::kPowersOfTen[aRescale]));
+      unsignedDividendRescaled = multiply<R, A>(
+          unsignedDividendRescaled,
+          R(DecimalUtil::kPowersOfTen[aRescale]),
+          overflow);
       if (*overflow) {
         return R(-1);
       }
