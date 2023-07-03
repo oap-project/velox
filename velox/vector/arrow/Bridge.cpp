@@ -985,7 +985,6 @@ VectorPtr importFromArrowImpl(
     memory::MemoryPool* pool,
     bool isViewer);
 
-template <typename T>
 VectorPtr createDecimalVector(
     memory::MemoryPool* pool,
     const TypePtr& type,
@@ -1001,13 +1000,13 @@ VectorPtr createDecimalVector(
   VectorPtr base = BaseVector::create(type, arrowArray.length, pool);
   base->setNulls(nulls);
 
-  auto flatVector = std::dynamic_pointer_cast<FlatVector<T>>(base);
+  auto flatVector = std::dynamic_pointer_cast<FlatVector<int64_t>>(base);
 
   for (int i = 0; i < arrowArray.length; i++) {
     if (!base->isNullAt(i)) {
       int128_t result;
       memcpy(&result, src + i * sizeof(int128_t), sizeof(int128_t));
-      flatVector->set(i, T(result));
+      flatVector->set(i, static_cast<int64_t>(result));
     }
   }
 
@@ -1223,7 +1222,9 @@ VectorPtr importFromArrowImpl(
         static_cast<const char*>(arrowArray.buffers[2]), // values
         arrowArray.null_count,
         wrapInBufferView);
-  } else if (type->isRow()) { // Row/structs.
+  }
+  // Row/structs.
+  if (type->isRow()) {
     return createRowVector(
         pool,
         std::dynamic_pointer_cast<const RowType>(type),
@@ -1231,19 +1232,20 @@ VectorPtr importFromArrowImpl(
         arrowSchema,
         arrowArray,
         isViewer);
-  } else if (type->isArray()) {
+  }
+  if (type->isArray()) {
     return createArrayVector(
         pool, type, nulls, arrowSchema, arrowArray, isViewer, wrapInBufferView);
-  } else if (type->isMap()) {
+  }
+  if (type->isMap()) {
     return createMapVector(
         pool, type, nulls, arrowSchema, arrowArray, isViewer, wrapInBufferView);
-  } else if (type->isShortDecimal()) {
-    return createDecimalVector<int64_t>(
+  }
+  if (type->isShortDecimal()) {
+    return createDecimalVector(
         pool, type, nulls, arrowSchema, arrowArray, wrapInBufferView);
-  } else if (type->isLongDecimal()) {
-    return createDecimalVector<int128_t>(
-        pool, type, nulls, arrowSchema, arrowArray, wrapInBufferView);
-  } else if (type->kind() == TypeKind::TIMESTAMP) {
+  }
+  if (type->kind() == TypeKind::TIMESTAMP) {
     return createTimestampVector(
         pool, type, nulls, arrowSchema, arrowArray, wrapInBufferView);
   }
