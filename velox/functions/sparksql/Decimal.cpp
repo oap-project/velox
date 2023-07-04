@@ -319,23 +319,6 @@ std::shared_ptr<exec::VectorFunction> makeRoundDecimal(
   }
 }
 
-std::shared_ptr<exec::VectorFunction> makeAbs(
-    const std::string& name,
-    const std::vector<exec::VectorFunctionArg>& inputArgs) {
-  VELOX_CHECK_EQ(inputArgs.size(), 1);
-  auto type = inputArgs[0].type;
-  if (type->isShortDecimal()) {
-    return std::make_shared<AbsFunction<int64_t>>();
-  }
-  if (type->isLongDecimal()) {
-    return std::make_shared<AbsFunction<int128_t>>();
-  }
-  switch (type->kind()) {
-    default:
-      VELOX_FAIL("Not support this type {} in abs", type->kindName())
-  }
-}
-
 std::shared_ptr<exec::VectorFunction> makeUnscaledValue(
     const std::string& name,
     const std::vector<exec::VectorFunctionArg>& inputArgs) {
