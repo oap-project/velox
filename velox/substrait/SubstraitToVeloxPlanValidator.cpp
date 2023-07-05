@@ -471,7 +471,8 @@ bool SubstraitToVeloxPlanValidator::validate(
   }
 
   // Validate supported aggregate functions.
-  std::unordered_set<std::string> unsupportedFuncs = {"collect_list"};
+  std::unordered_set<std::string> unsupportedFuncs = {
+      "collect_list", "collect_set"};
   for (const auto& funcSpec : funcSpecs) {
     auto funcName = subParser_->getSubFunctionName(funcSpec);
     if (unsupportedFuncs.find(funcName) != unsupportedFuncs.end()) {
