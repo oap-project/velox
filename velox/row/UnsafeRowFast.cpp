@@ -61,15 +61,30 @@ void UnsafeRowFast::initialize(const TypePtr& type) {
       children_.push_back(UnsafeRowFast(arrayBase->elements()));
       childIsFixedWidth_.push_back(
           arrayBase->elements()->type()->isFixedWidth());
+      if (arrayBase->elements()->type()->kind() == TypeKind::HUGEINT) {
+        childIsFixedWidth_.push_back(false);
+      } else {
+        childIsFixedWidth_.push_back(
+            arrayBase->elements()->type()->isFixedWidth());
+      }
       break;
     }
     case TypeKind::MAP: {
       auto mapBase = base->as<MapVector>();
       children_.push_back(UnsafeRowFast(mapBase->mapKeys()));
       children_.push_back(UnsafeRowFast(mapBase->mapValues()));
-      childIsFixedWidth_.push_back(mapBase->mapKeys()->type()->isFixedWidth());
-      childIsFixedWidth_.push_back(
-          mapBase->mapValues()->type()->isFixedWidth());
+      if (mapBase->mapKeys()->type()->kind() == TypeKind::HUGEINT) {
+        childIsFixedWidth_.push_back(false);
+      } else {
+        childIsFixedWidth_.push_back(
+            mapBase->mapKeys()->type()->isFixedWidth());
+      }
+      if (mapBase->mapValues()->type()->kind() == TypeKind::HUGEINT) {
+        childIsFixedWidth_.push_back(false);
+      } else {
+        childIsFixedWidth_.push_back(
+            mapBase->mapValues()->type()->isFixedWidth());
+      }
       break;
     }
     case TypeKind::ROW: {
