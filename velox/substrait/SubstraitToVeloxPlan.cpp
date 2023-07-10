@@ -974,12 +974,12 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
   std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
       assignments;
   for (int idx = 0; idx < colNameList.size(); idx++) {
-    auto outName = subParser_->makeNodeName(planNodeId_, idx);
+    auto outName = colNameList[idx];
     auto columnType = isPartitionColumns[idx]
         ? connector::hive::HiveColumnHandle::ColumnType::kPartitionKey
         : connector::hive::HiveColumnHandle::ColumnType::kRegular;
     assignments[outName] = std::make_shared<connector::hive::HiveColumnHandle>(
-        colNameList[idx], columnType, veloxTypeList[idx]);
+        outName, columnType, veloxTypeList[idx]);
     outNames.emplace_back(outName);
   }
   auto outputType = ROW(std::move(outNames), std::move(veloxTypeList));
