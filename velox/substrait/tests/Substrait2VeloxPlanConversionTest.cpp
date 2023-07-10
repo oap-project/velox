@@ -310,7 +310,7 @@ TEST_F(Substrait2VeloxPlanConversionTest, ifthenTest) {
       " (hd_vehicle_count, BigintRange: [1, 9223372036854775807] no nulls)], remaining filter: "
       "(and(or(equalto(\"hd_buy_potential\",\">10000\"),equalto(\"hd_buy_potential\",\"unknown\")),"
       "if(greaterthan(\"hd_vehicle_count\",0),greaterthan(divide(cast \"hd_dep_count\" as DOUBLE,"
-      "cast \"hd_vehicle_count\" as DOUBLE),1.2))))] -> n0_0:BIGINT, n0_1:VARCHAR, n0_2:BIGINT, n0_3:BIGINT\n",
+      "cast \"hd_vehicle_count\" as DOUBLE),1.2))))] -> hd_demo_sk:BIGINT, hd_buy_potential:VARCHAR, hd_dep_count:BIGINT, hd_vehicle_count:BIGINT\n",
       planNode->toString(true, true));
 }
 
@@ -325,6 +325,6 @@ TEST_F(Substrait2VeloxPlanConversionTest, filterUpper) {
   auto planNode = planConverter_->toVeloxPlan(substraitPlan);
   ASSERT_EQ(
       "-- Project[expressions: ] -> \n  -- TableScan[table: hive_table, range filters: "
-      "[(key, BigintRange: [-2147483648, 2] no nulls)]] -> n0_0:INTEGER\n",
+      "[(key, BigintRange: [-2147483648, 2] no nulls)]] -> key:INTEGER\n",
       planNode->toString(true, true));
 }
