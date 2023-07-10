@@ -174,7 +174,7 @@ bool SubstraitToVeloxPlanValidator::validateScalarFunction(
       return false;
     }
   }
-  if (name == "murmur3hash") {
+  if (name == "murmur3hash" || name == "xxhash64") {
     for (const auto& type : types) {
       if (type.find("struct") != std::string::npos ||
           type.find("map") != std::string::npos ||
