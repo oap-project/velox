@@ -16,6 +16,7 @@
 
 #include "velox/dwio/parquet/reader/ParquetReader.h"
 #include <thrift/protocol/TCompactProtocol.h> //@manual
+#include "velox/dwio/common/CachedBufferedInput.h"
 #include "velox/dwio/common/MetricsLog.h"
 #include "velox/dwio/common/TypeUtils.h"
 #include "velox/dwio/parquet/reader/StructColumnReader.h"
@@ -47,8 +48,10 @@ ReaderBase::ReaderBase(
 }
 
 void ReaderBase::loadFileMetaData() {
-  preloadFile_ = fileLength_ <= filePreloadThreshold_ ||
-      fileLength_ <= directorySizeGuess_;
+  preloadFile_ = (dynamic_cast<dwio::common::CachedBufferedInput*>(
+                      input_.get()) == nullptr) &&
+      (fileLength_ <= filePreloadThreshold_ ||
+       fileLength_ <= directorySizeGuess_);
   uint64_t readSize =
       preloadFile_ ? fileLength_ : std::min(fileLength_, directorySizeGuess_);
 
@@ -56,11 +59,6 @@ void ReaderBase::loadFileMetaData() {
   if (preloadFile_) {
     stream = input_->readFile(fileLength_, dwio::common::LogType::FOOTER);
   } else {
-    stream = input_->read(
-        fileLength_ - readSize, readSize, dwio::common::LogType::FOOTER);
-  }
-  if (stream == nullptr) {
-    preloadFile_ = false;
     stream = input_->read(
         fileLength_ - readSize, readSize, dwio::common::LogType::FOOTER);
   }
