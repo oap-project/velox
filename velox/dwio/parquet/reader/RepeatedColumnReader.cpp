@@ -125,6 +125,7 @@ MapColumnReader::MapColumnReader(
           scanSpec) {
   const std::shared_ptr<const MapType>& mapTypePtr =
       std::dynamic_pointer_cast<const MapType>(colType);
+  setOutputType(mapTypePtr);
   auto& keyChildType = requestedType->childAt(0);
   auto& elementChildType = requestedType->childAt(1);
   keyReader_ = ParquetColumnReader::build(
@@ -249,6 +250,7 @@ ListColumnReader::ListColumnReader(
   auto& childType = requestedType->childAt(0);
   const std::shared_ptr<const ArrayType>& arrayTypePtr =
       std::dynamic_pointer_cast<const ArrayType>(colType);
+  setOutputType(arrayTypePtr);
   child_ = ParquetColumnReader::build(
       childType,
       params,

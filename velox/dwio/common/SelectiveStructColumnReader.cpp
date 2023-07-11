@@ -228,13 +228,14 @@ void SelectiveStructColumnReaderBase::getValues(
   VELOX_CHECK(
       result->get()->type()->isRow(),
       "Struct reader expects a result of type ROW.");
-  auto& rowType = result->get()->type()->asRow();
-  if (!result->unique() || result->get()->isLazy()) {
+  auto& rowType =
+      outputType_ ? outputType_->asRow() : result->get()->type()->asRow();
+  if (outputType_ || !result->unique() || result->get()->isLazy()) {
     std::vector<VectorPtr> children(rowType.size());
     fillRowVectorChildren(*result->get()->pool(), rowType, children);
     *result = std::make_unique<RowVector>(
         result->get()->pool(),
-        result->get()->type(),
+        outputType_ ? outputType_ : result->get()->type(),
         nullptr,
         0,
         std::move(children));
@@ -277,7 +278,8 @@ void SelectiveStructColumnReaderBase::getValues(
         }
         resultRow->childAt(channel) = std::make_shared<LazyVector>(
             &memoryPool_,
-            resultRow->type()->childAt(channel),
+            outputType_ ? outputType_->childAt(channel)
+                        : resultRow->type()->childAt(channel),
             rows.size(),
             std::make_unique<ColumnLoader>(this, children_[index], numReads_));
       } else {
@@ -285,6 +287,11 @@ void SelectiveStructColumnReaderBase::getValues(
       }
     }
   }
+}
+
+void SelectiveStructColumnReaderBase::setOutputType(
+    const RowTypePtr& outputType) {
+  outputType_ = outputType;
 }
 
 } // namespace facebook::velox::dwio::common

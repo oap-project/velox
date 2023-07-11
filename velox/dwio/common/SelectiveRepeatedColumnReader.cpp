@@ -192,12 +192,17 @@ void SelectiveListColumnReader::getValues(RowSet rows, VectorPtr* result) {
   }
   *result = std::make_shared<ArrayVector>(
       &memoryPool_,
-      requestedType_->type,
+      outputType_ ? outputType_ : requestedType_->type,
       anyNulls_ ? resultNulls_ : nullptr,
       rows.size(),
       offsets_,
       sizes_,
       elements);
+}
+
+void SelectiveListColumnReader::setOutputType(
+    const std::shared_ptr<const ArrayType>& outputType) {
+  outputType_ = outputType;
 }
 
 SelectiveMapColumnReader::SelectiveMapColumnReader(
@@ -279,13 +284,18 @@ void SelectiveMapColumnReader::getValues(RowSet rows, VectorPtr* result) {
   }
   *result = std::make_shared<MapVector>(
       &memoryPool_,
-      requestedType_->type,
+      outputType_ ? outputType_ : requestedType_->type,
       anyNulls_ ? resultNulls_ : nullptr,
       rows.size(),
       offsets_,
       sizes_,
       keys,
       values);
+}
+
+void SelectiveMapColumnReader::setOutputType(
+    const std::shared_ptr<const MapType>& outputType) {
+  outputType_ = outputType;
 }
 
 } // namespace facebook::velox::dwio::common

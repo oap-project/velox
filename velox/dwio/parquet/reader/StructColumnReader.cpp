@@ -47,6 +47,7 @@ StructColumnReader::StructColumnReader(
     rowTypePtr = asRowType(colType);
     VELOX_CHECK_NOT_NULL(rowTypePtr);
   }
+  setOutputType(rowTypePtr);
 
   auto& childSpecs = scanSpec_->children();
   if (rowTypePtr && !caseSensitive) {

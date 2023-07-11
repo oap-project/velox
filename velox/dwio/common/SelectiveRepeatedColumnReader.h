@@ -109,8 +109,13 @@ class SelectiveListColumnReader : public SelectiveRepeatedColumnReader {
   void getValues(RowSet rows, VectorPtr* FOLLY_NULLABLE result) override;
 
  protected:
+  void setOutputType(const std::shared_ptr<const ArrayType>& outputType);
+
   std::unique_ptr<SelectiveColumnReader> child_;
   const std::shared_ptr<const dwio::common::TypeWithId> requestedType_;
+
+ private:
+  std::shared_ptr<const ArrayType> outputType_ = nullptr;
 };
 
 class SelectiveMapColumnReader : public SelectiveRepeatedColumnReader {
@@ -138,6 +143,12 @@ class SelectiveMapColumnReader : public SelectiveRepeatedColumnReader {
   std::unique_ptr<SelectiveColumnReader> keyReader_;
   std::unique_ptr<SelectiveColumnReader> elementReader_;
   const std::shared_ptr<const dwio::common::TypeWithId> requestedType_;
+
+ protected:
+  void setOutputType(const std::shared_ptr<const MapType>& outputType);
+
+ private:
+  std::shared_ptr<const MapType> outputType_ = nullptr;
 };
 
 } // namespace facebook::velox::dwio::common
