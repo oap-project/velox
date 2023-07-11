@@ -19,6 +19,7 @@
 #include "velox/expression/CastExpr.h"
 #include "velox/expression/CoalesceExpr.h"
 #include "velox/expression/ConjunctExpr.h"
+#include "velox/expression/RoundDecimal.h"
 #include "velox/expression/SwitchExpr.h"
 #include "velox/expression/TryExpr.h"
 
@@ -39,6 +40,8 @@ RegistryType makeRegistry() {
       "or", std::make_unique<ConjunctCallToSpecialForm>(false /* isAnd */));
   registry.emplace("switch", std::make_unique<SwitchCallToSpecialForm>());
   registry.emplace("try", std::make_unique<TryCallToSpecialForm>());
+  registry.emplace(
+      "decimal_round", std::make_unique<RoundDecimalCallToSpecialForm>());
 
   return registry;
 }

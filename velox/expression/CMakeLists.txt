@@ -34,6 +34,7 @@ add_library(
   FunctionCallToSpecialForm.cpp
   LambdaExpr.cpp
   VectorFunction.cpp
+  RoundDecimal.cpp
   SimpleFunctionRegistry.cpp
   SwitchExpr.cpp
   TryExpr.cpp
