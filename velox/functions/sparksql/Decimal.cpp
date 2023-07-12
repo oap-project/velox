@@ -21,120 +21,6 @@
 namespace facebook::velox::functions::sparksql {
 namespace {
 
-class CheckOverflowFunction final : public exec::VectorFunction {
-  void apply(
-      const SelectivityVector& rows,
-      std::vector<VectorPtr>& args, // Not using const ref so we can reuse args
-      const TypePtr& outputType,
-      exec::EvalCtx& context,
-      VectorPtr& resultRef) const final {
-    VELOX_CHECK_EQ(args.size(), 3);
-    // This VectorPtr type is different with type in makeCheckOverflow, because
-    // we cannot get input type by signature the input vector origins from
-    // DecimalArithmetic, it is a computed type by arithmetic operation
-    auto fromType = args[0]->type();
-    auto toType = args[2]->type();
-    context.ensureWritable(rows, toType, resultRef);
-    if (toType->isShortDecimal()) {
-      if (fromType->isShortDecimal()) {
-        applyForVectorType<int64_t, int64_t>(
-            rows, args, outputType, context, resultRef);
-      } else {
-        applyForVectorType<int128_t, int64_t>(
-            rows, args, outputType, context, resultRef);
-      }
-    } else {
-      if (fromType->isShortDecimal()) {
-        applyForVectorType<int64_t, int128_t>(
-            rows, args, outputType, context, resultRef);
-      } else {
-        applyForVectorType<int128_t, int128_t>(
-            rows, args, outputType, context, resultRef);
-      }
-    }
-  }
-
- private:
-  template <typename TInput, typename TOutput>
-  void applyForVectorType(
-      const SelectivityVector& rows,
-      std::vector<VectorPtr>& args, // Not using const ref so we can reuse args
-      const TypePtr& outputType,
-      exec::EvalCtx& context,
-      VectorPtr& resultRef) const {
-    auto fromType = args[0]->type();
-    auto toType = args[2]->type();
-    auto result =
-        resultRef->asUnchecked<FlatVector<TOutput>>()->mutableRawValues();
-    exec::DecodedArgs decodedArgs(rows, args, context);
-    auto decimalValue = decodedArgs.at(0);
-    VELOX_CHECK(decodedArgs.at(1)->isConstantMapping());
-    auto nullOnOverflow = decodedArgs.at(1)->valueAt<bool>(0);
-
-    const auto& fromPrecisionScale = getDecimalPrecisionScale(*fromType);
-    const auto& toPrecisionScale = getDecimalPrecisionScale(*toType);
-    rows.applyToSelected([&](int row) {
-      auto rescaledValue = DecimalUtil::rescaleWithRoundUp<TInput, TOutput>(
-          decimalValue->valueAt<TInput>(row),
-          fromPrecisionScale.first,
-          fromPrecisionScale.second,
-          toPrecisionScale.first,
-          toPrecisionScale.second,
-          nullOnOverflow);
-      if (rescaledValue.has_value()) {
-        result[row] = rescaledValue.value();
-      } else {
-        resultRef->setNull(row, true);
-      }
-    });
-  }
-};
-
-class MakeDecimalFunction final : public exec::VectorFunction {
-  void apply(
-      const SelectivityVector& rows,
-      std::vector<VectorPtr>& args, // Not using const ref so we can reuse args
-      const TypePtr& outputType,
-      exec::EvalCtx& context,
-      VectorPtr& resultRef) const final {
-    VELOX_CHECK_EQ(args.size(), 3);
-    auto fromType = args[0]->type();
-    auto toType = args[1]->type();
-    exec::DecodedArgs decodedArgs(rows, args, context);
-    auto unscaledVec = decodedArgs.at(0);
-    VELOX_CHECK(decodedArgs.at(1)->isConstantMapping());
-    VELOX_CHECK(decodedArgs.at(2)->isConstantMapping());
-    auto nullOnOverflow = decodedArgs.at(2)->valueAt<bool>(0);
-    const auto& toPrecisionScale = getDecimalPrecisionScale(*toType);
-    auto precision = toPrecisionScale.first;
-    auto scale = toPrecisionScale.second;
-    context.ensureWritable(
-        rows,
-        DECIMAL(static_cast<uint8_t>(precision), static_cast<uint8_t>(scale)),
-        resultRef);
-    auto result =
-        resultRef->asUnchecked<FlatVector<int64_t>>()->mutableRawValues();
-    rows.applyToSelected([&](int row) {
-      auto unscaled = unscaledVec->valueAt<int64_t>(row);
-
-      if (unscaled <= -static_cast<long>(DecimalUtil::kPowersOfTen[18]) ||
-          unscaled >= static_cast<long>(DecimalUtil::kPowersOfTen[18])) {
-        if (precision < 19) {
-          resultRef->setNull(row, true);
-        }
-      } else if (
-          unscaled <= -static_cast<long>(
-                          DecimalUtil::kPowersOfTen[std::min(precision, 18)]) ||
-          unscaled >= static_cast<long>(
-                          DecimalUtil::kPowersOfTen[std::min(precision, 18)])) {
-        resultRef->setNull(row, true);
-      } else {
-        result[row] = unscaled;
-      }
-    });
-  }
-};
-
 template <typename TInput>
 class RoundDecimalFunction final : public exec::VectorFunction {
   void apply(
@@ -215,50 +101,7 @@ class RoundDecimalFunction final : public exec::VectorFunction {
   }
 };
 
-class UnscaledValueFunction final : public exec::VectorFunction {
-  void apply(
-      const SelectivityVector& rows,
-      std::vector<VectorPtr>& args, // Not using const ref so we can reuse args
-      const TypePtr& outputType,
-      exec::EvalCtx& context,
-      VectorPtr& resultRef) const final {
-    VELOX_CHECK_EQ(args.size(), 1);
-    VELOX_CHECK(
-        args[0]->type()->isShortDecimal(), "ShortDecimal type is required.");
-    resultRef = std::move(args[0]);
-  }
-};
-
 } // namespace
-
-std::vector<std::shared_ptr<exec::FunctionSignature>>
-checkOverflowSignatures() {
-  return {exec::FunctionSignatureBuilder()
-              .integerVariable("a_precision")
-              .integerVariable("a_scale")
-              .integerVariable("b_precision")
-              .integerVariable("b_scale")
-              .integerVariable("r_precision", "min(38, b_precision)")
-              .integerVariable("r_scale", "min(38, b_scale)")
-              .returnType("DECIMAL(r_precision, r_scale)")
-              .argumentType("DECIMAL(a_precision, a_scale)")
-              .argumentType("boolean")
-              .argumentType("DECIMAL(b_precision, b_scale)")
-              .build()};
-}
-
-std::vector<std::shared_ptr<exec::FunctionSignature>> makeDecimalSignatures() {
-  return {exec::FunctionSignatureBuilder()
-              .integerVariable("a_precision")
-              .integerVariable("a_scale")
-              .integerVariable("r_precision", "min(38, a_precision)")
-              .integerVariable("r_scale", "min(38, a_scale)")
-              .returnType("DECIMAL(r_precision, r_scale)")
-              .argumentType("bigint")
-              .argumentType("DECIMAL(a_precision, a_scale)")
-              .argumentType("boolean")
-              .build()};
-}
 
 std::vector<std::shared_ptr<exec::FunctionSignature>> roundDecimalSignatures() {
   return {exec::FunctionSignatureBuilder()
@@ -270,34 +113,6 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> roundDecimalSignatures() {
               .argumentType("DECIMAL(a_precision, a_scale)")
               .argumentType("integer")
               .build()};
-}
-
-std::vector<std::shared_ptr<exec::FunctionSignature>>
-unscaledValueSignatures() {
-  return {exec::FunctionSignatureBuilder()
-              .integerVariable("a_precision")
-              .integerVariable("a_scale")
-              .returnType("bigint")
-              .argumentType("DECIMAL(a_precision, a_scale)")
-              .build()};
-}
-
-std::shared_ptr<exec::VectorFunction> makeCheckOverflow(
-    const std::string& name,
-    const std::vector<exec::VectorFunctionArg>& inputArgs) {
-  VELOX_CHECK_EQ(inputArgs.size(), 3);
-  static const auto kCheckOverflowFunction =
-      std::make_shared<CheckOverflowFunction>();
-  return kCheckOverflowFunction;
-}
-
-std::shared_ptr<exec::VectorFunction> makeMakeDecimal(
-    const std::string& name,
-    const std::vector<exec::VectorFunctionArg>& inputArgs) {
-  VELOX_CHECK_EQ(inputArgs.size(), 3);
-  static const auto kMakeDecimalFunction =
-      std::make_shared<MakeDecimalFunction>();
-  return kMakeDecimalFunction;
 }
 
 std::shared_ptr<exec::VectorFunction> makeRoundDecimal(
@@ -317,14 +132,5 @@ std::shared_ptr<exec::VectorFunction> makeRoundDecimal(
       VELOX_FAIL(
           "Not support this type {} in round_decimal", fromType->kindName())
   }
-}
-
-std::shared_ptr<exec::VectorFunction> makeUnscaledValue(
-    const std::string& name,
-    const std::vector<exec::VectorFunctionArg>& inputArgs) {
-  VELOX_CHECK_EQ(inputArgs.size(), 1);
-  static const auto kUnscaledValueFunction =
-      std::make_shared<UnscaledValueFunction>();
-  return kUnscaledValueFunction;
 }
 } // namespace facebook::velox::functions::sparksql

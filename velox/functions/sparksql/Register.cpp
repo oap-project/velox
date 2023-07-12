@@ -55,7 +55,7 @@ static void workAroundRegistrationMacro(const std::string& prefix) {
       udf_array_intersect, prefix + "array_intersect");
   // This is the semantics of spark.sql.ansi.enabled = false.
   VELOX_REGISTER_VECTOR_FUNCTION(udf_element_at, prefix + "element_at");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_concat_row, prefix + "named_struct");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_concat_row, prefix + "named_struct"); // wait to fix, cannot register well
   VELOX_REGISTER_VECTOR_FUNCTION(
       udf_map_allow_duplicates, prefix + "map_from_arrays");
   // String functions.
@@ -121,8 +121,6 @@ void registerFunctions(const std::string& prefix) {
   exec::registerStatefulVectorFunction(
       prefix + "hash", hashSignatures(), makeHash);
   exec::registerStatefulVectorFunction(
-      prefix + "murmur3hash", hashSignatures(), makeHash);
-  exec::registerStatefulVectorFunction(
       prefix + "xxhash64", xxhash64Signatures(), makeXxHash64);
   VELOX_REGISTER_VECTOR_FUNCTION(udf_map, prefix + "map");
 
@@ -167,13 +165,7 @@ void registerFunctions(const std::string& prefix) {
       prefix + "sort_array", sortArraySignatures(), makeSortArray);
 
   exec::registerStatefulVectorFunction(
-      prefix + "check_overflow", checkOverflowSignatures(), makeCheckOverflow);
-  exec::registerStatefulVectorFunction(
-      prefix + "make_decimal", makeDecimalSignatures(), makeMakeDecimal);
-  exec::registerStatefulVectorFunction(
       prefix + "decimal_round", roundDecimalSignatures(), makeRoundDecimal);
-  exec::registerStatefulVectorFunction(
-      prefix + "unscaled_value", unscaledValueSignatures(), makeUnscaledValue);
   // Register date functions.
   registerFunction<YearFunction, int32_t, Timestamp>({prefix + "year"});
   registerFunction<YearFunction, int32_t, Date>({prefix + "year"});

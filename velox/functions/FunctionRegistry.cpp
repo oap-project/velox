@@ -109,8 +109,7 @@ std::shared_ptr<const Type> resolveCallableSpecialForm(
     const std::string& functionName,
     const std::vector<TypePtr>& argTypes) {
   // TODO Replace with struct_pack
-  if (functionName == "row_constructor" ||
-      functionName == "row_constructor_with_null") {
+  if (functionName == "row_constructor") {
     auto numInput = argTypes.size();
     std::vector<TypePtr> types(numInput);
     std::vector<std::string> names(numInput);

@@ -129,6 +129,7 @@ class SubstraitParser {
       {"starts_with", "startswith"},
       {"datediff", "date_diff"},
       {"named_struct", "row_constructor"},
+      {"murmur3hash", "hash"},
       {"bit_or", "bitwise_or_agg"},
       {"bit_or_merge", "bitwise_or_agg_merge"},
       {"bit_and", "bitwise_and_agg"},

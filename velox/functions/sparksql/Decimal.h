@@ -20,28 +20,9 @@
 
 namespace facebook::velox::functions::sparksql {
 
-std::vector<std::shared_ptr<exec::FunctionSignature>> checkOverflowSignatures();
-
-std::shared_ptr<exec::VectorFunction> makeCheckOverflow(
-    const std::string& name,
-    const std::vector<exec::VectorFunctionArg>& inputArgs);
-
-std::vector<std::shared_ptr<exec::FunctionSignature>> makeDecimalSignatures();
-
-std::shared_ptr<exec::VectorFunction> makeMakeDecimal(
-    const std::string& name,
-    const std::vector<exec::VectorFunctionArg>& inputArgs);
-
 std::vector<std::shared_ptr<exec::FunctionSignature>> roundDecimalSignatures();
 
 std::shared_ptr<exec::VectorFunction> makeRoundDecimal(
     const std::string& name,
     const std::vector<exec::VectorFunctionArg>& inputArgs);
-
-std::vector<std::shared_ptr<exec::FunctionSignature>> unscaledValueSignatures();
-
-std::shared_ptr<exec::VectorFunction> makeUnscaledValue(
-    const std::string& name,
-    const std::vector<exec::VectorFunctionArg>& inputArgs);
-
 } // namespace facebook::velox::functions::sparksql
