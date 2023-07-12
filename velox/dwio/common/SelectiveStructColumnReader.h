@@ -145,6 +145,10 @@ class SelectiveStructColumnReaderBase : public SelectiveColumnReader {
   const std::string debugString_;
 
  private:
+  void checkOutputType(
+      const RowTypePtr& outputType,
+      const RowTypePtr& requestedType);
+
   RowTypePtr outputType_ = nullptr;
 };
 

@@ -216,6 +216,7 @@ void fillRowVectorChildren(
     }
   }
 }
+
 } // namespace
 
 void SelectiveStructColumnReaderBase::getValues(
@@ -228,17 +229,14 @@ void SelectiveStructColumnReaderBase::getValues(
   VELOX_CHECK(
       result->get()->type()->isRow(),
       "Struct reader expects a result of type ROW.");
-  auto& rowType =
-      outputType_ ? outputType_->asRow() : result->get()->type()->asRow();
+  checkOutputType(outputType_, asRowType(requestedType_->type));
+  const auto& outDataType = outputType_ ? outputType_ : result->get()->type();
+  auto& rowType = outDataType->asRow();
   if (outputType_ || !result->unique() || result->get()->isLazy()) {
     std::vector<VectorPtr> children(rowType.size());
     fillRowVectorChildren(*result->get()->pool(), rowType, children);
     *result = std::make_unique<RowVector>(
-        result->get()->pool(),
-        outputType_ ? outputType_ : result->get()->type(),
-        nullptr,
-        0,
-        std::move(children));
+        result->get()->pool(), outDataType, nullptr, 0, std::move(children));
   }
   auto* resultRow = static_cast<RowVector*>(result->get());
   resultRow->resize(rows.size());
@@ -278,8 +276,7 @@ void SelectiveStructColumnReaderBase::getValues(
         }
         resultRow->childAt(channel) = std::make_shared<LazyVector>(
             &memoryPool_,
-            outputType_ ? outputType_->childAt(channel)
-                        : resultRow->type()->childAt(channel),
+            outDataType->childAt(channel),
             rows.size(),
             std::make_unique<ColumnLoader>(this, children_[index], numReads_));
       } else {
@@ -292,6 +289,49 @@ void SelectiveStructColumnReaderBase::getValues(
 void SelectiveStructColumnReaderBase::setOutputType(
     const RowTypePtr& outputType) {
   outputType_ = outputType;
+}
+
+/**
+ * Check the output type against requested type on compatibility.
+ * @param outputType: the output type from user.
+ * @param requestedType: the type from Parquet.
+ */
+void SelectiveStructColumnReaderBase::checkOutputType(
+    const RowTypePtr& outputType,
+    const RowTypePtr& requestedType) {
+  if (outputType == nullptr) {
+    return;
+  }
+  VELOX_CHECK_NOT_NULL(requestedType);
+  for (int i = 0; i < outputType->size(); ++i) {
+    if (!requestedType->containsChild(outputType->nameOf(i)))
+      continue;
+
+    bool isPartitionColumn = false;
+    for (const auto& childSpec : scanSpec_->children()) {
+      if (childSpec->fieldName() == outputType->nameOf(i) &&
+          childSpec->isConstant()) {
+        isPartitionColumn = true;
+        break;
+      }
+    }
+    // Skip the type check for partition column because requested type does not
+    // contain it.
+    if (isPartitionColumn)
+      continue;
+
+    const auto& childOutputType = outputType->childAt(i);
+    const auto& childRequestedType =
+        requestedType->findChild(outputType->nameOf(i));
+    if (auto rowTypePtr = asRowType(childOutputType)) {
+      VELOX_CHECK_NOT_NULL(asRowType(childRequestedType));
+      checkOutputType(
+          asRowType(childOutputType), asRowType(childRequestedType));
+      continue;
+    }
+    VELOX_CHECK(BaseVector::compatibleKind(
+        childOutputType->kind(), childRequestedType->kind()));
+  }
 }
 
 } // namespace facebook::velox::dwio::common
