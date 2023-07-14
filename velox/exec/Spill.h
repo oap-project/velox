@@ -68,18 +68,26 @@ class SpillFile {
       int32_t numSortingKeys,
       const std::vector<CompareFlags>& sortCompareFlags,
       const std::string& path,
-      memory::MemoryPool& pool)
+      memory::MemoryPool& pool,
+      uint64_t targetFileSize)
       : type_(std::move(type)),
         numSortingKeys_(numSortingKeys),
         sortCompareFlags_(sortCompareFlags),
         pool_(pool),
         ordinal_(ordinalCounter_++),
-        path_(fmt::format("{}-{}", path, ordinal_)) {
+        path_(fmt::format("{}-{}", path, ordinal_)),
+        targetFileSize_(targetFileSize) {
     // NOTE: if the spilling operator has specified the sort comparison flags,
     // then it must match the number of sorting keys.
     VELOX_CHECK(
         sortCompareFlags_.empty() ||
         sortCompareFlags_.size() == numSortingKeys_);
+  }
+
+  ~SpillFile() {
+    if (heapMemoryMock_.isValid()) {
+      freeHeapMemory(heapMemoryMock_);
+    }
   }
 
   int32_t numSortingKeys() const {
@@ -133,6 +141,8 @@ class SpillFile {
   }
 
  private:
+  void newOutput();
+
   static std::atomic<int32_t> ordinalCounter_;
 
   // Type of 'rowVector_'. Needed for setting up writing.
@@ -145,8 +155,17 @@ class SpillFile {
   const int32_t ordinal_;
   const std::string path_;
 
+  enum {
+    TO_FILE,
+    TO_HEAP,
+  } toWhere_ = TO_FILE;
+
+  HeapMemoryMock heapMemoryMock_;
+
   // Byte size of the backing file. Set when finishing writing.
   uint64_t fileSize_ = 0;
+  uint64_t targetFileSize_ = 0;
+
   std::unique_ptr<WriteFile> output_;
   std::unique_ptr<SpillInput> input_;
 };
@@ -215,7 +234,7 @@ class SpillFileList {
 
  private:
   // Returns the current file to write to and creates one if needed.
-  WriteFile& currentOutput();
+  WriteFile& currentOutput(size_t toAppendSize);
 
   // Writes data from 'batch_' to the current output file.
   void flush();

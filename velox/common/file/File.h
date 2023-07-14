@@ -229,6 +229,164 @@ class InMemoryWriteFile final : public WriteFile {
   std::string* FOLLY_NONNULL file_;
 };
 
+// TODO zuochunwei
+struct HeapMemoryMock {
+  HeapMemoryMock() = default;
+  explicit HeapMemoryMock(void* memory, size_t capacity)
+      : memory_(memory), capacity_(capacity) {}
+
+  void reset() {
+    memory_ = nullptr;
+    size_ = 0;
+    capacity_ = 0;
+  }
+
+  bool isValid() const {
+    return memory_ != nullptr;
+  }
+
+  void write(const void* src, size_t len) {
+    assert(len <= freeSize());
+    memcpy(end(), src, len);
+    size_ += len;
+  }
+
+  void read(void* dst, size_t len, size_t offset) {
+    assert(offset + len <= size_);
+    memcpy(dst, (char*)memory_ + offset, len);
+  }
+
+  auto size() const {
+    return size_;
+  }
+
+  auto freeSize() const {
+    return capacity_ - size_;
+  }
+
+  void* begin() {
+    return memory_;
+  }
+
+  void* end() {
+    return (char*)memory_ + size_;
+  }
+
+  void* memory_ = nullptr;
+  size_t size_ = 0;
+  size_t capacity_ = 0;
+};
+
+const size_t kHeapMemoryCapacity = 64 * 1024;
+
+class HeapMemoryMockManager {
+ public:
+  static HeapMemoryMockManager& instance() {
+    static HeapMemoryMockManager hmmm;
+    return hmmm;
+  }
+
+  HeapMemoryMock alloc(size_t size) {
+    HeapMemoryMock heapMemory;
+    if (size_ + size <= kHeapMemoryCapacity) {
+      heapMemory.memory_ = malloc(size);
+      heapMemory.size_ = 0;
+      heapMemory.capacity_ = size;
+      size_ += size;
+    }
+    return heapMemory;
+  }
+
+  void free(HeapMemoryMock& heapMemory) {
+    if (heapMemory.isValid()) {
+      size_ -= heapMemory.size_;
+      ::free(heapMemory.memory_);
+      heapMemory.reset();
+    }
+  }
+
+ private:
+  std::atomic<std::size_t> size_;
+};
+
+inline HeapMemoryMock allocHeapMemory(size_t size) {
+  return HeapMemoryMockManager::instance().alloc(size);
+}
+
+inline void freeHeapMemory(HeapMemoryMock& heapMemory) {
+  HeapMemoryMockManager::instance().free(heapMemory);
+}
+
+class HeapMemoryReadFile : public ReadFile {
+ public:
+  explicit HeapMemoryReadFile(HeapMemoryMock& heapMemory)
+      : heapMemory_(heapMemory) {}
+
+  std::string_view pread(
+      uint64_t offset,
+      uint64_t length,
+      void* FOLLY_NONNULL buf) const override {
+    bytesRead_ += length;
+    heapMemory_.read(buf, length, offset);
+    return {static_cast<char*>(buf), length};
+  }
+
+  std::string pread(uint64_t offset, uint64_t length) const override {
+    bytesRead_ += length;
+    assert(offset + lenght <= heapMemory_.size());
+    return std::string((char*)heapMemory_.begin() + offset, length);
+  }
+
+  uint64_t size() const final {
+    return heapMemory_.size();
+  }
+
+  uint64_t memoryUsage() const final {
+    return size();
+  }
+
+  // Mainly for testing. Coalescing isn't helpful for in memory data.
+  void setShouldCoalesce(bool shouldCoalesce) {
+    shouldCoalesce_ = shouldCoalesce;
+  }
+  bool shouldCoalesce() const final {
+    return shouldCoalesce_;
+  }
+
+  std::string getName() const override {
+    return "<HeapMemoryReadFile>";
+  }
+
+  uint64_t getNaturalReadSize() const override {
+    return 1024;
+  }
+
+ private:
+  HeapMemoryMock& heapMemory_;
+  bool shouldCoalesce_ = false;
+};
+
+class HeapMemoryWriteFile final : public WriteFile {
+ public:
+  explicit HeapMemoryWriteFile(HeapMemoryMock& heapMemory)
+      : heapMemory_(heapMemory) {}
+
+  void append(std::string_view data) final {
+    heapMemory_.write(data.data(), data.length());
+  }
+
+  void flush() final {}
+
+  void close() final {}
+
+  uint64_t size() const final {
+    return heapMemory_.size_;
+  }
+
+ private:
+  HeapMemoryMock& heapMemory_;
+};
+
 // Current implementation for the local version is quite simple (e.g. no
 // internal arenaing), as local disk writes are expected to be cheap. Local
 // files match against any filepath starting with '/'.

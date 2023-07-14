@@ -45,10 +45,21 @@ void SpillMergeStream::pop() {
   }
 }
 
-WriteFile& SpillFile::output() {
-  if (!output_) {
+void SpillFile::newOutput() {
+  heapMemoryMock_ = allocHeapMemory(targetFileSize_);
+  if (heapMemoryMock_.isValid()) {
+    output_ = std::make_unique<HeapMemoryWriteFile>(heapMemoryMock_);
+    toWhere_ = TO_HEAP;
+  } else {
     auto fs = filesystems::getFileSystem(path_, nullptr);
     output_ = fs->openFileForWrite(path_);
+    toWhere_ = TO_FILE;
+  }
+}
+
+WriteFile& SpillFile::output() {
+  if (!output_) {
+    newOutput();
   }
   return *output_;
 }
@@ -56,13 +67,24 @@ WriteFile& SpillFile::output() {
 void SpillFile::startRead() {
   constexpr uint64_t kMaxReadBufferSize =
       (1 << 20) - AlignedBuffer::kPaddedSize; // 1MB - padding.
+
   VELOX_CHECK(!output_);
   VELOX_CHECK(!input_);
-  auto fs = filesystems::getFileSystem(path_, nullptr);
-  auto file = fs->openFileForRead(path_);
-  auto buffer = AlignedBuffer::allocate<char>(
-      std::min<uint64_t>(fileSize_, kMaxReadBufferSize), &pool_);
-  input_ = std::make_unique<SpillInput>(std::move(file), std::move(buffer));
+
+  if (toWhere_ == TO_FILE) {
+    auto fs = filesystems::getFileSystem(path_, nullptr);
+    auto file = fs->openFileForRead(path_);
+    auto buffer = AlignedBuffer::allocate<char>(
+        std::min<uint64_t>(fileSize_, kMaxReadBufferSize), &pool_);
+    input_ = std::make_unique<SpillInput>(std::move(file), std::move(buffer));
+  } else if (toWhere_ == TO_HEAP) {
+    auto file = std::make_unique<HeapMemoryReadFile>(heapMemoryMock_);
+    auto buffer = AlignedBuffer::allocate<char>(
+        std::min<uint64_t>(fileSize_, kMaxReadBufferSize), &pool_);
+    input_ = std::make_unique<SpillInput>(std::move(file), std::move(buffer));
+  } else {
+    VELOX_FAIL("invalid spill destination");
+  }
 }
 
 bool SpillFile::nextBatch(RowVectorPtr& rowVector) {
@@ -74,18 +96,20 @@ bool SpillFile::nextBatch(RowVectorPtr& rowVector) {
   return true;
 }
 
-WriteFile& SpillFileList::currentOutput() {
+WriteFile& SpillFileList::currentOutput(size_t toAppendSize) {
   if (files_.empty() || !files_.back()->isWritable() ||
-      files_.back()->size() > targetFileSize_) {
+      files_.back()->size() + toAppendSize > targetFileSize_) {
     if (!files_.empty() && files_.back()->isWritable()) {
       files_.back()->finishWrite();
     }
+    assert(toAppendSize <= targetFileSize_);
     files_.push_back(std::make_unique<SpillFile>(
         type_,
         numSortingKeys_,
         sortCompareFlags_,
         fmt::format("{}-{}", path_, files_.size()),
-        pool_));
+        pool_,
+        targetFileSize_));
   }
   return files_.back()->output();
 }
@@ -97,7 +121,14 @@ void SpillFileList::flush() {
     batch_->flush(&out);
     batch_.reset();
     auto iobuf = out.getIOBuf();
-    auto& file = currentOutput();
+
+    size_t toAppendSize = 0;
+    for (auto& range : *iobuf) {
+      toAppendSize += range.size();
+    }
+
+    auto& file = currentOutput(toAppendSize);
+
     for (auto& range : *iobuf) {
       file.append(std::string_view(
           reinterpret_cast<const char*>(range.data()), range.size()));
