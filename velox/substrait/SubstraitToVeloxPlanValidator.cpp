@@ -1047,6 +1047,10 @@ bool SubstraitToVeloxPlanValidator::validate(
   std::unordered_set<std::string> supportedAggFuncs = {
       "sum",
       "sum_merge",
+      "max_by",
+      "max_by_merge",
+      "min_by",
+      "min_by_merge",
       "collect_set",
       "count",
       "count_merge",
