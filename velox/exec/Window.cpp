@@ -186,6 +186,29 @@ void Window::initRangeValuesMap() {
 }
 
 void Window::addInput(RowVectorPtr input) {
+  if (prevInput_ && numPartitions_ > 0) {
+    data_->clear();
+    auto startRows = partitionStartRows_[numPartitions_];
+    preLastPartitionNums_ = partitionStartRows_[numPartitions_ + 1] - startRows;
+
+    for (auto col = 0; col < prevInput_->childrenSize(); ++col) {
+      decodedInputVectors_[col].decode(*prevInput_->childAt(col));
+    }
+
+    auto finalStartRow = startRows;
+    if (startRows >= prePreLastPartitionNums_) {
+      finalStartRow = startRows - prePreLastPartitionNums_;
+    }
+
+    // Add all the rows into the RowContainer.
+    for (auto row = finalStartRow; row < prevInput_->size(); ++row) {
+      char* newRow = data_->newRow();
+      for (auto col = 0; col < prevInput_->childrenSize(); ++col) {
+        data_->store(decodedInputVectors_[col], row, newRow, col);
+      }
+    }
+  }
+
   for (auto col = 0; col < input->childrenSize(); ++col) {
     decodedInputVectors_[col].decode(*input->childAt(col));
   }
@@ -198,7 +221,9 @@ void Window::addInput(RowVectorPtr input) {
       data_->store(decodedInputVectors_[col], row, newRow, col);
     }
   }
-  numRows_ += input->size();
+
+  input_ = std::move(input);
+  numRows_ = data_->numRows();
 }
 
 inline bool Window::compareRowsWithKeys(
@@ -225,12 +250,18 @@ void Window::createPeerAndFrameBuffers() {
   // the input columns size. We need to also account for the output columns.
   numRowsPerOutput_ = outputBatchRows(data_->estimateRowSize());
 
+  numRowsPerOutput_ = numRows_;
+
   peerStartBuffer_ = AlignedBuffer::allocate<vector_size_t>(
       numRowsPerOutput_, operatorCtx_->pool());
   peerEndBuffer_ = AlignedBuffer::allocate<vector_size_t>(
       numRowsPerOutput_, operatorCtx_->pool());
 
   auto numFuncs = windowFunctions_.size();
+
+  frameStartBuffers_.clear();
+  frameEndBuffers_.clear();
+  validFrames_.clear();
   frameStartBuffers_.reserve(numFuncs);
   frameEndBuffers_.reserve(numFuncs);
   validFrames_.reserve(numFuncs);
@@ -264,6 +295,7 @@ void Window::computePartitionStartRows() {
   for (auto i = 1; i < sortedRows_.size(); i++) {
     if (partitionCompare(sortedRows_[i - 1], sortedRows_[i])) {
       partitionStartRows_.push_back(i);
+      numPartitions_ += 1;
     }
   }
 
@@ -296,19 +328,19 @@ void Window::sortPartitions() {
 
 void Window::noMoreInput() {
   Operator::noMoreInput();
-  // No data.
-  if (numRows_ == 0) {
-    finished_ = true;
-    return;
-  }
+  // // No data.
+  // if (numRows_ == 0) {
+  //   finished_ = true;
+  //   return;
+  // }
 
-  // At this point we have seen all the input rows. We can start
-  // outputting rows now.
-  // However, some preparation is needed. The rows should be
-  // separated into partitions and sort by ORDER BY keys within
-  // the partition. This will order the rows for getOutput().
-  sortPartitions();
-  createPeerAndFrameBuffers();
+  // // At this point we have seen all the input rows. We can start
+  // // outputting rows now.
+  // // However, some preparation is needed. The rows should be
+  // // separated into partitions and sort by ORDER BY keys within
+  // // the partition. This will order the rows for getOutput().
+  // sortPartitions();
+  // createPeerAndFrameBuffers();
 }
 
 void Window::computeRangeValuesMap() {
@@ -891,23 +923,60 @@ void Window::callApplyLoop(
   }
 }
 
-RowVectorPtr Window::getOutput() {
-  if (finished_ || !noMoreInput_) {
+bool Window::isFinished() {
+  return noMoreInput_ && input_ == nullptr && preLastPartitionNums_ == 0;
+}
+
+RowVectorPtr Window::createOutput() {
+  // Init sortedRows_
+  sortedRows_.clear();
+  sortedRows_.resize(numRows_);
+  RowContainerIterator iter;
+  data_->listRows(&iter, numRows_, sortedRows_.data());
+
+  if (partitionStartRows_.size() > 2) {
+    prePreLastPartitionNums_ = partitionStartRows_[numPartitions_ + 1] -
+        partitionStartRows_[numPartitions_];
+  }
+
+  partitionStartRows_.clear();
+  numPartitions_ = 0;
+  computePartitionStartRows();
+
+  if (!noMoreInput_) {
+    preLastPartitionNums_ = partitionStartRows_[numPartitions_ + 1] -
+        partitionStartRows_[numPartitions_];
+  } else {
+    preLastPartitionNums_ = 0;
+  }
+
+  auto numOutputRows = partitionStartRows_[numPartitions_];
+
+  if (numPartitions_ == 0 && !noMoreInput_) {
+    // only one group, need wait the next partition to handle.
+
+    prevInput_ = input_;
+    input_ = nullptr;
+
     return nullptr;
   }
 
-  auto numRowsLeft = numRows_ - numProcessedRows_;
-  auto numOutputRows = std::min(numRowsPerOutput_, numRowsLeft);
+  if (numPartitions_ == 0) {
+    numOutputRows = partitionStartRows_[numPartitions_ + 1];
+  }
+
+  currentPartition_ = 0;
+  numProcessedRows_ = 0;
+
+  createPeerAndFrameBuffers();
+
   auto result = std::dynamic_pointer_cast<RowVector>(
       BaseVector::create(outputType_, numOutputRows, operatorCtx_->pool()));
 
   // Set all passthrough input columns.
   for (int i = 0; i < numInputColumns_; ++i) {
     data_->extractColumn(
-        sortedRows_.data() + numProcessedRows_,
-        numOutputRows,
-        i,
-        result->childAt(i));
+        sortedRows_.data(), numOutputRows, i, result->childAt(i));
   }
 
   // Construct vectors for the window function output columns.
@@ -926,8 +995,45 @@ RowVectorPtr Window::getOutput() {
     result->childAt(j) = windowOutputs[j - numInputColumns_];
   }
 
-  finished_ = (numProcessedRows_ == sortedRows_.size());
+  prevInput_ = input_;
+  input_ = nullptr;
   return result;
+}
+
+RowVectorPtr Window::getOutput() {
+  if (!input_) {
+    if (noMoreInput_ && preLastPartitionNums_ != 0) {
+      // handle the last partition
+
+      if (prevInput_ && numPartitions_ > 0) {
+        data_->clear();
+        auto startRows = partitionStartRows_[numPartitions_];
+        auto finalStartRow = startRows;
+        if (startRows >= prePreLastPartitionNums_) {
+          finalStartRow = startRows - prePreLastPartitionNums_;
+        }
+
+        for (auto col = 0; col < prevInput_->childrenSize(); ++col) {
+          decodedInputVectors_[col].decode(*prevInput_->childAt(col));
+        }
+
+        // Add all the rows into the RowContainer.
+        for (auto row = finalStartRow; row < prevInput_->size(); ++row) {
+          char* newRow = data_->newRow();
+
+          for (auto col = 0; col < prevInput_->childrenSize(); ++col) {
+            data_->store(decodedInputVectors_[col], row, newRow, col);
+          }
+        }
+      }
+
+      numRows_ = data_->numRows();
+      return createOutput();
+    }
+
+    return nullptr;
+  }
+  return createOutput();
 }
 
 } // namespace facebook::velox::exec
