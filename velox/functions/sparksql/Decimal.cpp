@@ -90,7 +90,11 @@ class CheckOverflowFunction final : public exec::VectorFunction {
   }
 };
 
+template <class T>
 class MakeDecimalFunction final : public exec::VectorFunction {
+ public:
+  explicit MakeDecimalFunction(uint8_t precision) : precision_(precision) {}
+
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args, // Not using const ref so we can reuse args
@@ -98,41 +102,36 @@ class MakeDecimalFunction final : public exec::VectorFunction {
       exec::EvalCtx& context,
       VectorPtr& resultRef) const final {
     VELOX_CHECK_EQ(args.size(), 3);
-    auto fromType = args[0]->type();
-    auto toType = args[1]->type();
+    context.ensureWritable(rows, outputType, resultRef);
     exec::DecodedArgs decodedArgs(rows, args, context);
     auto unscaledVec = decodedArgs.at(0);
-    VELOX_CHECK(decodedArgs.at(1)->isConstantMapping());
-    VELOX_CHECK(decodedArgs.at(2)->isConstantMapping());
-    auto nullOnOverflow = decodedArgs.at(2)->valueAt<bool>(0);
-    const auto& toPrecisionScale = getDecimalPrecisionScale(*toType);
-    auto precision = toPrecisionScale.first;
-    auto scale = toPrecisionScale.second;
-    context.ensureWritable(
-        rows,
-        DECIMAL(static_cast<uint8_t>(precision), static_cast<uint8_t>(scale)),
-        resultRef);
-    auto result =
-        resultRef->asUnchecked<FlatVector<int64_t>>()->mutableRawValues();
-    rows.applyToSelected([&](int row) {
-      auto unscaled = unscaledVec->valueAt<int64_t>(row);
-
-      if (unscaled <= -static_cast<long>(DecimalUtil::kPowersOfTen[18]) ||
-          unscaled >= static_cast<long>(DecimalUtil::kPowersOfTen[18])) {
-        if (precision < 19) {
-          resultRef->setNull(row, true);
+    auto result = resultRef->asUnchecked<FlatVector<T>>()->mutableRawValues();
+    if constexpr (std::is_same_v<T, int64_t>) {
+      auto nullOnOverflow = decodedArgs.at(2)->valueAt<bool>(0);
+      rows.applyToSelected([&](int row) {
+        auto unscaled = unscaledVec->valueAt<int64_t>(row);
+        int128_t bound = DecimalUtil::kPowersOfTen[precision_];
+        if (unscaled <= -bound || unscaled >= bound) {
+          // Requested precision is too low to represent this value.
+          if (nullOnOverflow) {
+            resultRef->setNull(row, true);
+          } else {
+            VELOX_USER_FAIL("Unscaled value too large for precision");
+          }
+        } else {
+          result[row] = unscaled;
         }
-      } else if (
-          unscaled <= -static_cast<long>(
-                          DecimalUtil::kPowersOfTen[std::min(precision, 18)]) ||
-          unscaled >= static_cast<long>(
-                          DecimalUtil::kPowersOfTen[std::min(precision, 18)])) {
-        resultRef->setNull(row, true);
-      } else {
+      });
+    } else {
+      rows.applyToSelected([&](int row) {
+        int128_t unscaled = unscaledVec->valueAt<int64_t>(row);
         result[row] = unscaled;
-      }
-    });
+      });
+    }
   }
+
+ private:
+  uint8_t precision_;
 };
 
 template <typename TInput>
@@ -295,9 +294,14 @@ std::shared_ptr<exec::VectorFunction> makeMakeDecimal(
     const std::string& name,
     const std::vector<exec::VectorFunctionArg>& inputArgs) {
   VELOX_CHECK_EQ(inputArgs.size(), 3);
-  static const auto kMakeDecimalFunction =
-      std::make_shared<MakeDecimalFunction>();
-  return kMakeDecimalFunction;
+  auto type = inputArgs[1].type;
+  if (type->isShortDecimal()) {
+    return std::make_shared<MakeDecimalFunction<int64_t>>(
+        std::dynamic_pointer_cast<const ShortDecimalType>(type)->precision());
+  } else {
+    return std::make_shared<MakeDecimalFunction<int128_t>>(
+        std::dynamic_pointer_cast<const LongDecimalType>(type)->precision());
+  }
 }
 
 std::shared_ptr<exec::VectorFunction> makeRoundDecimal(
