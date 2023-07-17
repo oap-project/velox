@@ -47,10 +47,7 @@ DwrfData::DwrfData(
   if (stream) {
     notNullDecoder_ = createBooleanRleDecoder(std::move(stream), encodingKey);
   }
-  indexStream_ = stripe.getStream(
-        rowIndexStream,
-        streamLabels.label(),
-        false);
+  indexStream_ = stripe.getStream(rowIndexStream, streamLabels.label(), false);
 }
 
 uint64_t DwrfData::skipNulls(uint64_t numValues, bool /*nullsOnly*/) {
