@@ -197,6 +197,8 @@ class Window : public Operator {
   // of the groups_ vector.
   RowVectorPtr createOutput();
 
+  RowVectorPtr getResult(bool isLastPartition);
+
   // bool finished_ = false;
   const vector_size_t numInputColumns_;
 
@@ -336,6 +338,8 @@ class Window : public Operator {
 
   // Number of rows in pre last partitions.
   vector_size_t prePreLastPartitionNums_ = 0;
+
+  std::vector<RowVectorPtr> outputs_;
 
   bool lastPartitionProcessed_ = false;
 };

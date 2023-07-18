@@ -924,7 +924,46 @@ void Window::callApplyLoop(
 }
 
 bool Window::isFinished() {
-  return noMoreInput_ && input_ == nullptr && preLastPartitionNums_ == 0;
+  return noMoreInput_ && input_ == nullptr && preLastPartitionNums_ == 0 &&
+      outputs_.size() == 0;
+}
+
+RowVectorPtr Window::getResult(bool isLastPartition) {
+  auto numRowsPerBatch = outputBatchRows(data_->estimateRowSize());
+  RowVectorPtr finalResult = std::dynamic_pointer_cast<RowVector>(
+      outputs_[0]->slice(0, outputs_[0]->size()));
+  // Get the finalResult from outputs_ based on the output size;
+  auto batchSize = outputs_[0]->size();
+  auto i = 1;
+  if (batchSize > numRowsPerBatch) {
+    auto length = numRowsPerBatch - batchSize;
+    finalResult = std::dynamic_pointer_cast<RowVector>(
+        outputs_[0]->slice(0, numRowsPerBatch));
+    outputs_[0] = std::dynamic_pointer_cast<RowVector>(
+        outputs_[0]->slice(numRowsPerBatch, length));
+  } else {
+    for (; i < outputs_.size(); i++) {
+      if (batchSize + outputs_[i]->size() > numRowsPerBatch) {
+        auto position = numRowsPerBatch - batchSize;
+        auto preResult = std::dynamic_pointer_cast<RowVector>(
+            outputs_[i]->slice(0, position));
+        finalResult->append(preResult.get());
+        auto length = outputs_[i]->size() - position;
+        outputs_[i] = std::dynamic_pointer_cast<RowVector>(
+            outputs_[i]->slice(position, length));
+        break;
+      } else {
+        finalResult->append(outputs_[i].get());
+      }
+    }
+  }
+
+  if (finalResult->size() == numRowsPerBatch || isLastPartition) {
+    outputs_.erase(outputs_.begin(), outputs_.begin() + i);
+    return finalResult;
+  } else {
+    return nullptr;
+  }
 }
 
 RowVectorPtr Window::createOutput() {
@@ -951,7 +990,6 @@ RowVectorPtr Window::createOutput() {
   }
 
   auto numOutputRows = partitionStartRows_[numPartitions_];
-
   if (numPartitions_ == 0 && !noMoreInput_) {
     // only one group, need wait the next partition to handle.
 
@@ -997,7 +1035,9 @@ RowVectorPtr Window::createOutput() {
 
   prevInput_ = input_;
   input_ = nullptr;
-  return result;
+
+  outputs_.push_back(result);
+  return getResult(false);
 }
 
 RowVectorPtr Window::getOutput() {
@@ -1029,6 +1069,10 @@ RowVectorPtr Window::getOutput() {
 
       numRows_ = data_->numRows();
       return createOutput();
+    }
+
+    if (noMoreInput_ && outputs_.size() > 0) {
+      return getResult(true);
     }
 
     return nullptr;
