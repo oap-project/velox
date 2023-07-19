@@ -185,33 +185,7 @@ void Window::initRangeValuesMap() {
   }
 }
 
-void Window::addPreInput() {
-  if (prevInput_ && numPartitions_ > 0) {
-    data_->clear();
-    auto startRows = partitionStartRows_[numPartitions_];
-    preLastPartitionNums_ = partitionStartRows_[numPartitions_ + 1] - startRows;
-
-    for (auto col = 0; col < prevInput_->childrenSize(); ++col) {
-      decodedInputVectors_[col].decode(*prevInput_->childAt(col));
-    }
-
-    auto finalStartRow = startRows;
-    if (startRows >= prePreLastPartitionNums_) {
-      finalStartRow = startRows - prePreLastPartitionNums_;
-    }
-
-    // Add all the rows into the RowContainer.
-    for (auto row = finalStartRow; row < prevInput_->size(); ++row) {
-      char* newRow = data_->newRow();
-      for (auto col = 0; col < prevInput_->childrenSize(); ++col) {
-        data_->store(decodedInputVectors_[col], row, newRow, col);
-      }
-    }
-  }
-}
-
 void Window::addInput(RowVectorPtr input) {
-  addPreInput();
   for (auto col = 0; col < input->childrenSize(); ++col) {
     decodedInputVectors_[col].decode(*input->childAt(col));
   }
@@ -224,9 +198,7 @@ void Window::addInput(RowVectorPtr input) {
       data_->store(decodedInputVectors_[col], row, newRow, col);
     }
   }
-
-  input_ = std::move(input);
-  numRows_ = data_->numRows();
+  numRows_ += input->size();
 }
 
 inline bool Window::compareRowsWithKeys(
@@ -253,18 +225,12 @@ void Window::createPeerAndFrameBuffers() {
   // the input columns size. We need to also account for the output columns.
   numRowsPerOutput_ = outputBatchRows(data_->estimateRowSize());
 
-  numRowsPerOutput_ = numRows_;
-
   peerStartBuffer_ = AlignedBuffer::allocate<vector_size_t>(
       numRowsPerOutput_, operatorCtx_->pool());
   peerEndBuffer_ = AlignedBuffer::allocate<vector_size_t>(
       numRowsPerOutput_, operatorCtx_->pool());
 
   auto numFuncs = windowFunctions_.size();
-
-  frameStartBuffers_.clear();
-  frameEndBuffers_.clear();
-  validFrames_.clear();
   frameStartBuffers_.reserve(numFuncs);
   frameEndBuffers_.reserve(numFuncs);
   validFrames_.reserve(numFuncs);
@@ -926,98 +892,23 @@ void Window::callApplyLoop(
   }
 }
 
-bool Window::isFinished() {
-  return noMoreInput_ && input_ == nullptr && preLastPartitionNums_ == 0 &&
-      outputs_.size() == 0;
-}
-
-RowVectorPtr Window::getResult(bool isLastPartition) {
-  auto numRowsPerBatch = outputBatchRows(data_->estimateRowSize());
-  RowVectorPtr finalResult = std::dynamic_pointer_cast<RowVector>(
-      outputs_[0]->slice(0, outputs_[0]->size()));
-  // Get the finalResult from outputs_ based on the output size;
-  auto batchSize = outputs_[0]->size();
-  auto i = 1;
-  if (batchSize > numRowsPerBatch) {
-    auto length = numRowsPerBatch - batchSize;
-    finalResult = std::dynamic_pointer_cast<RowVector>(
-        outputs_[0]->slice(0, numRowsPerBatch));
-    outputs_[0] = std::dynamic_pointer_cast<RowVector>(
-        outputs_[0]->slice(numRowsPerBatch, length));
-  } else {
-    for (; i < outputs_.size(); i++) {
-      if (batchSize + outputs_[i]->size() > numRowsPerBatch) {
-        auto position = numRowsPerBatch - batchSize;
-        auto preResult = std::dynamic_pointer_cast<RowVector>(
-            outputs_[i]->slice(0, position));
-        finalResult->append(preResult.get());
-        auto length = outputs_[i]->size() - position;
-        outputs_[i] = std::dynamic_pointer_cast<RowVector>(
-            outputs_[i]->slice(position, length));
-        break;
-      } else {
-        finalResult->append(outputs_[i].get());
-      }
-    }
-  }
-
-  if (finalResult->size() == numRowsPerBatch || isLastPartition) {
-    outputs_.erase(outputs_.begin(), outputs_.begin() + i);
-    return finalResult;
-  } else {
-    return nullptr;
-  }
-}
-
-RowVectorPtr Window::createOutput() {
-  // Init sortedRows_
-  sortedRows_.clear();
-  sortedRows_.resize(numRows_);
-  RowContainerIterator iter;
-  data_->listRows(&iter, numRows_, sortedRows_.data());
-
-  if (partitionStartRows_.size() > 2) {
-    prePreLastPartitionNums_ = partitionStartRows_[numPartitions_ + 1] -
-        partitionStartRows_[numPartitions_];
-  }
-
-  partitionStartRows_.clear();
-  numPartitions_ = 0;
-  computePartitionStartRows();
-
-  if (!noMoreInput_) {
-    preLastPartitionNums_ = partitionStartRows_[numPartitions_ + 1] -
-        partitionStartRows_[numPartitions_];
-  } else {
-    preLastPartitionNums_ = 0;
-  }
-
-  auto numOutputRows = partitionStartRows_[numPartitions_];
-  if (numPartitions_ == 0 && !noMoreInput_) {
-    // only one group, need wait the next partition to handle.
-
-    prevInput_ = input_;
-    input_ = nullptr;
-
+RowVectorPtr Window::getOutput() {
+  if (finished_ || !noMoreInput_) {
     return nullptr;
   }
 
-  if (numPartitions_ == 0) {
-    numOutputRows = partitionStartRows_[numPartitions_ + 1];
-  }
-
-  currentPartition_ = 0;
-  numProcessedRows_ = 0;
-
-  createPeerAndFrameBuffers();
-
+  auto numRowsLeft = numRows_ - numProcessedRows_;
+  auto numOutputRows = std::min(numRowsPerOutput_, numRowsLeft);
   auto result = std::dynamic_pointer_cast<RowVector>(
       BaseVector::create(outputType_, numOutputRows, operatorCtx_->pool()));
 
   // Set all passthrough input columns.
   for (int i = 0; i < numInputColumns_; ++i) {
     data_->extractColumn(
-        sortedRows_.data(), numOutputRows, i, result->childAt(i));
+        sortedRows_.data() + numProcessedRows_,
+        numOutputRows,
+        i,
+        result->childAt(i));
   }
 
   // Construct vectors for the window function output columns.
@@ -1036,29 +927,8 @@ RowVectorPtr Window::createOutput() {
     result->childAt(j) = windowOutputs[j - numInputColumns_];
   }
 
-  prevInput_ = input_;
-  input_ = nullptr;
-
-  outputs_.push_back(result);
-  return getResult(false);
-}
-
-RowVectorPtr Window::getOutput() {
-  if (!input_) {
-    if (noMoreInput_ && preLastPartitionNums_ != 0) {
-      // handle the last partition
-      addPreInput();
-      numRows_ = data_->numRows();
-      return createOutput();
-    }
-
-    if (noMoreInput_ && outputs_.size() > 0) {
-      return getResult(true);
-    }
-
-    return nullptr;
-  }
-  return createOutput();
+  finished_ = (numProcessedRows_ == sortedRows_.size());
+  return result;
 }
 
 } // namespace facebook::velox::exec

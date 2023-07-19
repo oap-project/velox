@@ -55,9 +55,11 @@ class Window : public Operator {
     return BlockingReason::kNotBlocked;
   }
 
-  bool isFinished() override;
+  bool isFinished() override {
+    return finished_;
+  }
 
- private:
+ protected:
   // Used for k preceding/following frames. Index is the column index if k is a
   // column. value is used to read column values from the column index when k
   // is a column. The field constant stores constant k values.
@@ -89,13 +91,13 @@ class Window : public Operator {
 
   // Helper function to create the buffers for peer and frame
   // row indices to send in window function apply invocations.
-  void createPeerAndFrameBuffers();
+  virtual void createPeerAndFrameBuffers();
 
   // Function to compute the partitionStartRows_ structure.
   // partitionStartRows_ is vector of the starting rows index
   // of each partition in the data. This is an auxiliary
   // structure that helps simplify the window function computations.
-  void computePartitionStartRows();
+  virtual void computePartitionStartRows();
 
   // This function is invoked after receiving all the input data.
   // The input data needs to be separated into partitions and
@@ -193,15 +195,7 @@ class Window : public Operator {
       const vector_size_t* rawPeerEnds,
       vector_size_t& indexFound);
 
-  // Populate output_ vector using specified number of groups from the beginning
-  // of the groups_ vector.
-  RowVectorPtr createOutput();
-
-  RowVectorPtr getResult(bool isLastPartition);
-
-  void addPreInput();
-
-  // bool finished_ = false;
+  bool finished_ = false;
   const vector_size_t numInputColumns_;
 
   // The Window operator needs to see all the input rows before starting
@@ -328,22 +322,8 @@ class Window : public Operator {
   // Tracks how far along the partition rows have been output.
   vector_size_t partitionOffset_ = 0;
 
-  // Previous input vector. Used to compare grouping keys for groups which span
-  // batches.
-  RowVectorPtr prevInput_;
-
   // Number of partitions.
   vector_size_t numPartitions_ = 0;
-
-  // Number of rows in pre last partitions.
-  vector_size_t preLastPartitionNums_ = 0;
-
-  // Number of rows in pre last partitions.
-  vector_size_t prePreLastPartitionNums_ = 0;
-
-  std::vector<RowVectorPtr> outputs_;
-
-  bool lastPartitionProcessed_ = false;
 };
 
 } // namespace facebook::velox::exec
