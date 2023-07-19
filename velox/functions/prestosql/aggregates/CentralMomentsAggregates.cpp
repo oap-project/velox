@@ -550,7 +550,8 @@ exec::AggregateRegistrationResult registerCentralMoments(
           return std::make_unique<
               CentralMomentsAggregate<int64_t, TResultAccessor>>(resultType);
         }
-      });
+      },
+      true);
 }
 
 } // namespace
