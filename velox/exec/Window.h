@@ -97,7 +97,7 @@ class Window : public Operator {
   // partitionStartRows_ is vector of the starting rows index
   // of each partition in the data. This is an auxiliary
   // structure that helps simplify the window function computations.
-  virtual void computePartitionStartRows();
+  void computePartitionStartRows();
 
   // This function is invoked after receiving all the input data.
   // The input data needs to be separated into partitions and

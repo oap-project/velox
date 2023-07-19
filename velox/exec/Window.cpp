@@ -297,19 +297,19 @@ void Window::sortPartitions() {
 
 void Window::noMoreInput() {
   Operator::noMoreInput();
-  // // No data.
-  // if (numRows_ == 0) {
-  //   finished_ = true;
-  //   return;
-  // }
+  // No data.
+  if (numRows_ == 0) {
+    finished_ = true;
+    return;
+  }
 
-  // // At this point we have seen all the input rows. We can start
-  // // outputting rows now.
-  // // However, some preparation is needed. The rows should be
-  // // separated into partitions and sort by ORDER BY keys within
-  // // the partition. This will order the rows for getOutput().
-  // sortPartitions();
-  // createPeerAndFrameBuffers();
+  // At this point we have seen all the input rows. We can start
+  // outputting rows now.
+  // However, some preparation is needed. The rows should be
+  // separated into partitions and sort by ORDER BY keys within
+  // the partition. This will order the rows for getOutput().
+  sortPartitions();
+  createPeerAndFrameBuffers();
 }
 
 void Window::computeRangeValuesMap() {
