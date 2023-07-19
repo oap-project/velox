@@ -199,11 +199,17 @@ void Writer::flush() {
  */
 void Writer::write(const VectorPtr& data) {
   ArrowArray array;
-  // ArrowSchema schema;
+  ArrowSchema schema;
   exportToArrow(data, array, generalPool_.get());
-  // exportToArrow(data, schema);
-  PARQUET_ASSIGN_OR_THROW(
+  exportToArrow(data, schema);
+  if (schema_) {
+    PARQUET_ASSIGN_OR_THROW(
       auto recordBatch, arrow::ImportRecordBatch(&array, schema_));
+  } else {
+    PARQUET_ASSIGN_OR_THROW(
+      auto recordBatch, arrow::ImportRecordBatch(&array, &schema));
+  }
+  
   if (!arrowContext_->schema) {
     arrowContext_->schema = recordBatch->schema();
     for (int colIdx = 0; colIdx < arrowContext_->schema->num_fields();
