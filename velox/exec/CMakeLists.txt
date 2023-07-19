@@ -67,6 +67,7 @@ add_library(
   Values.cpp
   VectorHasher.cpp
   Window.cpp
+  StreamingWindow.cpp
   WindowFunction.cpp
   WindowPartition.cpp
   AssignUniqueId.cpp
