@@ -202,14 +202,15 @@ void Writer::write(const VectorPtr& data) {
   ArrowSchema schema;
   exportToArrow(data, array, generalPool_.get());
   exportToArrow(data, schema);
+  std::shared_ptr<RecordBatch> recordBatch;
   if (schema_) {
     PARQUET_ASSIGN_OR_THROW(
-      auto recordBatch, arrow::ImportRecordBatch(&array, schema_));
+        recordBatch, arrow::ImportRecordBatch(&array, schema_));
   } else {
     PARQUET_ASSIGN_OR_THROW(
-      auto recordBatch, arrow::ImportRecordBatch(&array, &schema));
+        recordBatch, arrow::ImportRecordBatch(&array, &schema));
   }
-  
+
   if (!arrowContext_->schema) {
     arrowContext_->schema = recordBatch->schema();
     for (int colIdx = 0; colIdx < arrowContext_->schema->num_fields();
