@@ -17,8 +17,6 @@
 #include "velox/exec/OperatorUtils.h"
 #include "velox/exec/Task.h"
 
-DEFINE_bool(SkipRowSortInWindowOp, false, "Skip row sort");
-
 namespace facebook::velox::exec {
 
 namespace {
@@ -281,14 +279,13 @@ void Window::sortPartitions() {
   sortedRows_.resize(numRows_);
   RowContainerIterator iter;
   data_->listRows(&iter, numRows_, sortedRows_.data());
-  if (!FLAGS_SkipRowSortInWindowOp) {
-    std::sort(
-        sortedRows_.begin(),
-        sortedRows_.end(),
-        [this](const char* leftRow, const char* rightRow) {
-          return compareRowsWithKeys(leftRow, rightRow, allKeyInfo_);
-        });
-  }
+
+  std::sort(
+      sortedRows_.begin(),
+      sortedRows_.end(),
+      [this](const char* leftRow, const char* rightRow) {
+        return compareRowsWithKeys(leftRow, rightRow, allKeyInfo_);
+      });
 
   computePartitionStartRows();
 

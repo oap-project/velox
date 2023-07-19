@@ -23,18 +23,10 @@
 
 namespace facebook::velox::exec {
 
-/// This is a very simple in-Memory implementation of a Window Operator
-/// to compute window functions.
-///
-/// This operator uses a very naive algorithm that sorts all the input
-/// data with a combination of the (partition_by keys + order_by keys)
-/// to obtain a full ordering of the input. We can easily identify
-/// partitions while traversing this sorted data in order.
-/// It is also sorted in the order required for the WindowFunction
-/// to process it.
-///
-/// We will revise this algorithm in the future using a HashTable based
-/// approach pending some profiling results.
+/// This operator differs from the Window operator in that it does not require
+/// sorting the input vector or caching all the input data. Instead, it groups
+/// the input batch, performs calculations on first n-1 groups, and carries
+/// forward the last group to the next input batch.
 class StreamingWindow : public Window {
  public:
   StreamingWindow(
@@ -47,39 +39,32 @@ class StreamingWindow : public Window {
 
   RowVectorPtr getOutput() override;
 
-  bool needsInput() const override {
-    return !noMoreInput_;
-  }
+  bool isFinished() override;
 
   void noMoreInput() override;
-
-  BlockingReason isBlocked(ContinueFuture* /* unused */) override {
-    return BlockingReason::kNotBlocked;
-  }
-
-  bool isFinished() override;
 
   void createPeerAndFrameBuffers() override;
 
  private:
-  // Populate output_ vector using specified number of groups from the beginning
-  // of the groups_ vector.
   RowVectorPtr createOutput();
 
-  RowVectorPtr getResult(bool isLastPartition);
+  // Get the output vector based on the num rows per batch.
+  RowVectorPtr getResult(bool isLastGroup);
 
+  // Add the last group data in current input vector.
   void addPreInput();
 
-  // Previous input vector. Used to compare grouping keys for groups which span
-  // batches.
+  // Previous input vector. Used to calculate the last group in pre input
+  // vector.
   RowVectorPtr prevInput_;
 
-  // Number of rows in pre last partitions.
-  vector_size_t preLastPartitionNums_ = 0;
+  // Number of rows in pre last group.
+  vector_size_t preLastGroupNums_ = 0;
 
-  // Number of rows in pre last partitions.
-  vector_size_t prePreLastPartitionNums_ = 0;
+  // Number of rows in pre pre last group.
+  vector_size_t prePreLastGroupNums_ = 0;
 
+  // Store the output vector.
   std::vector<RowVectorPtr> outputs_;
 };
 

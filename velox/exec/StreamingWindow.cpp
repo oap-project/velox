@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 #include "velox/exec/StreamingWindow.h"
-#include <iostream>
 #include "velox/exec/OperatorUtils.h"
 #include "velox/exec/Task.h"
 
@@ -24,15 +23,15 @@ void StreamingWindow::addPreInput() {
   if (prevInput_ && numPartitions_ > 0) {
     data_->clear();
     auto startRows = partitionStartRows_[numPartitions_];
-    preLastPartitionNums_ = partitionStartRows_[numPartitions_ + 1] - startRows;
+    preLastGroupNums_ = partitionStartRows_[numPartitions_ + 1] - startRows;
 
     for (auto col = 0; col < prevInput_->childrenSize(); ++col) {
       decodedInputVectors_[col].decode(*prevInput_->childAt(col));
     }
 
     auto finalStartRow = startRows;
-    if (startRows >= prePreLastPartitionNums_) {
-      finalStartRow = startRows - prePreLastPartitionNums_;
+    if (startRows >= prePreLastGroupNums_) {
+      finalStartRow = startRows - prePreLastGroupNums_;
     }
 
     // Add all the rows into the RowContainer.
@@ -101,11 +100,11 @@ void StreamingWindow::noMoreInput() {
 }
 
 bool StreamingWindow::isFinished() {
-  return noMoreInput_ && input_ == nullptr && preLastPartitionNums_ == 0 &&
+  return noMoreInput_ && input_ == nullptr && preLastGroupNums_ == 0 &&
       outputs_.size() == 0;
 }
 
-RowVectorPtr StreamingWindow::getResult(bool isLastPartition) {
+RowVectorPtr StreamingWindow::getResult(bool isLastGroup) {
   auto numRowsPerBatch = outputBatchRows(data_->estimateRowSize());
   RowVectorPtr finalResult = std::dynamic_pointer_cast<RowVector>(
       outputs_[0]->slice(0, outputs_[0]->size()));
@@ -135,7 +134,7 @@ RowVectorPtr StreamingWindow::getResult(bool isLastPartition) {
     }
   }
 
-  if (finalResult->size() == numRowsPerBatch || isLastPartition) {
+  if (finalResult->size() == numRowsPerBatch || isLastGroup) {
     outputs_.erase(outputs_.begin(), outputs_.begin() + i);
     return finalResult;
   } else {
@@ -151,7 +150,7 @@ RowVectorPtr StreamingWindow::createOutput() {
   data_->listRows(&iter, numRows_, sortedRows_.data());
 
   if (partitionStartRows_.size() > 2) {
-    prePreLastPartitionNums_ = partitionStartRows_[numPartitions_ + 1] -
+    prePreLastGroupNums_ = partitionStartRows_[numPartitions_ + 1] -
         partitionStartRows_[numPartitions_];
   }
 
@@ -160,10 +159,10 @@ RowVectorPtr StreamingWindow::createOutput() {
   computePartitionStartRows();
 
   if (!noMoreInput_) {
-    preLastPartitionNums_ = partitionStartRows_[numPartitions_ + 1] -
+    preLastGroupNums_ = partitionStartRows_[numPartitions_ + 1] -
         partitionStartRows_[numPartitions_];
   } else {
-    preLastPartitionNums_ = 0;
+    preLastGroupNums_ = 0;
   }
 
   auto numOutputRows = partitionStartRows_[numPartitions_];
@@ -219,8 +218,8 @@ RowVectorPtr StreamingWindow::createOutput() {
 
 RowVectorPtr StreamingWindow::getOutput() {
   if (!input_) {
-    if (noMoreInput_ && preLastPartitionNums_ != 0) {
-      // handle the last partition
+    if (noMoreInput_ && preLastGroupNums_ != 0) {
+      // Handle the last group
       addPreInput();
       numRows_ = data_->numRows();
       return createOutput();
