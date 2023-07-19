@@ -18,6 +18,7 @@
 
 #include <arrow/c/bridge.h> // @manual
 #include <arrow/table.h> // @manual
+#include <arrow/record_batch.h>
 #include <parquet/arrow/writer.h> // @manual
 #include "velox/dwio/parquet/writer/Writer.h"
 
@@ -202,7 +203,7 @@ void Writer::write(const VectorPtr& data) {
   ArrowSchema schema;
   exportToArrow(data, array, generalPool_.get());
   exportToArrow(data, schema);
-  std::shared_ptr<RecordBatch> recordBatch;
+  std::shared_ptr<arrow::RecordBatch> recordBatch;
   if (schema_) {
     PARQUET_ASSIGN_OR_THROW(
         recordBatch, arrow::ImportRecordBatch(&array, schema_));
