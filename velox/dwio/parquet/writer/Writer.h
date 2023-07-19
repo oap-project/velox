@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <arrow/type.h>
 #include "velox/dwio/common/Common.h"
 #include "velox/dwio/common/DataBuffer.h"
 #include "velox/dwio/common/DataSink.h"
@@ -53,11 +54,13 @@ class Writer : public dwio::common::Writer {
   Writer(
       std::unique_ptr<dwio::common::DataSink> sink,
       const WriterOptions& options,
-      std::shared_ptr<memory::MemoryPool> pool);
+      std::shared_ptr<memory::MemoryPool> pool,
+      std::shared_ptr<arrow::Schema> schema = nullptr);
 
   Writer(
       std::unique_ptr<dwio::common::DataSink> sink,
-      const WriterOptions& options);
+      const WriterOptions& options,
+      std::shared_ptr<arrow::Schema> schema = nullptr);
 
   static bool isArrowCodecAvailable(dwio::common::CompressionKind compression);
 
@@ -90,6 +93,8 @@ class Writer : public dwio::common::Writer {
   std::shared_ptr<ArrowDataBufferSink> stream_;
 
   std::shared_ptr<ArrowContext> arrowContext_;
+
+  std::shared_ptr<arrow::Schema> schema_;
 };
 
 class ParquetWriterFactory : public dwio::common::WriterFactory {

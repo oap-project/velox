@@ -124,7 +124,8 @@ std::shared_ptr<::parquet::WriterProperties> getArrowParquetWriterOptions(
 Writer::Writer(
     std::unique_ptr<dwio::common::DataSink> sink,
     const WriterOptions& options,
-    std::shared_ptr<memory::MemoryPool> pool)
+    std::shared_ptr<memory::MemoryPool> pool,
+    std::shared_ptr<arrow::Schema> schema)
     : rowsInRowGroup_(options.rowsInRowGroup),
       bytesInRowGroup_(options.bytesInRowGroup),
       bufferGrowRatio_(options.bufferGrowRatio),
@@ -133,14 +134,16 @@ Writer::Writer(
       stream_(std::make_shared<ArrowDataBufferSink>(
           std::move(sink),
           *generalPool_,
-          bufferGrowRatio_)) {
+          bufferGrowRatio_)),
+      schema_(schema) {
   arrowContext_ = std::make_shared<ArrowContext>();
   arrowContext_->properties = getArrowParquetWriterOptions(options);
 }
 
 Writer::Writer(
     std::unique_ptr<dwio::common::DataSink> sink,
-    const WriterOptions& options)
+    const WriterOptions& options,
+    std::shared_ptr<arrow::Schema> schema)
     : Writer{
           std::move(sink),
           options,
@@ -196,11 +199,11 @@ void Writer::flush() {
  */
 void Writer::write(const VectorPtr& data) {
   ArrowArray array;
-  ArrowSchema schema;
+  // ArrowSchema schema;
   exportToArrow(data, array, generalPool_.get());
-  exportToArrow(data, schema);
+  // exportToArrow(data, schema);
   PARQUET_ASSIGN_OR_THROW(
-      auto recordBatch, arrow::ImportRecordBatch(&array, &schema));
+      auto recordBatch, arrow::ImportRecordBatch(&array, schema_));
   if (!arrowContext_->schema) {
     arrowContext_->schema = recordBatch->schema();
     for (int colIdx = 0; colIdx < arrowContext_->schema->num_fields();
