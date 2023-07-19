@@ -199,6 +199,8 @@ class Window : public Operator {
 
   RowVectorPtr getResult(bool isLastPartition);
 
+  void addPreInput();
+
   // bool finished_ = false;
   const vector_size_t numInputColumns_;
 

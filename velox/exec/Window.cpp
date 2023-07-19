@@ -185,7 +185,7 @@ void Window::initRangeValuesMap() {
   }
 }
 
-void Window::addInput(RowVectorPtr input) {
+void Window::addPreInput() {
   if (prevInput_ && numPartitions_ > 0) {
     data_->clear();
     auto startRows = partitionStartRows_[numPartitions_];
@@ -208,7 +208,10 @@ void Window::addInput(RowVectorPtr input) {
       }
     }
   }
+}
 
+void Window::addInput(RowVectorPtr input) {
+  addPreInput();
   for (auto col = 0; col < input->childrenSize(); ++col) {
     decodedInputVectors_[col].decode(*input->childAt(col));
   }
@@ -1044,29 +1047,7 @@ RowVectorPtr Window::getOutput() {
   if (!input_) {
     if (noMoreInput_ && preLastPartitionNums_ != 0) {
       // handle the last partition
-
-      if (prevInput_ && numPartitions_ > 0) {
-        data_->clear();
-        auto startRows = partitionStartRows_[numPartitions_];
-        auto finalStartRow = startRows;
-        if (startRows >= prePreLastPartitionNums_) {
-          finalStartRow = startRows - prePreLastPartitionNums_;
-        }
-
-        for (auto col = 0; col < prevInput_->childrenSize(); ++col) {
-          decodedInputVectors_[col].decode(*prevInput_->childAt(col));
-        }
-
-        // Add all the rows into the RowContainer.
-        for (auto row = finalStartRow; row < prevInput_->size(); ++row) {
-          char* newRow = data_->newRow();
-
-          for (auto col = 0; col < prevInput_->childrenSize(); ++col) {
-            data_->store(decodedInputVectors_[col], row, newRow, col);
-          }
-        }
-      }
-
+      addPreInput();
       numRows_ = data_->numRows();
       return createOutput();
     }
