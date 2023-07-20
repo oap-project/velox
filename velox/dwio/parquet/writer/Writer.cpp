@@ -17,8 +17,8 @@
 #include "velox/vector/arrow/Bridge.h"
 
 #include <arrow/c/bridge.h> // @manual
-#include <arrow/table.h> // @manual
 #include <arrow/record_batch.h>
+#include <arrow/table.h> // @manual
 #include <parquet/arrow/writer.h> // @manual
 #include "velox/dwio/parquet/writer/Writer.h"
 
