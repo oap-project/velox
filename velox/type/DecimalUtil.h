@@ -20,6 +20,7 @@
 #include "velox/common/base/CheckedArithmetic.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/Nulls.h"
+#include "velox/type/Conversions.h"
 #include "velox/type/Type.h"
 
 namespace facebook::velox {
@@ -248,6 +249,45 @@ class DecimalUtil {
     VELOX_USER_CHECK_LE(parsedPrecision, LongDecimalType::kMaxPrecision);
     return DecimalUtil::rescaleWithRoundUp<int128_t, TOutput>(
         out, parsedPrecision, parsedScale, toPrecision, toScale);
+  }
+
+  /// Rescale a double value to decimal value.
+  ///
+  /// Use `folly::convertTo` to convert a double value to int128_t or int64_t,
+  /// it will throw an exception like 'loss of precision' when the `toValue`
+  /// overflows the limits of int128_t or int64_t. The exception will be caught
+  /// here to judge whether there is a overflow.
+  ///
+  /// Normally, return the rescaled value. Otherwise, if the `toValue` overflows
+  /// the TOutput's limits or the `toValue` exceeds the precision's limits, it
+  /// will throw an exception.
+  template <typename TOutput>
+  inline static std::optional<TOutput> rescaleDouble(
+      const double inputValue,
+      const int toPrecision,
+      const int toScale) {
+    auto toValue =
+        inputValue * static_cast<double>(DecimalUtil::kPowersOfTen[toScale]);
+
+    bool isOverflow = !std::isfinite(toValue);
+    TOutput rescaledValue;
+    try {
+      rescaledValue =
+          util::Converter<CppToType<TOutput>::typeKind>::cast(toValue);
+    } catch (const std::exception& e) {
+      isOverflow = true;
+    }
+
+    if (rescaledValue < -DecimalUtil::kPowersOfTen[toPrecision] ||
+        rescaledValue > DecimalUtil::kPowersOfTen[toPrecision] || isOverflow) {
+      VELOX_USER_FAIL(
+          "Cannot cast {} '{:f}' to DECIMAL({},{})",
+          SimpleTypeTrait<double>::name,
+          inputValue,
+          toPrecision,
+          toScale);
+    }
+    return static_cast<TOutput>(rescaledValue);
   }
 
   template <typename R, typename A, typename B>
