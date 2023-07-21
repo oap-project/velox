@@ -122,7 +122,7 @@ struct CentralMomentsAccumulator {
 
 struct SkewnessResultAccessor {
   static bool hasResult(const CentralMomentsAccumulator& accumulator) {
-    return accumulator.count() >= 3;
+    return accumulator.count() >= 1;
   }
 
   static double result(const CentralMomentsAccumulator& accumulator) {
