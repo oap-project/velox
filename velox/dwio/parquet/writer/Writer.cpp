@@ -157,14 +157,13 @@ void Writer::flush() {
     if (!arrowContext_->writer) {
       auto arrowProperties =
           ::parquet::ArrowWriterProperties::Builder().build();
-      PARQUET_ASSIGN_OR_THROW(
-          arrowContext_->writer,
-          ::parquet::arrow::FileWriter::Open(
-              *arrowContext_->schema.get(),
-              arrow::default_memory_pool(),
-              stream_,
-              arrowContext_->properties,
-              arrowProperties));
+      PARQUET_THROW_NOT_OK(::parquet::arrow::FileWriter::Open(
+        *recordBatch->schema(),
+        arrow::default_memory_pool(),
+        stream_,
+        arrowContext_->properties,
+        arrowProperties,
+        &arrowContext_->writer));
     }
 
     auto fields = arrowContext_->schema->fields();
