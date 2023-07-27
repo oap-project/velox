@@ -89,6 +89,7 @@ struct ArrowContext {
   std::unique_ptr<::parquet::arrow::FileWriter> writer;
   std::shared_ptr<arrow::Schema> schema;
   std::shared_ptr<::parquet::WriterProperties> properties;
+  bool writeTimestampAsInt96 = false;
   // columns, Arrays
   std::vector<std::vector<std::shared_ptr<arrow::Array>>> stagingChunks;
 };
@@ -122,6 +123,24 @@ std::shared_ptr<::parquet::WriterProperties> getArrowParquetWriterOptions(
   return properties->build();
 }
 
+void Writer::initlizeParquetWriterIfNecessary() {
+  if (!arrowContext_->writer) {
+    auto builder = ::parquet::ArrowWriterProperties::Builder();
+    if (arrowContext_->writeTimestampAsInt96) {
+      builder.enable_deprecated_int96_timestamps();
+    }
+    auto arrowProperties = builder.build();
+    PARQUET_ASSIGN_OR_THROW(
+        arrowContext_->writer,
+        ::parquet::arrow::FileWriter::Open(
+            *arrowContext_->schema.get(),
+            arrow::default_memory_pool(),
+            stream_,
+            arrowContext_->properties,
+            arrowProperties));
+  }
+}
+
 Writer::Writer(
     std::unique_ptr<dwio::common::DataSink> sink,
     const WriterOptions& options,
@@ -139,21 +158,14 @@ Writer::Writer(
   arrowContext_ = std::make_shared<ArrowContext>();
   arrowContext_->properties = getArrowParquetWriterOptions(options);
   arrowContext_->schema = schema;
+  arrowContext_->writeTimestampAsInt96 = options.writeTimestampAsInt96;
 
   if (arrowContext_->schema) {
     // If the input iterator is empty, the writer will do nothing and build a
     // empty file. We should at least write the parquet magic header so the
     // reader can regonize it is a valid parquet file. So, we initialize the
     // writer at first even there is no data.
-    auto arrowProperties = ::parquet::ArrowWriterProperties::Builder().build();
-    PARQUET_ASSIGN_OR_THROW(
-        arrowContext_->writer,
-        ::parquet::arrow::FileWriter::Open(
-            *arrowContext_->schema.get(),
-            arrow::default_memory_pool(),
-            stream_,
-            arrowContext_->properties,
-            arrowProperties));
+    initlizeParquetWriterIfNecessary();
   }
 }
 
@@ -170,18 +182,7 @@ Writer::Writer(
 
 void Writer::flush() {
   if (stagingRows_ > 0) {
-    if (!arrowContext_->writer) {
-      auto arrowProperties =
-          ::parquet::ArrowWriterProperties::Builder().build();
-      PARQUET_ASSIGN_OR_THROW(
-          arrowContext_->writer,
-          ::parquet::arrow::FileWriter::Open(
-              *arrowContext_->schema.get(),
-              arrow::default_memory_pool(),
-              stream_,
-              arrowContext_->properties,
-              arrowProperties));
-    }
+    initlizeParquetWriterIfNecessary();
 
     auto fields = arrowContext_->schema->fields();
     std::vector<std::shared_ptr<arrow::ChunkedArray>> chunks;

@@ -39,6 +39,7 @@ struct WriterOptions {
   int64_t maxRowGroupLength = 1'024 * 1'024;
   int64_t dictionaryPageSizeLimit = 1'024 * 1'024;
   double bufferGrowRatio = 1;
+  bool writeTimestampAsInt96 = false;
   dwio::common::CompressionKind compression =
       dwio::common::CompressionKind_NONE;
   velox::memory::MemoryPool* memoryPool;
@@ -78,6 +79,8 @@ class Writer : public dwio::common::Writer {
   void close();
 
  private:
+  void initlizeParquetWriterIfNecessary();
+
   const int64_t rowsInRowGroup_;
   const int64_t bytesInRowGroup_;
   const double bufferGrowRatio_;
