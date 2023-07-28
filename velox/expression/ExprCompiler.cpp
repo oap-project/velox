@@ -37,6 +37,7 @@ using core::TypedExprPtr;
 const char* const kAnd = "and";
 const char* const kOr = "or";
 const char* const kRowConstructor = "row_constructor";
+const char* const kRowConstructorWithNull = "row_constructor_with_null";
 
 struct ITypedExprHasher {
   size_t operator()(const ITypedExpr* expr) const {
@@ -237,6 +238,26 @@ ExprPtr getRowConstructorExpr(
       trackCpuUsage);
 }
 
+ExprPtr getRowConstructorWithNullExpr(
+    const core::QueryConfig& config,
+    const TypePtr& type,
+    std::vector<ExprPtr>&& compiledChildren,
+    bool trackCpuUsage) {
+  static auto rowConstructorVectorFunction =
+      vectorFunctionFactories().withRLock([&config](auto& functionMap) {
+        auto functionIterator = functionMap.find(exec::kRowConstructorWithNull);
+        return functionIterator->second.factory(
+            exec::kRowConstructorWithNull, {}, config);
+      });
+
+  return std::make_shared<Expr>(
+      type,
+      std::move(compiledChildren),
+      rowConstructorVectorFunction,
+      "row_constructor_with_null",
+      trackCpuUsage);
+}
+
 ExprPtr getSpecialForm(
     const core::QueryConfig& config,
     const std::string& name,
@@ -245,6 +266,10 @@ ExprPtr getSpecialForm(
     bool trackCpuUsage) {
   if (name == kRowConstructor) {
     return getRowConstructorExpr(
+        config, type, std::move(compiledChildren), trackCpuUsage);
+  }
+  if (name == kRowConstructorWithNull) {
+    return getRowConstructorWithNullExpr(
         config, type, std::move(compiledChildren), trackCpuUsage);
   }
 
