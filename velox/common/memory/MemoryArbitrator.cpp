@@ -50,6 +50,10 @@ std::unique_ptr<MemoryArbitrator> MemoryArbitrator::create(
   }
 }
 
+uint64_t MemoryArbitrator::capacity() {
+  return capacity_;
+}
+
 std::unique_ptr<MemoryReclaimer> MemoryReclaimer::create() {
   return std::unique_ptr<MemoryReclaimer>(new MemoryReclaimer());
 }
