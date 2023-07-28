@@ -35,10 +35,10 @@ bool registerConnectorFactory(std::shared_ptr<ConnectorFactory> factory) {
   factory->initialize();
   bool ok =
       connectorFactories().insert({factory->connectorName(), factory}).second;
-  VELOX_CHECK(
-      ok,
-      "ConnectorFactory with name '{}' is already registered",
-      factory->connectorName());
+  if (!ok) {
+    LOG(WARNING) << "ConnectorFactory with name " << factory->connectorName()
+                 << " is already registered.";
+  }
   return true;
 }
 
