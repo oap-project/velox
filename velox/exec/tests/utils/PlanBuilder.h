@@ -464,6 +464,9 @@ class PlanBuilder {
       const std::vector<std::string>& aggregationInputs,
       std::string groupIdName = "group_id");
 
+  PlanBuilder& expand(
+      const std::vector<std::vector<std::string>>& projectionSets);
+
   /// Add a LocalMergeNode using specified ORDER BY clauses.
   ///
   /// For example,

@@ -764,6 +764,56 @@ class TableWriteMergeNode : public PlanNode {
   const RowTypePtr outputType_;
 };
 
+/// Plan node used to apply all of the projections expressions to every input
+/// row, hence we will get mulitple output row for an input rows. This has
+/// similar behavior to spark ExpandExec.
+class ExpandNode : public PlanNode {
+ public:
+  /// @param id Plan node ID.
+  /// @param projectSets A list of project sets. The output conatins one cloumn
+  /// for each project expr. The project expr may be cloumn reference, null or
+  /// int constant.
+  /// @param names The names and order of the projects in the output.
+  /// @param source Input plan node.
+  ExpandNode(
+      PlanNodeId id,
+      std::vector<std::vector<TypedExprPtr>> projectSets,
+      std::vector<std::string> names,
+      PlanNodePtr source);
+
+  const RowTypePtr& outputType() const override {
+    return outputType_;
+  }
+
+  const std::vector<PlanNodePtr>& sources() const override {
+    return sources_;
+  }
+
+  const std::vector<std::vector<TypedExprPtr>>& projectSets() const {
+    return projectSets_;
+  }
+
+  const std::vector<std::string>& names() const {
+    return names_;
+  }
+
+  std::string_view name() const override {
+    return "Expand";
+  }
+
+  folly::dynamic serialize() const override;
+
+  static PlanNodePtr create(const folly::dynamic& obj, void* context);
+
+ private:
+  void addDetails(std::stringstream& stream) const override;
+
+  const std::vector<PlanNodePtr> sources_;
+  const RowTypePtr outputType_;
+  const std::vector<std::vector<TypedExprPtr>> projectSets_;
+  const std::vector<std::string> names_;
+};
+
 /// Plan node used to implement aggregations over grouping sets. Duplicates the
 /// aggregation input for each set of grouping keys. The output contains one
 /// column for each grouping key, followed by aggregation inputs, followed by a
