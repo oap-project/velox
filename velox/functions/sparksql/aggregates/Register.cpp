@@ -32,6 +32,6 @@ void registerAggregateFunctions(const std::string& prefix) {
   registerBitwiseXorAggregate(prefix);
   registerBloomFilterAggAggregate(prefix + "bloom_filter_agg");
   registerAverage(prefix + "avg");
-  registerDecimalSumAggregate(prefix + "sum");
+  registerSumAggregate(prefix + "sum");
 }
 } // namespace facebook::velox::functions::aggregate::sparksql

@@ -255,12 +255,17 @@ TypePtr SwitchExpr::resolveType(const std::vector<TypePtr>& argTypes) {
   if (hasElse) {
     auto& elseClauseType = argTypes.back();
 
-    VELOX_CHECK(
+    if (elseClauseType->isDecimal()) {
+      // Regard decimals as the same type regardless of precision and scale.
+      VELOX_CHECK(expressionType->isDecimal());
+    } else {
+      VELOX_CHECK(
         *elseClauseType == *expressionType,
         "Else clause of a SWITCH statement must have the same type as 'then' clauses. "
         "Expected {}, but got {}.",
         expressionType->toString(),
         elseClauseType->toString());
+    }
   }
 
   return expressionType;

@@ -499,7 +499,9 @@ AggregateRegistrationResult registerFirstLast(const std::string& name) {
                 name,
                 inputType->toString());
         }
-      });
+      },
+      /*registerCompanionFunctions*/ true,
+      /*overwrite*/ true);
 }
 
 void registerFirstLastAggregates(const std::string& prefix) {

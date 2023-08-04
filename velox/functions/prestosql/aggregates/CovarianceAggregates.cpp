@@ -608,7 +608,8 @@ exec::AggregateRegistrationResult registerCovariance(const std::string& name) {
                 "Unsupported raw input type: {}. Expected DOUBLE or REAL.",
                 rawInputType->toString())
         }
-      });
+      },
+      true);
 }
 
 } // namespace

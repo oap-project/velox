@@ -18,6 +18,8 @@
 #include "velox/expression/FunctionSignature.h"
 #include "velox/vector/FlatVector.h"
 
+#include "velox/functions/prestosql/aggregates/SumAggregate.h"
+
 namespace facebook::velox::functions::aggregate::sparksql {
 
 struct DecimalSum {
@@ -377,9 +379,19 @@ class DecimalSumAggregate : public exec::Aggregate {
   TypePtr sumType_;
 };
 
-exec::AggregateRegistrationResult registerDecimalSumAggregate(
+exec::AggregateRegistrationResult registerSumAggregate(
     const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
+      exec::AggregateFunctionSignatureBuilder()
+          .returnType("real")
+          .intermediateType("double")
+          .argumentType("real")
+          .build(),
+      exec::AggregateFunctionSignatureBuilder()
+          .returnType("double")
+          .intermediateType("double")
+          .argumentType("double")
+          .build(),
       exec::AggregateFunctionSignatureBuilder()
           .integerVariable("a_precision")
           .integerVariable("a_scale")
@@ -388,7 +400,16 @@ exec::AggregateRegistrationResult registerDecimalSumAggregate(
           .argumentType("DECIMAL(a_precision, a_scale)")
           .intermediateType("ROW(DECIMAL(r_precision, r_scale), boolean)")
           .returnType("DECIMAL(r_precision, r_scale)")
-          .build()};
+          .build(),
+  };
+
+  for (const auto& inputType : {"tinyint", "smallint", "integer", "bigint"}) {
+    signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                             .returnType("bigint")
+                             .intermediateType("bigint")
+                             .argumentType(inputType)
+                             .build());
+  }
 
   return exec::registerAggregateFunction(
       name,
@@ -401,12 +422,24 @@ exec::AggregateRegistrationResult registerDecimalSumAggregate(
           -> std::unique_ptr<exec::Aggregate> {
         VELOX_CHECK_EQ(argTypes.size(), 1, "{} takes only one argument", name);
         auto& inputType = argTypes[0];
-        auto sumType =
-            exec::isPartialOutput(step) ? resultType->childAt(0) : resultType;
         switch (inputType->kind()) {
+          case TypeKind::TINYINT:
+            return std::make_unique<velox::aggregate::prestosql::
+                                        SumAggregate<int8_t, int64_t, int64_t>>(
+                BIGINT());
+          case TypeKind::SMALLINT:
+            return std::make_unique<
+                velox::aggregate::prestosql::
+                    SumAggregate<int16_t, int64_t, int64_t>>(BIGINT());
+          case TypeKind::INTEGER:
+            return std::make_unique<
+                velox::aggregate::prestosql::
+                    SumAggregate<int32_t, int64_t, int64_t>>(BIGINT());
           case TypeKind::BIGINT: {
-            DCHECK(exec::isRawInput(step));
             if (inputType->isShortDecimal()) {
+              auto sumType = exec::isPartialOutput(step)
+                  ? resultType->childAt(0)
+                  : resultType;
               if (sumType->isShortDecimal()) {
                 return std::make_unique<DecimalSumAggregate<int64_t, int64_t>>(
                     resultType, sumType);
@@ -414,19 +447,48 @@ exec::AggregateRegistrationResult registerDecimalSumAggregate(
                 return std::make_unique<DecimalSumAggregate<int64_t, int128_t>>(
                     resultType, sumType);
               }
+              VELOX_UNREACHABLE();
             }
+            return std::make_unique<
+                velox::aggregate::prestosql::
+                    SumAggregate<int64_t, int64_t, int64_t>>(BIGINT());
           }
-          case TypeKind::HUGEINT:
+          case TypeKind::HUGEINT: {
             if (inputType->isLongDecimal()) {
+              auto sumType = exec::isPartialOutput(step)
+                  ? resultType->childAt(0)
+                  : resultType;
               // If inputType is long decimal,
               // its output type always be long decimal.
               return std::make_unique<DecimalSumAggregate<int128_t, int128_t>>(
                   resultType, sumType);
             }
+            VELOX_NYI();
+          }
+          case TypeKind::REAL:
+            if (resultType->kind() == TypeKind::REAL) {
+              return std::make_unique<velox::aggregate::prestosql::
+                                          SumAggregate<float, double, float>>(
+                  resultType);
+            }
+            return std::make_unique<velox::aggregate::prestosql::
+                                        SumAggregate<float, double, double>>(
+                DOUBLE());
+          case TypeKind::DOUBLE:
+            if (resultType->kind() == TypeKind::REAL) {
+              return std::make_unique<velox::aggregate::prestosql::
+                                          SumAggregate<double, double, float>>(
+                  resultType);
+            }
+            return std::make_unique<velox::aggregate::prestosql::
+                                        SumAggregate<double, double, double>>(
+                DOUBLE());
           case TypeKind::ROW: {
             DCHECK(!exec::isRawInput(step));
             // For intermediate input agg, input intermediate sum type
             // is equal to final result sum type.
+            auto sumType = exec::isPartialOutput(step) ? resultType->childAt(0)
+                                                       : resultType;
             if (inputType->childAt(0)->isShortDecimal()) {
               return std::make_unique<DecimalSumAggregate<int64_t, int64_t>>(
                   resultType, sumType);
@@ -443,7 +505,8 @@ exec::AggregateRegistrationResult registerDecimalSumAggregate(
                 inputType->kindName());
         }
       },
-      true);
+      /*registerCompanionFunctions*/ true,
+      /*overwrite*/ true);
 }
 
 } // namespace facebook::velox::functions::aggregate::sparksql

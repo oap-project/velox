@@ -272,7 +272,8 @@ exec::AggregateRegistrationResult registerSum(const std::string& name) {
                 name,
                 inputType->kindName());
         }
-      });
+      },
+      true);
 }
 
 } // namespace facebook::velox::aggregate::prestosql
