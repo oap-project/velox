@@ -119,6 +119,10 @@ TEST_F(MinMaxTest, maxVarchar) {
   doTest(max, VARCHAR());
 }
 
+TEST_F(MinMaxTest, maxVarbinary) {
+  doTest(max, VARBINARY());
+}
+
 TEST_F(MinMaxTest, maxBoolean) {
   doTest(max, BOOLEAN());
 }
@@ -157,6 +161,10 @@ TEST_F(MinMaxTest, minInterval) {
 
 TEST_F(MinMaxTest, minVarchar) {
   doTest(min, VARCHAR());
+}
+
+TEST_F(MinMaxTest, minVarbinary) {
+  doTest(min, VARBINARY());
 }
 
 TEST_F(MinMaxTest, minBoolean) {

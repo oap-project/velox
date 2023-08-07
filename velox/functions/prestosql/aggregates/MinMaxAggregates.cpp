@@ -508,6 +508,7 @@ exec::AggregateRegistrationResult registerMinMax(const std::string& name) {
           case TypeKind::HUGEINT:
             return std::make_unique<TNumeric<int128_t>>(resultType);
           case TypeKind::VARCHAR:
+          case TypeKind::VARBINARY:
           case TypeKind::ARRAY:
           case TypeKind::MAP:
           case TypeKind::ROW:
