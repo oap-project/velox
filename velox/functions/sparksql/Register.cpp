@@ -23,7 +23,6 @@
 #include "velox/functions/prestosql/StringFunctions.h"
 #include "velox/functions/sparksql/ArraySort.h"
 #include "velox/functions/sparksql/Bitwise.h"
-#include "velox/functions/sparksql/CompareFunctionsNullSafe.h"
 #include "velox/functions/sparksql/DateTimeFunctions.h"
 #include "velox/functions/sparksql/DecimalVectorFunctions.h"
 #include "velox/functions/sparksql/Hash.h"
@@ -158,10 +157,6 @@ void registerFunctions(const std::string& prefix) {
 
   // Register 'in' functions.
   registerIn(prefix);
-
-  // Compare nullsafe functions
-  exec::registerStatefulVectorFunction(
-      prefix + "equalnullsafe", equalNullSafeSignatures(), makeEqualNullSafe);
 
   // These vector functions are only accessible via the
   // VELOX_REGISTER_VECTOR_FUNCTION macro, which must be invoked in the same
