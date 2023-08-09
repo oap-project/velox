@@ -88,6 +88,17 @@ class DecimalUtil {
   /// Helper function to convert a decimal value to string.
   static std::string toString(const int128_t value, const TypePtr& type);
 
+  // Helper function to be compatible with macos whose `std::abs` does not
+  // support int128_t.
+  static int128_t absInt128(int128_t __x) {
+#ifdef __APPLE__
+    int128_t __sgn = __x >> (16 * CHAR_BIT - 1);
+    return (__x ^ __sgn) - __sgn;
+#else
+    return std::abs(__x);
+#endif
+  }
+
   template <typename TInput, typename TOutput>
   inline static std::optional<TOutput> rescaleWithRoundUp(
       const TInput inputValue,
@@ -150,7 +161,7 @@ class DecimalUtil {
 
     // convert scaled double to int128
     int32_t sign = unscaled < 0 ? -1 : 1;
-    auto unscaled_abs = std::abs(unscaled);
+    auto unscaled_abs = absInt128(unscaled);
 
     uint64_t high_bits = static_cast<uint64_t>(std::ldexp(unscaled_abs, -64));
     uint64_t low_bits = static_cast<uint64_t>(
@@ -422,7 +433,7 @@ class DecimalUtil {
       new_value = value;
       sig = 1;
     } else if (value < 0) {
-      new_value = std::abs(value);
+      new_value = absInt128(value);
       sig = -1;
     } else {
       new_value = value;
@@ -473,7 +484,7 @@ class DecimalUtil {
       new_value = value;
       sig = 1;
     } else if (value < 0) {
-      new_value = std::abs(value);
+      new_value = absInt128(value);
       sig = -1;
     } else {
       new_value = value;

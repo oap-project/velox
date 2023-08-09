@@ -97,12 +97,13 @@ class DecimalUtilOp {
       const A& num,
       uint8_t aRescale) {
     auto value = num;
-    auto valueAbs = std::abs(value);
     int32_t num_occupied = 0;
     if constexpr (std::is_same_v<A, int64_t>) {
+      auto valueAbs = std::abs(value);
       num_occupied = 64 - bits::countLeadingZeros(valueAbs);
     } else {
-      num_occupied = 128 - bits::countLeadingZerosUint128(std::abs(num));
+      num_occupied =
+          128 - bits::countLeadingZerosUint128(DecimalUtil::absInt128(num));
     }
 
     return num_occupied + maxBitsRequiredIncreaseAfterScaling(aRescale);
@@ -122,18 +123,15 @@ class DecimalUtilOp {
   template <typename A, typename B>
   inline static int32_t
   minLeadingZeros(const A& a, const B& b, uint8_t aScale, uint8_t bScale) {
-    auto x_value_abs = std::abs(a);
-
-    auto y_value_abs = std::abs(b);
     int32_t x_lz = 0;
     int32_t y_lz = 0;
     if constexpr (std::is_same_v<A, int128_t>) {
-      x_lz = bits::countLeadingZerosUint128(std::abs(a));
+      x_lz = bits::countLeadingZerosUint128(DecimalUtil::absInt128(a));
     } else {
       x_lz = bits::countLeadingZeros(a);
     }
     if constexpr (std::is_same_v<B, int128_t>) {
-      y_lz = bits::countLeadingZerosUint128(std::abs(b));
+      y_lz = bits::countLeadingZerosUint128(DecimalUtil::absInt128(b));
     } else {
       y_lz = bits::countLeadingZeros(b);
     }
@@ -239,10 +237,7 @@ class DecimalUtilOp {
       if constexpr (std::is_same_v<R, int64_t>) {
         auto result = convertToInt64(result_large, overflow);
         auto remainder = convertToInt64(remainder_large, overflow);
-        if (!(result >= DecimalUtil::kLongDecimalMin &&
-              result <= DecimalUtil::kLongDecimalMax)) {
-          *overflow = true;
-        } else {
+        if (!overflow) {
           r = result;
         }
         return remainder;

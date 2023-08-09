@@ -349,7 +349,7 @@ class RleDecoderV2 : public dwio::common::IntDecoder<isSigned> {
    */
   void next(int64_t* data, uint64_t numValues, const uint64_t* nulls) override;
 
-  void nextLengths(int32_t* const data, const int32_t numValues) {
+  void nextLengths(int32_t* const data, const int32_t numValues) override {
     for (int i = 0; i < numValues; ++i) {
       data[i] = readValue();
     }

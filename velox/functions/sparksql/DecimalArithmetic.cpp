@@ -479,12 +479,14 @@ class Multiply {
         int32_t countLeadingZerosA = 0;
         int32_t countLeadingZerosB = 0;
         if constexpr (std::is_same_v<A, int128_t>) {
-          countLeadingZerosA = bits::countLeadingZerosUint128(std::abs(a));
+          countLeadingZerosA =
+              bits::countLeadingZerosUint128(DecimalUtil::absInt128(a));
         } else {
           countLeadingZerosA = bits::countLeadingZeros(a);
         }
         if constexpr (std::is_same_v<R, int128_t>) {
-          countLeadingZerosB = bits::countLeadingZerosUint128(std::abs(b));
+          countLeadingZerosB =
+              bits::countLeadingZerosUint128(DecimalUtil::absInt128(b));
         } else {
           countLeadingZerosB = bits::countLeadingZeros(b);
         }

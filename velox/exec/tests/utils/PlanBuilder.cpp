@@ -714,7 +714,8 @@ PlanBuilder& PlanBuilder::expand(
             field(planNode_->outputType(), projectionSet[i]));
       } else {
         projectExprs.push_back(std::make_shared<core::ConstantTypedExpr>(
-            BIGINT(), variant(std::stol(projectionSet[i]))));
+            BIGINT(),
+            variant(static_cast<int64_t>(std::stol(projectionSet[i])))));
       }
     }
     projectSetExprs.push_back(projectExprs);

@@ -141,6 +141,11 @@ function cmake_install {
     -DBUILD_TESTING=OFF \
     "$@"
   ninja -C "${BINARY_DIR}"
-  sudo ninja -C "${BINARY_DIR}" install
+  local OS=`uname -s`
+  if [ $OS == 'Darwin' ]; then
+    ninja -C "${BINARY_DIR}" install
+  else
+    sudo ninja -C "${BINARY_DIR}" install
+  fi
 }
 
