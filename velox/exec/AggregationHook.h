@@ -183,7 +183,7 @@ class SimpleCallableHook final : public AggregationHook {
         updateSingleValue_(updateSingleValue) {}
 
   std::string toString() const override {
-    char buf[256];
+    char buf[384];
     snprintf(
         buf,
         sizeof(buf),
