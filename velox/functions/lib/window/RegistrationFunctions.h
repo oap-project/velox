@@ -18,7 +18,8 @@
 #include <string>
 
 namespace facebook::velox::functions::window {
-void registerBigintNthValue(const std::string& name);
-
-void registerIntegerNthValue(const std::string& name);
+void registerNthValueBigint(const std::string& name);
+void registerNthValueInteger(const std::string& name);
+void registerRowNumberBigint(const std::string& name);
+void registerRowNumberInteger(const std::string& name);
 } // namespace facebook::velox::functions::window
