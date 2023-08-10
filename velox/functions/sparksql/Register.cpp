@@ -25,6 +25,7 @@
 #include "velox/functions/sparksql/Bitwise.h"
 #include "velox/functions/sparksql/CompareFunctionsNullSafe.h"
 #include "velox/functions/sparksql/DateTimeFunctions.h"
+#include "velox/functions/sparksql/DecimalVectorFunctions.h"
 #include "velox/functions/sparksql/Hash.h"
 #include "velox/functions/sparksql/In.h"
 #include "velox/functions/sparksql/LeastGreatest.h"
@@ -68,6 +69,13 @@ static void workAroundRegistrationMacro(const std::string& prefix) {
 }
 
 namespace sparksql {
+
+void registerExpressionGeneralFunctions(const std::string& prefix) {
+  exec::registerStatefulVectorFunction(
+      prefix + "make_decimal_by_unscaled_value",
+      makeDecimalByUnscaledValueSignatures(),
+      makeMakeDecimalByUnscaledValue);
+}
 
 void registerFunctions(const std::string& prefix) {
   registerFunction<RandFunction, double>({prefix + "rand"});
@@ -217,6 +225,8 @@ void registerFunctions(const std::string& prefix) {
   // Register bloom filter function
   registerFunction<BloomFilterMightContainFunction, bool, Varbinary, int64_t>(
       {prefix + "might_contain"});
+
+  registerExpressionGeneralFunctions(prefix);
 }
 
 } // namespace sparksql

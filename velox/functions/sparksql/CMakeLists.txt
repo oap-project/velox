@@ -18,6 +18,7 @@ add_library(
   Bitwise.cpp
   CompareFunctionsNullSafe.cpp
   DecimalArithmetic.cpp
+  DecimalVectorFunctions.cpp
   Hash.cpp
   In.cpp
   LeastGreatest.cpp
