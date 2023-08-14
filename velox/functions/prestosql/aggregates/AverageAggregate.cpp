@@ -143,7 +143,7 @@ exec::AggregateRegistrationResult registerAverage(const std::string& name) {
 } // namespace
 
 void registerAverageAggregate(const std::string& prefix) {
-  registerAverage(prefix + kAvg);
+  // registerAverage(prefix + kAvg);
 }
 
 } // namespace facebook::velox::aggregate::prestosql
