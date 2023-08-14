@@ -87,6 +87,14 @@ class DecimalUtil {
         value);
   }
 
+  FOLLY_ALWAYS_INLINE static bool valueInRangeWithPrecision(
+      int128_t value,
+      int32_t precision) {
+    auto kMax = kPowersOfTen[precision] - 1;
+    auto kMin = -kPowersOfTen[precision] + 1;
+    return value >= kMin && value <= kMax;
+  }
+
   /// Helper function to convert a decimal value to string.
   static std::string toString(const int128_t value, const TypePtr& type);
 
