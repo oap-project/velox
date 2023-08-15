@@ -26,6 +26,8 @@
 #include <x86intrin.h>
 #endif
 
+#include "velox/common/base/Exceptions.h"
+
 namespace facebook {
 namespace velox {
 namespace bits {
@@ -691,8 +693,19 @@ bool inline hasIntersection(
       });
 }
 
-inline int32_t countLeadingZeros(uint64_t word) {
-  return __builtin_clzll(word);
+template <typename T = uint64_t>
+inline int32_t countLeadingZeros(T word) {
+  if constexpr (std::is_same_v<T, uint64_t>) {
+    return __builtin_clzll(word);
+  } else if constexpr (std::is_same_v<T, __uint128_t>) {
+    // uint128_t
+    uint64_t hi = word >> 64;
+    uint64_t lo = static_cast<uint64_t>(word);
+    return (hi == 0) ? 64 + __builtin_clzll(lo) : __builtin_clzll(hi);
+  } else {
+    VELOX_UNSUPPORTED(
+        "countLeadingZeros for {} not implemented", typeid(T).name());
+  }
 }
 
 inline uint64_t nextPowerOfTwo(uint64_t size) {

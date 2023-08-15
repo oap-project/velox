@@ -57,6 +57,12 @@ Mathematical Functions
         SELECT 2L / 2L; -- 1.0
         SELECT 3 / 0; -- NULL
 
+.. spark:function:: divide(x, y) -> decimal
+
+    Returns the results of dividing x by y. The types of x and y must be decimal.
+    Performs floating point division.
+    Overflow results return null. Corresponds to Spark's operator ``/``.
+
 .. spark:function:: exp(x) -> double
 
     Returns Euler's number raised to the power of ``x``.
@@ -88,6 +94,12 @@ Mathematical Functions
 
     Returns the result of multiplying x by y. The types of x and y must be the same.
     For integral types, overflow results in an error. Corresponds to Spark's operator ``*``.
+
+.. spark:function:: multiply(x, y) -> [decimal]
+
+    Returns the result of multiplying x by y. The types of x and y must be decimal.
+    Overflow results return null. Corresponds to Spark's operator ``*``.
+    Result mismatches with Spark in some corner cases.
 
 .. spark:function:: not(x) -> boolean
 
