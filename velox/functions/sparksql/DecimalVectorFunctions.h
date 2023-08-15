@@ -23,4 +23,7 @@ std::shared_ptr<exec::VectorFunction> makeMakeDecimalByUnscaledValue(
     const std::string& name,
     const std::vector<exec::VectorFunctionArg>& inputArgs,
     const core::QueryConfig& config);
+
+std::vector<std::shared_ptr<exec::FunctionSignature>> unscaledValueSignatures();
+std::unique_ptr<exec::VectorFunction> makeUnscaledValue();
 } // namespace facebook::velox::functions::sparksql
