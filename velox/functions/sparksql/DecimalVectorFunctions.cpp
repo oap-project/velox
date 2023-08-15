@@ -18,6 +18,7 @@
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/prestosql/ArithmeticImpl.h"
 #include "velox/type/DecimalUtil.h"
+#include "velox/functions/sparksql/DecimalVectorFunctions.h"
 
 namespace facebook::velox::functions::sparksql {
 namespace {
@@ -67,6 +68,30 @@ class MakeDecimalFunction final : public exec::VectorFunction {
  private:
   uint8_t precision_;
 };
+
+// Return the unscaled bigint value of a decimal, assuming it
+// fits in a bigint. Only short decimal input is accepted.
+class UnscaledValueFunction final : public exec::VectorFunction {
+  void apply(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      const TypePtr& outputType,
+      exec::EvalCtx& context,
+      VectorPtr& result) const final {
+    VELOX_CHECK_EQ(args.size(), 1);
+    VELOX_CHECK(
+        args[0]->type()->isShortDecimal(), "ShortDecimal type is required.");
+    exec::DecodedArgs decodedArgs(rows, args, context);
+    auto decimalVector = decodedArgs.at(0);
+    context.ensureWritable(rows, BIGINT(), result);
+    result->clearNulls(rows);
+    auto flatResult =
+        result->asUnchecked<FlatVector<int64_t>>()->mutableRawValues();
+    rows.applyToSelected([&](auto row) {
+      flatResult[row] = decimalVector->valueAt<int64_t>(row);
+    });
+  }
+};
 } // namespace
 
 std::vector<std::shared_ptr<exec::FunctionSignature>>
@@ -108,5 +133,19 @@ std::shared_ptr<exec::VectorFunction> makeMakeDecimalByUnscaledValue(
           type->asLongDecimal().precision());
     }
   }
+}
+
+std::vector<std::shared_ptr<exec::FunctionSignature>>
+unscaledValueSignatures() {
+  return {exec::FunctionSignatureBuilder()
+              .integerVariable("a_precision", "min(18, a_precision + 1)")
+              .integerVariable("a_scale")
+              .returnType("bigint")
+              .argumentType("DECIMAL(a_precision, a_scale)")
+              .build()};
+}
+
+std::unique_ptr<exec::VectorFunction> makeUnscaledValue() {
+  return std::make_unique<UnscaledValueFunction>();
 }
 } // namespace facebook::velox::functions::sparksql
