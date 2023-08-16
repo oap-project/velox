@@ -164,11 +164,7 @@ class DecimalUtil {
     // Check overflow.
     if (rescaledValue < -DecimalUtil::kPowersOfTen[toPrecision] ||
         rescaledValue > DecimalUtil::kPowersOfTen[toPrecision] || isOverflow) {
-      VELOX_USER_FAIL(
-          "Cannot cast DECIMAL '{}' to DECIMAL({},{})",
-          DecimalUtil::toString(inputValue, DECIMAL(fromPrecision, fromScale)),
-          toPrecision,
-          toScale);
+      return std::nullopt;
     }
     return static_cast<TOutput>(rescaledValue);
   }
@@ -390,6 +386,21 @@ class DecimalUtil {
       DecimalUtil::addWithOverflow(avg, sumA, sumB);
       avg = avg * overflow + (int)(totalRemainder * overflow);
     }
+  }
+
+  inline static std::optional<int128_t>
+  computeValidSum(int128_t sum, int64_t overflow) {
+    // Value is valid if the conditions below are true.
+    int128_t validSum = sum;
+    if ((overflow == 1 && sum < 0) || (overflow == -1 && sum > 0)) {
+      validSum = static_cast<int128_t>(
+          DecimalUtil::kOverflowMultiplier * overflow + sum);
+    } else {
+      if (overflow != 0) {
+        return std::nullopt;
+      }
+    }
+    return validSum;
   }
 
   /// Origins from java side BigInteger#bitLength.
