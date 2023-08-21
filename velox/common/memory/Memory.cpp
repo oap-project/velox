@@ -65,6 +65,9 @@ MemoryManager::MemoryManager(const MemoryManagerOptions& options)
         "Memory arbitrator and memory manager must have the same capacity");
   }
   VELOX_USER_CHECK_GE(capacity_, 0);
+  if (arbitrator_ != nullptr) {
+    VELOX_CHECK_EQ(arbitrator_->capacity(), capacity_);
+  }
   MemoryAllocator::alignmentCheck(0, alignment_);
   defaultRoot_->grow(defaultRoot_->maxCapacity());
   const size_t numSharedPools =
@@ -134,19 +137,22 @@ std::shared_ptr<MemoryPool> MemoryManager::addRootPool(
   options.checkUsageLeak = checkUsageLeak_;
   options.debugEnabled = debugEnabled_;
 
-  folly::SharedMutex::WriteHolder guard{mutex_};
-  if (pools_.find(poolName) != pools_.end()) {
-    VELOX_FAIL("Duplicate root pool name found: {}", poolName);
+  std::shared_ptr<MemoryPool> pool;
+  {
+    folly::SharedMutex::WriteHolder guard{mutex_};
+    if (pools_.find(poolName) != pools_.end()) {
+      VELOX_FAIL("Duplicate root pool name found: {}", poolName);
+    }
+    pool = std::make_shared<MemoryPoolImpl>(
+        this,
+        poolName,
+        MemoryPool::Kind::kAggregate,
+        nullptr,
+        std::move(reclaimer),
+        poolDestructionCb_,
+        options);
+    pools_.emplace(poolName, pool);
   }
-  auto pool = std::make_shared<MemoryPoolImpl>(
-      this,
-      poolName,
-      MemoryPool::Kind::kAggregate,
-      nullptr,
-      std::move(reclaimer),
-      poolDestructionCb_,
-      options);
-  pools_.emplace(poolName, pool);
   VELOX_CHECK_EQ(pool->capacity(), 0);
   if (arbitrator_ != nullptr) {
     arbitrator_->reserveMemory(pool.get(), capacity);
@@ -169,6 +175,14 @@ std::shared_ptr<MemoryPool> MemoryManager::addLeafPool(
   return defaultRoot_->addLeafChild(poolName, threadSafe, nullptr);
 }
 
+uint64_t MemoryManager::shrinkPool(MemoryPool* pool, uint64_t decrementBytes) {
+  VELOX_CHECK_NOT_NULL(pool);
+  if (arbitrator_ == nullptr) {
+    return pool->shrink(decrementBytes);
+  }
+  return arbitrator_->releaseMemory(pool, decrementBytes);
+}
+
 bool MemoryManager::growPool(MemoryPool* pool, uint64_t incrementBytes) {
   VELOX_CHECK_NOT_NULL(pool);
   VELOX_CHECK_NE(pool->capacity(), kMaxMemory);
@@ -185,14 +199,16 @@ uint64_t MemoryManager::shrinkPools(uint64_t targetBytes) {
 
 void MemoryManager::dropPool(MemoryPool* pool) {
   VELOX_CHECK_NOT_NULL(pool);
-  folly::SharedMutex::WriteHolder guard{mutex_};
-  auto it = pools_.find(pool->name());
-  if (it == pools_.end()) {
-    VELOX_FAIL("The dropped memory pool {} not found", pool->name());
+  {
+    folly::SharedMutex::WriteHolder guard{mutex_};
+    auto it = pools_.find(pool->name());
+    if (it == pools_.end()) {
+      VELOX_FAIL("The dropped memory pool {} not found", pool->name());
+    }
+    pools_.erase(it);
   }
-  pools_.erase(it);
   if (arbitrator_ != nullptr) {
-    arbitrator_->releaseMemory(pool);
+    arbitrator_->releaseMemory(pool, 0);
   }
 }
 

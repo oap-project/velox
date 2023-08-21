@@ -80,13 +80,9 @@ class FakeTestArbitrator : public MemoryArbitrator {
              .memoryPoolTransferCapacity = config.memoryPoolTransferCapacity,
              .retryArbitrationFailure = config.retryArbitrationFailure}) {}
 
-  void reserveMemory(MemoryPool* pool, uint64_t bytes) override {
-    VELOX_NYI();
-  }
+  void reserveMemory(MemoryPool* pool, uint64_t bytes) override{VELOX_NYI()}
 
-  void releaseMemory(MemoryPool* pool) override {
-    VELOX_NYI();
-  }
+  uint64_t releaseMemory(MemoryPool* pool, uint64_t bytes) override{VELOX_NYI()}
 
   std::string kind() override {
     return "USER";

@@ -98,6 +98,10 @@ void MemoryArbitrator::unregisterAllFactories() {
   SharedArbitrator::unregisterFactory();
 }
 
+uint64_t MemoryArbitrator::capacity() {
+  return capacity_;
+}
+
 std::unique_ptr<MemoryReclaimer> MemoryReclaimer::create() {
   return std::unique_ptr<MemoryReclaimer>(new MemoryReclaimer());
 }

@@ -208,6 +208,7 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
     hashBits = HashBitRange(startBit, startBit + spillConfig.joinPartitionBits);
   }
 
+  spillFinished_ = false;
   spiller_ = std::make_unique<Spiller>(
       Spiller::Type::kHashJoinBuild,
       table_->rows(),
@@ -228,6 +229,11 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
   rawSpillInputIndicesBuffers_.resize(numPartitions);
   numSpillInputs_.resize(numPartitions, 0);
   spillChildVectors_.resize(tableType_->size());
+}
+
+void HashBuild::finishSpill(SpillPartitionSet& partitionSet) {
+  spiller_->finishSpill(partitionSet);
+  spillFinished_ = true;
 }
 
 bool HashBuild::isInputFromSpill() const {
@@ -779,33 +785,40 @@ bool HashBuild::finishHashBuild() {
     VELOX_CHECK_NOT_NULL(build->table_);
     otherTables.push_back(std::move(build->table_));
     if (build->spiller_ != nullptr) {
-      build->spiller_->finishSpill(spillPartitions);
+      build->finishSpill(spillPartitions);
       build->recordSpillStats();
     }
   }
 
+  SpillPartitionSet nonEmptySpillPartitions;
   if (spiller_ != nullptr) {
-    spiller_->finishSpill(spillPartitions);
+    finishSpill(spillPartitions);
     recordSpillStats();
 
     // Verify all the spilled partitions are not empty as we won't spill on
     // an empty one.
-    for (const auto& spillPartitionEntry : spillPartitions) {
-      VELOX_CHECK_GT(spillPartitionEntry.second->numFiles(), 0);
+    for (auto& spillPartitionEntry : spillPartitions) {
+      if (FOLLY_UNLIKELY(spillPartitionEntry.second->numFiles() == 0)) {
+        continue;
+      }
+      nonEmptySpillPartitions.emplace(
+          spillPartitionEntry.first, std::move(spillPartitionEntry.second));
     }
   }
 
   // TODO: re-enable parallel join build with spilling triggered after
   // https://github.com/facebookincubator/velox/issues/3567 is fixed.
   const bool allowParallelJoinBuild =
-      !otherTables.empty() && spillPartitions.empty();
+      !otherTables.empty() && nonEmptySpillPartitions.empty();
   table_->prepareJoinTable(
       std::move(otherTables),
       allowParallelJoinBuild ? operatorCtx_->task()->queryCtx()->executor()
                              : nullptr);
   addRuntimeStats();
   if (joinBridge_->setHashTable(
-          std::move(table_), std::move(spillPartitions), joinHasNullKeys_)) {
+          std::move(table_),
+          std::move(nonEmptySpillPartitions),
+          joinHasNullKeys_)) {
     spillGroup_->restart();
   }
 
@@ -1062,12 +1075,13 @@ void HashBuild::reclaim(uint64_t /*unused*/) {
   // NOTE: a hash build operator is reclaimable if it is in the middle of table
   // build processing and is not under non-reclaimable execution section.
   if ((state_ != State::kRunning && state_ != State::kWaitForBuild) ||
-      nonReclaimableSection_) {
+      nonReclaimableSection_ || spillFinished_) {
     // TODO: add stats to record the non-reclaimable case and reduce the log
     // frequency if it is too verbose.
     LOG(WARNING) << "Can't reclaim from hash build operator, state_["
                  << stateName(state_) << "], nonReclaimableSection_["
-                 << nonReclaimableSection_ << "], " << toString();
+                 << nonReclaimableSection_ << "], spillFinished_["
+                 << spillFinished_ << "], " << toString();
     return;
   }
 

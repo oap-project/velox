@@ -120,9 +120,10 @@ class MemoryArbitrator {
   /// the memory arbitration on demand when actual memory allocation happens.
   virtual void reserveMemory(MemoryPool* pool, uint64_t bytes) = 0;
 
-  /// Invoked by the memory manager to return back all the reserved memory
-  /// capacity of a destroying memory pool.
-  virtual void releaseMemory(MemoryPool* pool) = 0;
+  /// Invoked by the memory manager to return back the specified amount of
+  /// reserved memory capacity of a destroying memory pool. If 0 is specified,
+  /// release all reserve memory. Returns the actually released amount of bytes.
+  virtual uint64_t releaseMemory(MemoryPool* pool, uint64_t bytes) = 0;
 
   /// Invoked by the memory manager to grow a memory pool's capacity.
   /// 'pool' is the memory pool to request to grow. 'candidates' is a list
@@ -148,6 +149,7 @@ class MemoryArbitrator {
       const std::vector<std::shared_ptr<MemoryPool>>& pools,
       uint64_t targetBytes) = 0;
 
+  uint64_t capacity();
   /// The internal execution stats of the memory arbitrator.
   struct Stats {
     /// The number of arbitration requests.
