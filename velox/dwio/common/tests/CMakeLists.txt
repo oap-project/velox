@@ -64,6 +64,8 @@ target_link_libraries(
   velox_parse_parser
   velox_vector_test_lib
   velox_link_libs
+  parquet
+  arrow
   Folly::folly
   fmt::fmt
   lz4::lz4

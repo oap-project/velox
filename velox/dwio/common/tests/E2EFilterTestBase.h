@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <arrow/type.h>
 #include "velox/common/time/Timer.h"
 #include "velox/dwio/common/BufferedInput.h"
 #include "velox/dwio/common/DataSink.h"
@@ -170,7 +171,8 @@ class E2EFilterTestBase : public testing::Test {
   virtual void writeToMemory(
       const TypePtr& type,
       const std::vector<RowVectorPtr>& batches,
-      bool forRowGroupSkip) = 0;
+      bool forRowGroupSkip,
+      std::shared_ptr<arrow::Schema> schema = nullptr) = 0;
 
   virtual std::unique_ptr<dwio::common::Reader> makeReader(
       const dwio::common::ReaderOptions& opts,

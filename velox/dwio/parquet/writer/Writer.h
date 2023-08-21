@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <arrow/type.h>
 #include "velox/common/compression/Compression.h"
 #include "velox/dwio/common/DataBuffer.h"
 #include "velox/dwio/common/DataSink.h"
@@ -94,6 +95,7 @@ struct WriterOptions {
   // The default factory allows the writer to construct the default flush
   // policy with the configs in its ctor.
   std::function<std::unique_ptr<DefaultFlushPolicy>()> flushPolicyFactory;
+  std::shared_ptr<arrow::Schema> schema;
 };
 
 // Writes Velox vectors into  a DataSink using Arrow Parquet writer.

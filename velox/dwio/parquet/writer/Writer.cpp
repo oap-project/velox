@@ -141,6 +141,11 @@ Writer::Writer(
   } else {
     flushPolicy_ = std::make_unique<DefaultFlushPolicy>();
   }
+
+  if (options.schema) {
+    arrowContext_->schema = options.schema;
+  }
+
   arrowContext_->properties =
       getArrowParquetWriterOptions(options, flushPolicy_);
 }
@@ -218,11 +223,11 @@ void Writer::write(const VectorPtr& data) {
       auto recordBatch, arrow::ImportRecordBatch(&array, &schema));
   if (!arrowContext_->schema) {
     arrowContext_->schema = recordBatch->schema();
-    for (int colIdx = 0; colIdx < arrowContext_->schema->num_fields();
-         colIdx++) {
-      arrowContext_->stagingChunks.push_back(
-          std::vector<std::shared_ptr<arrow::Array>>());
-    }
+  }
+
+  for (int colIdx = 0; colIdx < arrowContext_->schema->num_fields(); colIdx++) {
+    arrowContext_->stagingChunks.push_back(
+        std::vector<std::shared_ptr<arrow::Array>>());
   }
 
   auto bytes = data->estimateFlatSize();
