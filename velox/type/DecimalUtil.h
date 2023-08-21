@@ -193,6 +193,63 @@ class DecimalUtil {
     return static_cast<TOutput>(rescaledValue);
   }
 
+  // Derives from Arrow function DecimalFromString.
+  template <typename TOutput>
+  inline static std::optional<TOutput> rescaleVarchar(
+      const StringView& s,
+      const int toPrecision,
+      const int toScale) {
+    DecimalComponents dec;
+    VELOX_USER_CHECK(
+        parseDecimalComponents(s.data(), s.size(), &dec),
+        "Value {} is not a number",
+        s);
+
+    // Count number of significant digits (without leading zeros).
+    size_t firstNonZero = dec.wholeDigits.find_first_not_of('0');
+    size_t significantDigits = dec.fractionalDigits.size();
+    if (firstNonZero != std::string::npos) {
+      significantDigits += dec.wholeDigits.size() - firstNonZero;
+    }
+    int32_t parsedPrecision = static_cast<int32_t>(significantDigits);
+
+    int32_t parsedScale = 0;
+    if (dec.hasExponent) {
+      auto adjustedExponent = dec.exponent;
+      parsedScale =
+          -adjustedExponent + static_cast<int32_t>(dec.fractionalDigits.size());
+    } else {
+      parsedScale = static_cast<int32_t>(dec.fractionalDigits.size());
+    }
+
+    int128_t out = 0;
+    shiftAndAdd(dec.wholeDigits, out);
+    shiftAndAdd(dec.fractionalDigits, out);
+    if (dec.sign == '-') {
+      out = -out;
+    }
+
+    if (parsedScale < 0) {
+      /// Force the scale to zero, to avoid negative scales (due to
+      /// compatibility issues with external systems such as databases).
+      VELOX_USER_CHECK_LE(
+          -parsedScale,
+          LongDecimalType::kMaxScale,
+          "Value {} cannot be represented as DECIMAL({}, {})",
+          s,
+          toPrecision,
+          toScale);
+      out = checkedMultiply<int128_t>(
+          out, DecimalUtil::kPowersOfTen[-parsedScale], "HugeInt");
+      parsedPrecision -= parsedScale;
+      parsedScale = 0;
+    }
+
+    VELOX_USER_CHECK_LE(parsedPrecision, LongDecimalType::kMaxPrecision);
+    return DecimalUtil::rescaleWithRoundUp<int128_t, TOutput>(
+        out, parsedPrecision, parsedScale, toPrecision, toScale);
+  }
+
   template <typename R, typename A, typename B>
   inline static R divideWithRoundUp(
       R& r,
@@ -318,5 +375,87 @@ class DecimalUtil {
   static void toByteArray(int128_t value, char* out, int32_t& length);
 
   static constexpr __uint128_t kOverflowMultiplier = ((__uint128_t)1 << 127);
+
+ private:
+  struct DecimalComponents {
+    std::string_view wholeDigits;
+    std::string_view fractionalDigits;
+    int32_t exponent = 0;
+    char sign = 0;
+    bool hasExponent = false;
+  };
+
+  inline static size_t parseDigitsRun(
+      const char* s,
+      size_t start,
+      size_t size,
+      std::string_view* out) {
+    size_t pos;
+    for (pos = start; pos < size; ++pos) {
+      if (!(s[pos] >= '0' && s[pos] <= '9')) {
+        break;
+      }
+    }
+    *out = std::string_view(s + start, pos - start);
+    return pos;
+  }
+
+  static bool
+  parseDecimalComponents(const char* s, size_t size, DecimalComponents* out) {
+    size_t pos = 0;
+
+    if (size == 0) {
+      return false;
+    }
+    // Sign of the number.
+    if (s[pos] == '-' || s[pos] == '+') {
+      out->sign = *(s + pos);
+      ++pos;
+    }
+    // First run of digits.
+    pos = parseDigitsRun(s, pos, size, &out->wholeDigits);
+    if (pos == size) {
+      return !out->wholeDigits.empty();
+    }
+    // Optional dot (if given in fractional form).
+    if (s[pos] == '.') {
+      // Second run of digits.
+      ++pos;
+      pos = parseDigitsRun(s, pos, size, &out->fractionalDigits);
+    }
+    if (out->wholeDigits.empty() && out->fractionalDigits.empty()) {
+      // Need at least some digits (whole or fractional).
+      return false;
+    }
+    if (pos == size) {
+      return true;
+    }
+    // Optional exponent.
+    if (s[pos] == 'e' || s[pos] == 'E') {
+      ++pos;
+      if (pos != size && s[pos] == '+') {
+        ++pos;
+      }
+      out->hasExponent = true;
+      folly::StringPiece p = {s + pos, size - pos};
+      out->exponent =
+          folly::to<int32_t>(folly::StringPiece(s + pos, size - pos));
+      return true;
+    }
+    return pos == size;
+  }
+
+  /// Multiple out by the appropriate power of 10 necessary to add source parsed
+  /// as int128_t and then adds the parsed value of source.
+  inline static void shiftAndAdd(std::string_view input, int128_t& out) {
+    auto length = input.size();
+    if (length == 0) {
+      return;
+    }
+    out = checkedMultiply<int128_t>(out, DecimalUtil::kPowersOfTen[length]);
+    auto inputValue =
+        folly::to<int128_t>(folly::StringPiece(input.data(), length));
+    out = checkedPlus<int128_t>(inputValue, out);
+  }
 }; // DecimalUtil
 } // namespace facebook::velox

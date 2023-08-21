@@ -140,7 +140,7 @@ supported conversions to/from JSON are listed in :doc:`json`.
      - Y
      - Y
      - Y
-     -
+     - Y
    * - timestamp
      -
      -

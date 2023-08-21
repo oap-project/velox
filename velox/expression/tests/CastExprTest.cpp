@@ -1483,6 +1483,125 @@ TEST_F(CastExprTest, integerToDecimal) {
   testIntToDecimalCasts<int64_t>();
 }
 
+// The result is obtained by select cast('31.4e-2' as decimal(12, 2)).
+TEST_F(CastExprTest, varcharToDecimal) {
+  auto input = makeFlatVector<StringView>(
+      {"9999999999.99",
+       "15",
+       "1.5",
+       "-1.5",
+       "1.556",
+       "1.554",
+       ("1.556" + std::string(32, '1')).data(),
+       ("1.556" + std::string(32, '9')).data(),
+       "+09",
+       "9.",
+       ".9",
+       "3E2",
+       "-3E+2",
+       "3E+2",
+       "3E-2",
+       "3e+2",
+       "3e-2",
+       "3.5E-2",
+       "3.4E-2",
+       "3.5E+2",
+       "3.4E+2",
+       "31.423e+2",
+       "31.423e-2",
+       "31.523e-2"});
+  testComplexCast(
+      "c0",
+      input,
+      makeFlatVector<int64_t>(
+          {999'999'999'999,
+           1500,
+           150,
+           -150,
+           156,
+           155,
+           156,
+           156,
+           900,
+           900,
+           90,
+           30000,
+           -30000,
+           30000,
+           3,
+           30000,
+           3,
+           4,
+           3,
+           35000,
+           34000,
+           314230,
+           31,
+           32},
+          DECIMAL(12, 2)));
+
+  auto minDecimalStr = '-' + std::string(36, '9') + '.' + "99";
+  auto maxDecimalStr = std::string(36, '9') + '.' + "99";
+  testComplexCast(
+      "c0",
+      makeFlatVector<StringView>(
+          {StringView(minDecimalStr),
+           StringView(maxDecimalStr),
+           "123456789012345678901234.567"}),
+      makeFlatVector<int128_t>(
+          {
+              DecimalUtil::kLongDecimalMin,
+              DecimalUtil::kLongDecimalMax,
+              HugeInt::build(
+                  669260, 10962463713375599297U), // 12345678901234567890123457
+          },
+          DECIMAL(38, 2)));
+
+  testComplexCast(
+      "c0",
+      makeFlatVector<StringView>(
+          {StringView(('-' + std::string(38, '9')).data()),
+           StringView(std::string(38, '9').data())}),
+      makeFlatVector<int128_t>(
+          {DecimalUtil::kLongDecimalMin, DecimalUtil::kLongDecimalMax},
+          DECIMAL(38, 0)));
+
+  VELOX_ASSERT_THROW(
+      testComplexCast(
+          "c0",
+          makeConstant<StringView>(std::string(280, '9').data(), 1),
+          makeConstant<int128_t>(1, 1, DECIMAL(38, 0))),
+      "Overflow during conversion: \"" + std::string(280, '9'))
+
+  VELOX_ASSERT_THROW(
+      testComplexCast(
+          "c0",
+          makeConstant<StringView>("0.0444a", 1),
+          makeConstant<int128_t>(1, 1, DECIMAL(38, 0))),
+      "Value 0.0444a is not a number")
+
+  VELOX_ASSERT_THROW(
+      testComplexCast(
+          "c0",
+          makeConstant<StringView>("", 1),
+          makeConstant<int128_t>(1, 1, DECIMAL(38, 0))),
+      "Value  is not a number")
+
+  VELOX_ASSERT_THROW(
+      testComplexCast(
+          "c0",
+          makeConstant<StringView>("1.23e67", 1),
+          makeConstant<int128_t>(1, 1, DECIMAL(38, 0))),
+      "Value 1.23e67 cannot be represented as DECIMAL(38, 0)")
+
+  VELOX_ASSERT_THROW(
+      testComplexCast(
+          "c0",
+          makeConstant<StringView>("20908.23e35", 1),
+          makeConstant<int128_t>(1, 1, DECIMAL(38, 0))),
+      "HugeInt overflow: 2090823 * 1000000000000000000000000000000000")
+}
+
 TEST_F(CastExprTest, castInTry) {
   // Test try(cast(array(varchar) as array(bigint))) whose input vector is
   // wrapped in dictinary encoding. The row of ["2a"] should trigger an error
