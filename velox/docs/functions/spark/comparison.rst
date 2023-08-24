@@ -78,5 +78,27 @@ Comparison Functions
     Returns true if x is not equal to y. Supports all scalar types. The types
     of x and y must be the same. Corresponds to Spark's operator ``!=``.
 
+.. spark:function:: decimal_lt(x, y) -> boolean
 
+    Returns true if x is less than y. Supports decimal types with different precison and scales.
+    Corresponds to Spark's operator ``<``.
 
+.. spark:function:: decimal_lte(x, y) -> boolean
+
+    Returns true if x is less than y or x is equal to y. Supports decimal types with different precison and scales.
+    Corresponds to Spark's operator ``<=``.
+
+.. spark:function:: decimal_eq(x, y) -> boolean
+
+    Returns true if x is equal to y. Supports decimal types with different precison and scales.
+    Corresponds to Spark's operator ``==``.
+
+.. spark:function:: decimal_gt(x, y) -> boolean
+
+    Returns true if x is greater than y. Supports decimal types with different precison and scales.
+    Corresponds to Spark's operator ``>``.
+
+.. spark:function:: decimal_gte(x, y) -> boolean
+
+    Returns true if x is greater than y or x is equal to y. Supports decimal types with different precison and scales.
+    Corresponds to Spark's operator ``>=``.

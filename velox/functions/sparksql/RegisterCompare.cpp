@@ -50,6 +50,12 @@ void registerCompareFunctions(const std::string& prefix) {
       {prefix + "between"});
   registerFunction<BetweenFunction, bool, double, double, double>(
       {prefix + "between"});
+  // Decimal comapre functions.
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_gt, "decimal_gt");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_gte, "decimal_gte");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_lt, "decimal_lt");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_lte, "decimal_lte");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_eq, "decimal_eq");
 }
 
 } // namespace facebook::velox::functions::sparksql

@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <boost/multiprecision/cpp_int.hpp>
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <folly/Format.h>
@@ -44,6 +45,7 @@
 namespace facebook::velox {
 
 using int128_t = __int128_t;
+using int256_t = boost::multiprecision::int256_t;
 
 /// Velox type system supports a small set of SQL-compatible composeable types:
 /// BOOLEAN, TINYINT, SMALLINT, INTEGER, BIGINT, HUGEINT, REAL, DOUBLE, VARCHAR,
