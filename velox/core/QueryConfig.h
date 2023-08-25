@@ -80,6 +80,9 @@ class QueryConfig {
   // truncating the decimal part instead of rounding.
   static constexpr const char* kCastToIntByTruncate = "cast_to_int_by_truncate";
 
+  // This flags forces to bound the decimal precision.
+  static constexpr const char* kAllowPrecisionLoss = "allow_precision_loss";
+
   /// Used for backpressure to block local exchange producers when the local
   /// exchange buffer reaches or exceeds this size.
   static constexpr const char* kMaxLocalExchangeBufferSize =
@@ -327,6 +330,10 @@ class QueryConfig {
 
   bool isCastToIntByTruncate() const {
     return get<bool>(kCastToIntByTruncate, false);
+  }
+
+  bool isAllowPrecisionLoss() const {
+    return get<bool>(kAllowPrecisionLoss, true);
   }
 
   bool codegenEnabled() const {

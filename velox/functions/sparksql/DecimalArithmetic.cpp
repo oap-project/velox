@@ -23,6 +23,12 @@
 namespace facebook::velox::functions::sparksql {
 namespace {
 
+inline static std::pair<uint8_t, uint8_t> bounded(
+    const uint8_t rPrecision,
+    const uint8_t rScale) {
+  return {std::min(rPrecision, 38), std::min(rScale, 38)};
+}
+
 inline static std::pair<uint8_t, uint8_t> adjustPrecisionScale(
     const uint8_t rPrecision,
     const uint8_t rScale) {
@@ -385,11 +391,13 @@ class Addition {
       const uint8_t aPrecision,
       const uint8_t aScale,
       const uint8_t bPrecision,
-      const uint8_t bScale) {
+      const uint8_t bScale,
+      const allowPrecisionLoss) {
     auto precision = std::max(aPrecision - aScale, bPrecision - bScale) +
         std::max(aScale, bScale) + 1;
     auto scale = std::max(aScale, bScale);
-    return adjustPrecisionScale(precision, scale);
+    return allowPrecisionLoss ? adjustPrecisionScale(precision, scale)
+                              : bounded(precision, scale);
   }
 };
 
@@ -433,7 +441,8 @@ class Subtraction {
       const uint8_t aPrecision,
       const uint8_t aScale,
       const uint8_t bPrecision,
-      const uint8_t bScale) {
+      const uint8_t bScale,
+      const bool allowPrecisionLoss) {
     return Addition::computeResultPrecisionScale(
         aPrecision, aScale, bPrecision, bScale);
   }
@@ -539,8 +548,11 @@ class Multiply {
       const uint8_t aPrecision,
       const uint8_t aScale,
       const uint8_t bPrecision,
-      const uint8_t bScale) {
-    return adjustPrecisionScale(aPrecision + bPrecision + 1, aScale + bScale);
+      const uint8_t bScale,
+      const bool allowPrecisionLoss) {
+    return allowPrecisionLoss
+        ? adjustPrecisionScale(aPrecision + bPrecision + 1, aScale + bScale)
+        : bounded(aPrecision + bPrecision + 1, aScale + bScale)
   }
 
  private:
@@ -591,10 +603,22 @@ class Divide {
       const uint8_t aPrecision,
       const uint8_t aScale,
       const uint8_t bPrecision,
-      const uint8_t bScale) {
-    auto scale = std::max(6, aScale + bPrecision + 1);
-    auto precision = aPrecision - aScale + bScale + scale;
-    return adjustPrecisionScale(precision, scale);
+      const uint8_t bScale,
+      const bool allowPrecisionLoss) {
+    if (allowPrecisionLoss) {
+      auto scale = std::max(6, aScale + bPrecision + 1);
+      auto precision = aPrecision - aScale + bScale + scale;
+      return adjustPrecisionScale(precision, scale);
+    } else {
+      auto intDig = std::min(38, aPrecision - aScale + bScale);
+      auto decDig =
+          std::min(38, std::max(6, aScale + bPrecision + 1)) auto diff =
+              (intDig + decDig) - 38;
+      if (diff > 0) {
+        decDig -= diff / 2 + 1 intDig = 38 - decDig
+      }
+      return bounded(intDig + decDig, decDig);
+    }
   }
 };
 
@@ -664,13 +688,14 @@ template <typename Operation>
 std::shared_ptr<exec::VectorFunction> createDecimalFunction(
     const std::string& name,
     const std::vector<exec::VectorFunctionArg>& inputArgs,
-    const core::QueryConfig& /*config*/) {
+    const core::QueryConfig& config) {
   auto aType = inputArgs[0].type;
   auto bType = inputArgs[1].type;
   auto [aPrecision, aScale] = getDecimalPrecisionScale(*aType);
   auto [bPrecision, bScale] = getDecimalPrecisionScale(*bType);
+  const bool allowPrecisionLoss = config.isAllowPrecisionLoss();
   auto [rPrecision, rScale] = Operation::computeResultPrecisionScale(
-      aPrecision, aScale, bPrecision, bScale);
+      aPrecision, aScale, bPrecision, bScale, true);
   uint8_t aRescale = Operation::computeRescaleFactor(aScale, bScale, rScale);
   uint8_t bRescale = Operation::computeRescaleFactor(bScale, aScale, rScale);
   if (aType->isShortDecimal()) {
