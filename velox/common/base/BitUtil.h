@@ -26,6 +26,8 @@
 #include <x86intrin.h>
 #endif
 
+#include "velox/common/base/Exceptions.h"
+
 namespace facebook {
 namespace velox {
 namespace bits {

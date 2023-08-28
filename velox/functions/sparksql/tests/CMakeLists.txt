@@ -19,6 +19,7 @@ add_executable(
   BitwiseTest.cpp
   CompareNullSafeTests.cpp
   DateTimeFunctionsTest.cpp
+  DecimalArithmeticTest.cpp
   ElementAtTest.cpp
   HashTest.cpp
   InTest.cpp
