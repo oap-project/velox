@@ -119,6 +119,8 @@ void UnsafeRowFast::initialize(const TypePtr& type) {
       FOLLY_FALLTHROUGH;
     case TypeKind::HUGEINT:
       FOLLY_FALLTHROUGH;
+    case TypeKind::UNKNOWN:
+      FOLLY_FALLTHROUGH;
     case TypeKind::DATE:
       valueBytes_ = type->cppSizeInBytes();
       fixedWidthTypeKind_ = true;
