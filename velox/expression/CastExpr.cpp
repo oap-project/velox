@@ -461,6 +461,16 @@ VectorPtr CastExpr::applyArray(
       newElements);
 }
 
+// Cast from unkown type to other types.
+VectorPtr CastExpr::applyUnknown(
+    const SelectivityVector& rows,
+    const BaseVector& /*input*/,
+    exec::EvalCtx& context,
+    const TypePtr& /*fromType*/,
+    const TypePtr& toType) {
+  return BaseVector::createNullConstant(toType, rows.end(), context.pool());
+}
+
 VectorPtr CastExpr::applyRow(
     const SelectivityVector& rows,
     const RowVector* input,
@@ -656,6 +666,9 @@ void CastExpr::applyPeeled(
             context,
             fromType->asRow(),
             toType);
+        break;
+      case TypeKind::UNKNOWN:
+        result = applyUnknown(rows, input, context, fromType, toType);
         break;
       default: {
         // Handle primitive type conversions.

@@ -117,6 +117,13 @@ class CastExpr : public SpecialForm {
       const TypePtr& toType,
       VectorPtr& result);
 
+  VectorPtr applyUnknown(
+      const SelectivityVector& rows,
+      const BaseVector& /*input*/,
+      exec::EvalCtx& context,
+      const TypePtr& /*fromType*/,
+      const TypePtr& toType);
+
   VectorPtr applyMap(
       const SelectivityVector& rows,
       const MapVector* input,

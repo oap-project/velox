@@ -137,7 +137,9 @@ struct UnknownValue {
   }
 
   // workaround for duckdb::Value::Value(std::string)
-  operator std::string() const { VELOX_NYI() }
+  operator std::string() const {
+    VELOX_NYI()
+  }
 };
 
 template <typename T>
@@ -1374,10 +1376,6 @@ std::shared_ptr<const OpaqueType> OPAQUE() {
         return TEMPLATE_FUNC<T, ::facebook::velox::TypeKind::DATE>(      \
             __VA_ARGS__);                                                \
       }                                                                  \
-      case ::facebook::velox::TypeKind::UNKNOWN: {                       \
-        return TEMPLATE_FUNC<T, ::facebook::velox::TypeKind::UNKNOWN>(   \
-            __VA_ARGS__);                                                \
-      }                                                                  \
       default:                                                           \
         VELOX_FAIL(                                                      \
             "not a scalar type! kind: {}", mapTypeKindToName(typeKind)); \
@@ -2243,7 +2241,7 @@ struct hash<::facebook::velox::UnknownValue> {
   }
 };
 
-}
+} // namespace std
 
 namespace folly {
 template <>
