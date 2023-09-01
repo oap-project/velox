@@ -383,6 +383,7 @@ class ReaderOptions {
   RowTypePtr fileSchema;
   uint64_t autoPreloadLength;
   PrefetchMode prefetchMode;
+  int32_t prefetchRowGroups{kDefaultPrefetchRowGroups};
   int32_t loadQuantum_{kDefaultLoadQuantum};
   int32_t maxCoalesceDistance_{kDefaultCoalesceDistance};
   int64_t maxCoalesceBytes_{kDefaultCoalesceBytes};
@@ -394,6 +395,7 @@ class ReaderOptions {
   bool useColumnNamesForColumnMapping_{false};
 
  public:
+  static constexpr int32_t kDefaultPrefetchRowGroups = 1;
   static constexpr int32_t kDefaultLoadQuantum = 8 << 20; // 8MB
   static constexpr int32_t kDefaultCoalesceDistance = 512 << 10; // 512K
   static constexpr int32_t kDefaultCoalesceBytes = 128 << 20; // 128M
@@ -419,6 +421,7 @@ class ReaderOptions {
       fileSchema = nullptr;
     }
     autoPreloadLength = other.autoPreloadLength;
+    prefetchRowGroups = other.prefetchRowGroups;
     prefetchMode = other.prefetchMode;
     serDeOptions = other.serDeOptions;
     decrypterFactory_ = other.decrypterFactory_;
@@ -476,6 +479,12 @@ class ReaderOptions {
    */
   ReaderOptions& setAutoPreloadLength(uint64_t len) {
     autoPreloadLength = len;
+    return *this;
+  }
+
+  // Modify the number of row groups to prefetch.
+  ReaderOptions& setPrefetchRowGroups(int32_t numPrefetch) {
+    prefetchRowGroups = numPrefetch;
     return *this;
   }
 
@@ -574,6 +583,10 @@ class ReaderOptions {
 
   uint64_t getAutoPreloadLength() const {
     return autoPreloadLength;
+  }
+
+  int32_t getPrefetchRowGroups() const {
+    return prefetchRowGroups;
   }
 
   PrefetchMode getPrefetchMode() const {

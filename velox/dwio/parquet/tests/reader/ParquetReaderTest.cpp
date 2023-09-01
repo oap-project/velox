@@ -630,3 +630,44 @@ TEST_F(ParquetReaderTest, preloadSmallFile) {
     ASSERT_EQ(file->bytesRead(), 0);
   }
 }
+
+TEST_F(ParquetReaderTest, prefetchRowGroups) {
+  auto rowType = ROW({"id"}, {BIGINT()});
+  const std::string sample(getExampleFilePath("multiple_row_groups.parquet"));
+  const int numRowGroups = 4;
+
+  ReaderOptions readerOptions{defaultPool.get()};
+  // Disable preload of file.
+  readerOptions.setFilePreloadThreshold(0);
+  readerOptions.setPrefetchRowGroups(1);
+
+  ParquetReader reader = createReader(sample, readerOptions);
+  EXPECT_EQ(reader.numberOfRowGroups(), numRowGroups);
+
+  RowReaderOptions rowReaderOpts;
+  rowReaderOpts.setScanSpec(makeScanSpec(rowType));
+  auto rowReader = reader.createRowReader(rowReaderOpts);
+  auto parquetRowReader = dynamic_cast<ParquetRowReader*>(rowReader.get());
+
+  constexpr int kBatchSize = 1000;
+  auto result = BaseVector::create(rowType, kBatchSize, pool_.get());
+
+  for (int i = 0; i < numRowGroups; i++) {
+    if (i > 0) {
+      // Check the previous row group has been evicted.
+      EXPECT_FALSE(parquetRowReader->isRowGroupBuffered(i - 1));
+    }
+    EXPECT_TRUE(parquetRowReader->isRowGroupBuffered(i));
+    if (i < numRowGroups - 1) {
+      // Check the next row group has been prefetched.
+      EXPECT_TRUE(parquetRowReader->isRowGroupBuffered(i + 1));
+    }
+
+    // Read current row group.
+    auto actualRows = parquetRowReader->next(kBatchSize, result);
+    // kBatchSize should be large enough to hold the entire row group.
+    EXPECT_LE(actualRows, kBatchSize);
+    // Advance to the next row group.
+    parquetRowReader->nextRowNumber();
+  }
+}
