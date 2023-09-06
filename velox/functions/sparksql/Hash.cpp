@@ -386,9 +386,33 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> hashSignatures() {
           .build()};
 }
 
+void checkInputType(const std::vector<exec::VectorFunctionArg>& inputArgs) {
+  for (int i = 0; i < inputArgs.size(); i++) {
+    switch (inputArgs[i].type->kind()) {
+      case TypeKind::BOOLEAN:
+      case TypeKind::TINYINT:
+      case TypeKind::SMALLINT:
+      case TypeKind::INTEGER:
+      case TypeKind::BIGINT:
+      case TypeKind::VARCHAR:
+      case TypeKind::VARBINARY:
+      case TypeKind::REAL:
+      case TypeKind::DOUBLE:
+      case TypeKind::DATE:
+      case TypeKind::HUGEINT:
+      case TypeKind::TIMESTAMP:
+        break;
+      default:
+        VELOX_USER_FAIL(
+            "Unsupported type for hash: {}", inputArgs[i].type->toString())
+    }
+  }
+}
+
 std::shared_ptr<exec::VectorFunction> makeHash(
     const std::string& name,
     const std::vector<exec::VectorFunctionArg>& inputArgs) {
+  checkInputType(inputArgs);
   static const auto kHashFunction = std::make_shared<Murmur3HashFunction>();
   return kHashFunction;
 }
@@ -411,6 +435,7 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> xxhash64Signatures() {
 std::shared_ptr<exec::VectorFunction> makeXxHash64(
     const std::string& name,
     const std::vector<exec::VectorFunctionArg>& inputArgs) {
+  checkInputType(inputArgs);
   static const auto kXxHash64Function = std::make_shared<XxHash64Function>();
   return kXxHash64Function;
 }
