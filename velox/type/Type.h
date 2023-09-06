@@ -136,9 +136,8 @@ struct UnknownValue {
     return true;
   }
 
-  // workaround for duckdb::Value::Value(std::string)
   operator std::string() const {
-    VELOX_NYI()
+    return "NULL";
   }
 };
 
