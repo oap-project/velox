@@ -246,7 +246,7 @@ const char* exportArrowFormatStr(
     case TypeKind::TIMESTAMP:
       // TODO: need to figure out how we'll map this since in Velox we currently
       // store timestamps as two int64s (epoch in sec and nanos).
-      return "ttn"; // time64 [nanoseconds]
+      return "tsu:"; // timestamp [microseconds]
     // Complex/nested types.
     case TypeKind::ARRAY:
       static_assert(sizeof(vector_size_t) == 4);
@@ -365,6 +365,7 @@ void exportValues(
   out.n_buffers = 2;
   // Short decimals need to be converted to 128 bit values as they are mapped
   // to Arrow Decimal128.
+  // Timestamps need to be converted to micros.
   if (!rows.changed() && !vec.type()->isShortDecimal()) {
     holder.setBuffer(1, vec.values());
     return;
@@ -376,6 +377,33 @@ void exportValues(
       : AlignedBuffer::allocate<uint8_t>(
             checkedMultiply<size_t>(out.length, size), pool);
   gatherFromBuffer(*vec.type(), *vec.values(), rows, *values);
+  holder.setBuffer(1, values);
+}
+
+void exportTimestamps(
+    const BaseVector& vec,
+    const Selection& rows,
+    ArrowArray& out,
+    memory::MemoryPool* pool,
+    VeloxToArrowBridgeHolder& holder) {
+  out.n_buffers = 2;
+  auto size = vec.type()->cppSizeInBytes();
+  auto values = AlignedBuffer::allocate<uint8_t>(
+      checkedMultiply<size_t>(out.length, size), pool);
+  const Buffer& buf = *vec.values();
+  const auto& tsSrc = buf.as<Timestamp>();
+  Buffer& outBuffer = *values;
+  auto dst = outBuffer.asMutable<uint8_t>();
+  vector_size_t j = 0; // index into dst
+  rows.apply([&](vector_size_t i) {
+    int64_t value = 0;
+    if (!vec.mayHaveNulls() || !vec.isNullAt(i)) {
+      // Prevent null here because the use of toMicros on null causes integer
+      // overflow.
+      value = tsSrc[i].toMicros();
+    }
+    memcpy(dst + (j++) * sizeof(int64_t), &value, sizeof(int64_t));
+  });
   holder.setBuffer(1, values);
 }
 
@@ -430,6 +458,9 @@ void exportFlat(
     case TypeKind::REAL:
     case TypeKind::DOUBLE:
       exportValues(vec, rows, out, pool, holder);
+      break;
+    case TypeKind::TIMESTAMP:
+      exportTimestamps(vec, rows, out, pool, holder);
       break;
     case TypeKind::VARCHAR:
     case TypeKind::VARBINARY:
@@ -728,6 +759,11 @@ void exportToArrow(const VectorPtr& vec, ArrowSchema& arrowSchema) {
 TypePtr importFromArrow(const ArrowSchema& arrowSchema) {
   const char* format = arrowSchema.format;
   VELOX_CHECK_NOT_NULL(format);
+  const std::string formatStr(format);
+  // TODO: Timezone and unit are not handled.
+  if (formatStr.rfind("ts", 0) == 0) {
+    return TIMESTAMP();
+  }
 
   switch (format[0]) {
     case 'b':
@@ -945,6 +981,34 @@ VectorPtr createStringFlatVector(
       optionalNullCount(nullCount));
 }
 
+VectorPtr createTimestampVector(
+    memory::MemoryPool* pool,
+    const TypePtr& type,
+    BufferPtr nulls,
+    const ArrowSchema& arrowSchema,
+    const ArrowArray& arrowArray,
+    WrapInBufferViewFunc wrapInBufferView) {
+  auto valueBuf = wrapInBufferView(
+      arrowArray.buffers[1], arrowArray.length * sizeof(Timestamp));
+
+  auto src = valueBuf->as<uint8_t>();
+
+  VectorPtr base = BaseVector::create(type, arrowArray.length, pool);
+  base->setNulls(nulls);
+
+  auto flatVector = std::dynamic_pointer_cast<FlatVector<Timestamp>>(base);
+
+  for (int i = 0; i < arrowArray.length; i++) {
+    if (!base->isNullAt(i)) {
+      int64_t result;
+      memcpy(&result, src + i * sizeof(int64_t), sizeof(int64_t));
+      flatVector->set(i, Timestamp::fromMicros(result));
+    }
+  }
+
+  return flatVector;
+}
+
 VectorPtr importFromArrowImpl(
     ArrowSchema& arrowSchema,
     ArrowArray& arrowArray,
@@ -1151,6 +1215,12 @@ VectorPtr importFromArrowImpl(
     return createMapVector(
         pool, type, nulls, arrowSchema, arrowArray, isViewer, wrapInBufferView);
   }
+
+  if (type->kind() == TypeKind::TIMESTAMP) {
+    return createTimestampVector(
+        pool, type, nulls, arrowSchema, arrowArray, wrapInBufferView);
+  }
+
   // Other primitive types.
   VELOX_CHECK(
       type->isPrimitiveType(),

@@ -72,6 +72,34 @@ class ParquetTableScanTest : public HiveConnectorTestBase {
     assertQuery(plan, splits_, sql);
   }
 
+  void assertSelectWithFilter(
+      std::vector<std::string>&& outputColumnNames,
+      const std::vector<std::string>& subfieldFilters,
+      const std::string& remainingFilter,
+      const std::string& sql,
+      bool isFilterPushdownEnabled) {
+    auto rowType = getRowType(std::move(outputColumnNames));
+    parse::ParseOptions options;
+    options.parseDecimalAsDouble = false;
+
+    auto plan = PlanBuilder(pool_.get())
+                    .setParseOptions(options)
+                    // Function extractFiltersFromRemainingFilter will extract
+                    // filters to subfield filters, but for some types, filter
+                    // pushdown is not supported.
+                    .tableScan(
+                        "hive_table",
+                        rowType,
+                        {},
+                        subfieldFilters,
+                        remainingFilter,
+                        nullptr,
+                        isFilterPushdownEnabled)
+                    .planNode();
+
+    assertQuery(plan, splits_, sql);
+  }
+
   void assertSelectWithAgg(
       std::vector<std::string>&& outputColumnNames,
       const std::vector<std::string>& aggregates,
