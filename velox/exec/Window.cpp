@@ -34,14 +34,9 @@ Window::Window(
       windowBuild_(std::make_unique<SortWindowBuild>(windowNode, pool())),
       windowNode_(windowNode),
       currentPartition_(nullptr),
-      stringAllocator_(pool()) {}
-
-void Window::initialize() {
-  Operator::initialize();
-  VELOX_CHECK_NOT_NULL(windowNode_);
+      stringAllocator_(pool()) {
   createWindowFunctions();
   createPeerAndFrameBuffers();
-  windowNode_.reset();
 }
 
 Window::WindowFrame Window::createWindowFrame(
@@ -120,10 +115,8 @@ void Window::createWindowFunctions() {
         windowNodeFunction.functionCall->name(),
         functionArgs,
         windowNodeFunction.functionCall->type(),
-        windowNodeFunction.ignoreNulls,
         operatorCtx_->pool(),
-        &stringAllocator_,
-        operatorCtx_->driverCtx()->queryConfig()));
+        &stringAllocator_));
 
     windowFrames_.push_back(
         createWindowFrame(windowNodeFunction.frame, inputType));

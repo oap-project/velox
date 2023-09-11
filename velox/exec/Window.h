@@ -42,10 +42,6 @@ class Window : public Operator {
       DriverCtx* driverCtx,
       const std::shared_ptr<const core::WindowNode>& windowNode);
 
-  /// Initialize the window functions from 'windowNode_' once by driver operator
-  /// initialization. 'windowNode_' is reset after this call.
-  void initialize() override;
-
   void addInput(RowVectorPtr input) override;
 
   RowVectorPtr getOutput() override;
