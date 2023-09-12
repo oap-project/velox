@@ -1178,8 +1178,7 @@ re2ExtractAllSignatures() {
 
 std::shared_ptr<VectorFunction> makeRe2SplitAll(
     const std::string& name,
-    const std::vector<VectorFunctionArg>& inputArgs,
-    const core::QueryConfig& /*config*/) {
+    const std::vector<VectorFunctionArg>& inputArgs) {
   auto numArgs = inputArgs.size();
   VELOX_USER_CHECK(
       numArgs == 2, "{} requires 2 arguments, but got {}", name, numArgs);

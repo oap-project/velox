@@ -29,9 +29,8 @@ namespace {
 ///     values (if provided).
 std::shared_ptr<exec::VectorFunction> createSplit(
     const std::string& name,
-    const std::vector<exec::VectorFunctionArg>& inputArgs,
-    const core::QueryConfig& config) {
-  return makeRe2SplitAll(name, inputArgs, config);
+    const std::vector<exec::VectorFunctionArg>& inputArgs) {
+  return makeRe2SplitAll(name, inputArgs);
 }
 
 std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
