@@ -759,6 +759,16 @@ bool MemoryPoolImpl::incrementReservationThreadSafe(
       treeMemoryUsage()));
 }
 
+uint64_t MemoryPoolImpl::shrinkManaged(
+    MemoryPool* requestor,
+    uint64_t targetBytes) {
+  if (parent_ != nullptr) {
+    return parent_->shrinkManaged(requestor, targetBytes);
+  }
+  VELOX_CHECK_NULL(parent_);
+  return manager_->shrinkPool(requestor, targetBytes);
+};
+
 bool MemoryPoolImpl::maybeIncrementReservation(uint64_t size) {
   std::lock_guard<std::mutex> l(mutex_);
   return maybeIncrementReservationLocked(size);

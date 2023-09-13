@@ -43,7 +43,7 @@ class SharedArbitrator : public MemoryArbitrator {
 
   void reserveMemory(MemoryPool* pool, uint64_t /*unused*/) final;
 
-  void releaseMemory(MemoryPool* pool) final;
+  uint64_t releaseMemory(MemoryPool* pool, uint64_t bytes) final;
 
   bool growMemory(
       MemoryPool* pool,

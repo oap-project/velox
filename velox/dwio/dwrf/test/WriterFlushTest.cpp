@@ -208,6 +208,10 @@ class MockMemoryPool : public velox::memory::MemoryPool {
     VELOX_UNSUPPORTED("{} unsupported", __FUNCTION__);
   }
 
+  uint64_t shrinkManaged(MemoryPool* /*unused*/, uint64_t /*unused*/) override {
+    VELOX_UNSUPPORTED("{} unsupported", __FUNCTION__);
+  }
+
   uint64_t grow(uint64_t /*unused*/) noexcept override {
     VELOX_UNSUPPORTED("{} unsupported", __FUNCTION__);
   }

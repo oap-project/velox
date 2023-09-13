@@ -160,6 +160,10 @@ class MemoryManager {
       const std::string& name = "",
       bool threadSafe = true);
 
+  /// Invoked to shrink a memory pool's free capacity with up to
+  /// 'decrementBytes'.
+  uint64_t shrinkPool(MemoryPool* pool, uint64_t decrementBytes);
+
   /// Invoked to grows a memory pool's free capacity with at least
   /// 'incrementBytes'. The function returns true on success, otherwise false.
   bool growPool(MemoryPool* pool, uint64_t incrementBytes);

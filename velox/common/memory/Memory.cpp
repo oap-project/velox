@@ -117,19 +117,22 @@ std::shared_ptr<MemoryPool> MemoryManager::addRootPool(
   options.checkUsageLeak = checkUsageLeak_;
   options.debugEnabled = debugEnabled_;
 
-  folly::SharedMutex::WriteHolder guard{mutex_};
-  if (pools_.find(poolName) != pools_.end()) {
-    VELOX_FAIL("Duplicate root pool name found: {}", poolName);
+  std::shared_ptr<MemoryPool> pool;
+  {
+    folly::SharedMutex::WriteHolder guard{mutex_};
+    if (pools_.find(poolName) != pools_.end()) {
+      VELOX_FAIL("Duplicate root pool name found: {}", poolName);
+    }
+    pool = std::make_shared<MemoryPoolImpl>(
+        this,
+        poolName,
+        MemoryPool::Kind::kAggregate,
+        nullptr,
+        std::move(reclaimer),
+        poolDestructionCb_,
+        options);
+    pools_.emplace(poolName, pool);
   }
-  auto pool = std::make_shared<MemoryPoolImpl>(
-      this,
-      poolName,
-      MemoryPool::Kind::kAggregate,
-      nullptr,
-      std::move(reclaimer),
-      poolDestructionCb_,
-      options);
-  pools_.emplace(poolName, pool);
   VELOX_CHECK_EQ(pool->capacity(), 0);
   arbitrator_->reserveMemory(pool.get(), capacity);
   return pool;
@@ -144,6 +147,14 @@ std::shared_ptr<MemoryPool> MemoryManager::addLeafPool(
     poolName = fmt::format("default_leaf_{}", poolId++);
   }
   return defaultRoot_->addLeafChild(poolName, threadSafe, nullptr);
+}
+
+uint64_t MemoryManager::shrinkPool(MemoryPool* pool, uint64_t decrementBytes) {
+  VELOX_CHECK_NOT_NULL(pool);
+  if (arbitrator_ == nullptr) {
+    return pool->shrink(decrementBytes);
+  }
+  return arbitrator_->releaseMemory(pool, decrementBytes);
 }
 
 bool MemoryManager::growPool(MemoryPool* pool, uint64_t incrementBytes) {
@@ -164,7 +175,7 @@ void MemoryManager::dropPool(MemoryPool* pool) {
     VELOX_FAIL("The dropped memory pool {} not found", pool->name());
   }
   pools_.erase(it);
-  arbitrator_->releaseMemory(pool);
+  arbitrator_->releaseMemory(pool, 0);
 }
 
 MemoryPool& MemoryManager::deprecatedSharedLeafPool() {

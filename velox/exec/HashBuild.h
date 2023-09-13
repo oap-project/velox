@@ -133,6 +133,9 @@ class HashBuild final : public Operator {
   // in memory, then we will recursively spill part(s) of its data on disk.
   void setupSpiller(SpillPartition* spillPartition = nullptr);
 
+  // Finalize the spiller and return the spilled partitions.
+  void finishSpill(SpillPartitionSet& partitionSet);
+
   // Invoked when either there is no more input from the build source or from
   // the spill input reader during the restoring.
   void noMoreInputInternal();
@@ -293,6 +296,7 @@ class HashBuild final : public Operator {
   uint64_t numSpillRows_{0};
   uint64_t numSpillBytes_{0};
 
+  bool spillFinished_{true};
   std::unique_ptr<Spiller> spiller_;
 
   // Used to read input from previously spilled data for restoring.

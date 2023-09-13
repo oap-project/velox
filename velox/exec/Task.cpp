@@ -470,12 +470,6 @@ RowVectorPtr Task::next(ContinueFuture* future) {
     drivers.reserve(numDriversUngrouped_);
     createSplitGroupStateLocked(kUngroupedGroupId);
     createDriversLocked(self, kUngroupedGroupId, drivers);
-    if (self->pool_->stats().currentBytes != 0) {
-      VELOX_FAIL(
-          "Unexpected memory pool allocations during task[{}] driver initialization: {}",
-          self->taskId_,
-          self->pool_->treeMemoryUsage());
-    }
 
     drivers_ = std::move(drivers);
   }
@@ -671,12 +665,6 @@ void Task::start(
       drivers.reserve(self->numDriversUngrouped_);
       self->createSplitGroupStateLocked(kUngroupedGroupId);
       self->createDriversLocked(self, kUngroupedGroupId, drivers);
-      if (self->pool_->stats().currentBytes != 0) {
-        VELOX_FAIL(
-            "Unexpected memory pool allocations during task[{}] driver initialization: {}",
-            self->taskId_,
-            self->pool_->treeMemoryUsage());
-      }
 
       // Prevent the connecting structures from being cleaned up before all
       // split groups are finished during the grouped execution mode.
@@ -756,9 +744,16 @@ void Task::resume(std::shared_ptr<Task> self) {
             continue;
           }
           VELOX_CHECK(!driver->isOnThread() && !driver->isTerminated());
-          if (!driver->state().hasBlockingFuture) {
+          if (!driver->state().hasBlockingFuture &&
+              driver->task()->queryCtx()->isExecutorSupplied()) {
             // Do not continue a Driver that is blocked on external
             // event. The Driver gets enqueued by the promise realization.
+            //
+            // Do not continue the driver if no executor is supplied,
+            // Since it's likely that we are in single-thread execution.
+            //
+            // 2023/07.13 Hongze: Is there a way to hide the execution model
+            // (single or async) from here?
             Driver::enqueue(driver);
           }
         }

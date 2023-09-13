@@ -307,7 +307,7 @@ class MockMemoryOperator {
     for (const auto& allocation : allocationsToFree) {
       pool_->free(allocation.buffer, allocation.size);
     }
-    return pool_->shrink(targetBytes);
+    return pool_->shrinkManaged(pool, targetBytes);
   }
 
   void abort(MemoryPool* pool) {
