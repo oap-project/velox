@@ -68,6 +68,10 @@ class WindowBuild {
     return data_->estimateRowSize();
   }
 
+  int64_t numRows() {
+    return numRows_;
+  }
+
  protected:
   bool compareRowsWithKeys(
       const char* lhs,

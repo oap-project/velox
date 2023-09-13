@@ -18,6 +18,7 @@ set(CMAKE_WINDOW_TEST_LINK_LIBRARIES
     velox_exec_test_lib
     velox_functions_spark_window
     velox_functions_window_test_lib
+    velox_window
     velox_vector_fuzzer
     velox_vector_test_lib
     gflags::gflags
@@ -35,4 +36,15 @@ add_test(
   WORKING_DIRECTORY .)
 
 target_link_libraries(velox_spark_windows_value_test
+                      ${CMAKE_WINDOW_TEST_LINK_LIBRARIES})
+
+add_executable(velox_spark_streaming_window_test
+               StreamingWindowTest.cpp ${CMAKE_WINDOW_TEST_MAIN_FILES})
+
+add_test(
+  NAME velox_spark_streaming_window_test
+  COMMAND velox_spark_streaming_window_test
+  WORKING_DIRECTORY .)
+
+target_link_libraries(velox_spark_streaming_window_test
                       ${CMAKE_WINDOW_TEST_LINK_LIBRARIES})

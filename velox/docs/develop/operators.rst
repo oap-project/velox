@@ -55,7 +55,7 @@ LocalMergeNode              LocalMerge
 LocalPartitionNode          LocalPartition and LocalExchange
 EnforceSingleRowNode        EnforceSingleRow
 AssignUniqueIdNode          AssignUniqueId
-WindowNode                  Window
+WindowNode                  Window or StreamingWindow
 RowNumberNode               RowNumber
 TopNRowNumberNode           TopNRowNumber
 ==========================  ==============================================   ===========================
@@ -550,6 +550,8 @@ If no sorting columns are specified then the order of the results is unspecified
     - Output column names for each window function invocation in windowFunctions list below.
   * - windowFunctions
     - Window function calls with the frame clause. e.g row_number(), first_value(name) between range 10 preceding and current row. The default frame is between range unbounded preceding and current row.
+  * - inputsSorted
+    - If the input data is already sorted, the StreamingWindow will be used to reduce the memory footprint.
 
 RowNumberNode
 ~~~~~~~~~~~~~

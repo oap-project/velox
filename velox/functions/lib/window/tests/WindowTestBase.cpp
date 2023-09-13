@@ -18,6 +18,7 @@
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int_distribution.hpp>
 
+#include <iostream>
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -39,6 +40,81 @@ WindowTestBase::QueryInfo WindowTestBase::buildWindowQuery(
                 .values(input)
                 .window({functionSql})
                 .planNode();
+
+  auto rowType = asRowType(input[0]->type());
+  std::string columnsString = folly::join(", ", rowType->names());
+  std::string querySql =
+      fmt::format("SELECT {}, {} FROM tmp", columnsString, functionSql);
+
+  return {op, functionSql, querySql};
+}
+
+namespace {
+void splitOrderBy(
+    const std::string& overClause,
+    vector_size_t startIdx,
+    vector_size_t length,
+    std::vector<std::string>& orderByClauses) {
+  auto orderByPars = overClause.substr(startIdx, length);
+  std::istringstream tokenStream(orderByPars);
+  std::string token;
+  while (std::getline(tokenStream, token, ',')) {
+    orderByClauses.push_back(token);
+  }
+}
+}; // namespace
+
+WindowTestBase::QueryInfo WindowTestBase::makeStreamingWindow(
+    const std::vector<RowVectorPtr>& input,
+    const std::string& function,
+    const std::string& overClause,
+    const std::string& frameClause) {
+  std::string functionSql =
+      fmt::format("{} over ({} {})", function, overClause, frameClause);
+  core::PlanNodePtr op = nullptr;
+  std::vector<std::string> orderByClauses;
+
+  std::string partitionByStr = "partition by";
+  auto partitionByStartIdx = overClause.find(partitionByStr);
+
+  std::string orderByStr = "order by";
+  auto orderByStartIdx = overClause.find(orderByStr);
+
+  // Extract the partition by keys.
+  if (partitionByStartIdx != std::string::npos) {
+    auto startIdx = partitionByStartIdx + partitionByStr.length();
+    auto length = 0;
+    if (orderByStartIdx != std::string::npos) {
+      length = orderByStartIdx - startIdx;
+    } else {
+      length = overClause.length() - startIdx;
+    }
+    splitOrderBy(overClause, startIdx, length, orderByClauses);
+  }
+
+  // Add NULLS FIRST after partition by keys. Because the
+  // defaultPartitionSortOrder in Window.cpp is NULLS FIRST.
+  for (auto i = 0; i < orderByClauses.size(); i++) {
+    if (orderByClauses[i].find("NULLS") == std::string::npos &&
+        orderByClauses[i].find("nulls") == std::string::npos) {
+      orderByClauses[i] = orderByClauses[i] + " NULLS FIRST";
+    }
+  }
+
+  // Extract the order by keys.
+  if (orderByStartIdx != std::string::npos) {
+    auto startIdx = orderByStartIdx + orderByStr.length();
+    auto length = overClause.length() - startIdx;
+    splitOrderBy(overClause, startIdx, length, orderByClauses);
+  }
+
+  // Sort the input data before streaming window.
+  op = PlanBuilder()
+           .setParseOptions(options_)
+           .values(input)
+           .orderBy(orderByClauses, false)
+           .streamingWindow({functionSql})
+           .planNode();
 
   auto rowType = asRowType(input[0]->type());
   std::string columnsString = folly::join(", ", rowType->names());
@@ -112,6 +188,7 @@ void WindowTestBase::testWindowFunction(
   if (createTable) {
     createDuckDbTable(input);
   }
+
   for (const auto& overClause : overClauses) {
     for (auto& frameClause : frameClauses) {
       auto queryInfo =
@@ -155,6 +232,26 @@ void WindowTestBase::testKRangeFrames(const std::string& function) {
   };
 
   testWindowFunction({vectors}, function, {overClause}, kRangeFrames);
+}
+
+void WindowTestBase::testStreamingWindowFunction(
+    const std::vector<RowVectorPtr>& input,
+    const std::string& function,
+    const std::vector<std::string>& overClauses,
+    const std::vector<std::string>& frameClauses,
+    bool createTable) {
+  if (createTable) {
+    createDuckDbTable(input);
+  }
+
+  for (const auto& overClause : overClauses) {
+    for (auto& frameClause : frameClauses) {
+      auto queryInfo =
+          makeStreamingWindow(input, function, overClause, frameClause);
+      SCOPED_TRACE(queryInfo.functionSql);
+      assertQuery(queryInfo.planNode, queryInfo.querySql);
+    }
+  }
 }
 
 void WindowTestBase::assertWindowFunctionError(
