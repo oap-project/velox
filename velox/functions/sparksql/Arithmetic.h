@@ -175,6 +175,14 @@ struct AcoshFunction {
 };
 
 template <typename T>
+struct Atan2Function {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE void call(TInput& result, TInput y, TInput x) {
+    result = std::atan2(y + 0.0, x + 0.0);
+  }
+};
+
+template <typename T>
 struct AsinhFunction {
   template <typename TInput>
   FOLLY_ALWAYS_INLINE void call(TInput& result, TInput a) {
