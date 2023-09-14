@@ -219,7 +219,7 @@ class CastExpr : public SpecialForm {
       const TypePtr& toType,
       VectorPtr& castResult);
 
-  template <typename TOutput>
+  template <typename TInput, typename TOutput>
   void applyDoubleToDecimal(
       const SelectivityVector& rows,
       const BaseVector& input,
