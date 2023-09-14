@@ -152,6 +152,18 @@ struct UnixTimestampParseWithFormatFunction
   bool invalidFormat_{false};
 };
 
+/// Parse unix time in seconds to unix timestmap.
+template <typename T>
+struct GetUnixTimestampFromUnixTimeFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      Timestamp& result,
+      const arg_type<int64_t> sec) {
+    result = Timestamp::fromMillis(1000 * sec);
+  }
+}
+
 template <typename T>
 struct MakeDateFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
