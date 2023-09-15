@@ -428,7 +428,6 @@ class MapWriter {
 
   std::tuple<PrimitiveWriter<K, false>, PrimitiveWriter<V>> operator[](
       vector_size_t index) {
-    static_assert(std_interface, "operator [] not allowed for this map");
     VELOX_DCHECK_LT(index, length_, "out of bound access");
     return {
         PrimitiveWriter<K, false>{keysVector_, innerOffset_ + index},
