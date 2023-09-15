@@ -204,10 +204,10 @@ void registerFunctions(const std::string& prefix) {
   registerFunction<MakeDateFunction, Date, int32_t, int32_t, int32_t>(
       {prefix + "make_date"});
 
-  registerFunction<GetUnixTimestampFromUnixTimeFunction, Timestamp, int64_t>(
-      {prefix + "get_unix_timestamp_from_unix_time"});
-
   registerFunction<LastDayFunction, Date, Date>({prefix + "last_day"});
+
+  registerFunction<FromUnixTimeFunction, Varchar, int64_t, Varchar>(
+      {prefix + "from_unixtime"});
 
   // Register bloom filter function
   registerFunction<BloomFilterMightContainFunction, bool, Varbinary, int64_t>(
