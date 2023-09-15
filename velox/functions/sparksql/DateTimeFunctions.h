@@ -154,7 +154,7 @@ struct UnixTimestampParseWithFormatFunction
 
 /// Parse unix time in seconds to a string in given time format.
 template <typename T>
-struct FromUnixTimeFunction {
+struct FromUnixtimeFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   const date::time_zone* sessionTimeZone_ = nullptr;
@@ -168,7 +168,7 @@ struct FromUnixTimeFunction {
     sessionTimeZone_ = getTimeZoneFromConfig(config);
     if (timeFormat != nullptr) {
       isConstantTimeFormat = true;
-      mysqlDateTime_ = buildMysqlDateTimeFormatter(
+      mysqlDateTime_ = buildJodaDateTimeFormatter(
           std::string_view(timeFormat->data(), timeFormat->size()));
     }
   }
@@ -178,7 +178,7 @@ struct FromUnixTimeFunction {
       const arg_type<int64_t> second,
       const arg_type<Varchar> timeFormat) {
     if (!isConstantTimeFormat) {
-      mysqlDateTime_ = buildMysqlDateTimeFormatter(
+      mysqlDateTime_ = buildJodaDateTimeFormatter(
           std::string_view(timeFormat.data(), timeFormat.size()));
     }
     Timestamp timestamp = Timestamp::fromMillis(1000 * second);
