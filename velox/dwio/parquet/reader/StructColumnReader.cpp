@@ -23,21 +23,46 @@ StructColumnReader::StructColumnReader(
     const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
     const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
     ParquetParams& params,
-    common::ScanSpec& scanSpec)
+    common::ScanSpec& scanSpec,
+    memory::MemoryPool& pool)
     : SelectiveStructColumnReader(requestedType, dataType, params, scanSpec) {
   auto& childSpecs = scanSpec_->stableChildren();
+  std::vector<int> missingFields;
   for (auto i = 0; i < childSpecs.size(); ++i) {
     auto childSpec = childSpecs[i];
     if (childSpecs[i]->isConstant()) {
       continue;
     }
-    auto childDataType = fileType_->childByName(childSpec->fieldName());
-    auto childRequestedType =
-        requestedType_->childByName(childSpec->fieldName());
+    const auto& fieldName = childSpecs[i]->fieldName();
+    if (!fileType_->containsChild(fieldName)) {
+      missingFields.emplace_back(i);
+      continue;
+    }
+    auto childDataType = fileType_->childByName(fieldName);
+    auto childRequestedType = requestedType_->childByName(fieldName);
     addChild(ParquetColumnReader::build(
-        childRequestedType, childDataType, params, *childSpec));
+        childRequestedType, childDataType, params, *childSpec, pool));
     childSpecs[i]->setSubscript(children_.size() - 1);
   }
+
+  if (missingFields.size() > 0) {
+    // Set the struct as null if all the children fields in the output type are
+    // missing and the number of child fields is more than one.
+    if (childSpecs.size() > 1 && missingFields.size() == childSpecs.size()) {
+      scanSpec_->setConstantValue(
+          BaseVector::createNullConstant(requestedType_->type(), 1, &pool));
+    } else {
+      // Set null constant for the missing child field of output type.
+      for (int channel : missingFields) {
+        childSpecs[channel]->setConstantValue(BaseVector::createNullConstant(
+            requestedType_->childByName(childSpecs[channel]->fieldName())
+                ->type(),
+            1,
+            &pool));
+      }
+    }
+  }
+
   auto type = reinterpret_cast<const ParquetTypeWithId*>(fileType_.get());
   if (type->parent()) {
     levelMode_ = reinterpret_cast<const ParquetTypeWithId*>(fileType_.get())
@@ -47,7 +72,10 @@ StructColumnReader::StructColumnReader(
     // this and the child.
     auto child = childForRepDefs_;
     for (;;) {
-      assert(child);
+      if (child == nullptr) {
+        levelMode_ = LevelMode::kNulls;
+        break;
+      }
       if (child->fileType().type()->kind() == TypeKind::ARRAY ||
           child->fileType().type()->kind() == TypeKind::MAP) {
         levelMode_ = LevelMode::kStructOverLists;
