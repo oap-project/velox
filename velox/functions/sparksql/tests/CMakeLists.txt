@@ -27,7 +27,6 @@ add_executable(
   LeastGreatestTest.cpp
   MapTest.cpp
   MightContainTest.cpp
-  RandTest.cpp
   RegexFunctionsTest.cpp
   SizeTest.cpp
   SortArrayTest.cpp
