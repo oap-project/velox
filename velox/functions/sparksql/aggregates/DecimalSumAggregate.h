@@ -74,7 +74,7 @@ class DecimalSumAggregate : public exec::Aggregate {
 
     auto [resultPrecision, resultScale] =
         getDecimalPrecisionScale(*sumType_.get());
-    overflow = !DecimalUtil::valueInRangeWithPrecision(sum, resultPrecision);
+    overflow = !DecimalUtil::valueInPrecisionRange(sum, resultPrecision);
     return sum;
   }
 

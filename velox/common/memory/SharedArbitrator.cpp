@@ -424,16 +424,11 @@ uint64_t SharedArbitrator::reclaim(
     const uint64_t newCapacity = pool->capacity();
     VELOX_CHECK_GE(oldCapacity, newCapacity);
     reclaimedBytes = oldCapacity - newCapacity;
-  numReclaimedBytes_ += reclaimedBytes - freedBytes;
-  numShrunkBytes_ += freedBytes;
-  reclaimTimeUs_ += reclaimDurationUs;
-  VELOX_MEM_LOG(INFO) << "Reclaimed from memory pool " << pool->name()
-                      << " with target of " << succinctBytes(targetBytes)
-                      << ", actually reclaimed " << succinctBytes(freedBytes)
-                      << " free memory and "
-                      << succinctBytes(reclaimedBytes - freedBytes)
-                      << " used memory";
-  return reclaimedBytes;
+    numReclaimedBytes_ += reclaimedBytes - freedBytes;
+    numShrunkBytes_ += freedBytes;
+    reclaimTimeUs_ += reclaimDurationUs;
+    return reclaimedBytes;
+  }
 }
 
 void SharedArbitrator::abort(

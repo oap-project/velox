@@ -235,8 +235,9 @@ class DecimalRoundFunction : public exec::VectorFunction {
       uint8_t rScale,
       int32_t scale) const {
     if (scale >= 0) {
+      bool isOverflow = false;
       auto rescaledValue = DecimalUtil::rescaleWithRoundUp<A, R>(
-          a, aPrecision, aScale, rPrecision, rScale);
+          a, aPrecision, aScale, rPrecision, rScale, isOverflow);
       VELOX_DCHECK(rescaledValue.has_value());
       r = rescaledValue.value();
     } else {

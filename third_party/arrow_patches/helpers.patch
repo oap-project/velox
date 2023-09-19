@@ -1,0 +1,12 @@
+diff --git a/cpp/src/arrow/c/helpers.h b/cpp/src/arrow/c/helpers.h
+index a24f272fe..e25f78c85 100644
+--- a/cpp/src/arrow/c/helpers.h
++++ b/cpp/src/arrow/c/helpers.h
+@@ -17,6 +17,7 @@
+ 
+ #pragma once
+ 
++#include <cassert>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>

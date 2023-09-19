@@ -280,8 +280,9 @@ class DecimalAverageAggregate : public DecimalAggregate<TInputType> {
 
     DecimalUtil::divideWithRoundUp<int128_t, int128_t, int128_t>(
         avg, validSum.value(), countDecimal, false, sumRescale, 0);
+    bool isOverflow = false;
     return DecimalUtil::rescaleWithRoundUp<int128_t, TResultType>(
-        avg, avgPrecision, avgScale, resultPrecision, resultScale);
+        avg, avgPrecision, avgScale, resultPrecision, resultScale, isOverflow);
   }
 
  private:
