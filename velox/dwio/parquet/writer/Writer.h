@@ -94,6 +94,7 @@ struct WriterOptions {
   // The default factory allows the writer to construct the default flush
   // policy with the configs in its ctor.
   std::function<std::unique_ptr<DefaultFlushPolicy>()> flushPolicyFactory;
+  TypePtr schema;
 };
 
 // Writes Velox vectors into  a DataSink using Arrow Parquet writer.
