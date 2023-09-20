@@ -17,7 +17,7 @@
 
 #include "velox/functions/Macros.h"
 
-namespace facebook::velox::functions {
+namespace facebook::velox::functions::sparksql {
 
 template <typename T>
 struct RandFunction {
@@ -25,30 +25,6 @@ struct RandFunction {
 
   std::optional<std::mt19937> generator;
 
-  FOLLY_ALWAYS_INLINE void initialize(
-      const core::QueryConfig& /*config*/,
-      const int32_t* seed,
-      const int32_t* partitionIndex) {
-    VELOX_USER_CHECK_NOT_NULL(
-        seed, "Spark rand/random function requires constant seed.");
-    VELOX_USER_CHECK_NOT_NULL(
-        partitionIndex,
-        "Spark rand/random function requires constant partitionIndex.");
-  }
-
-  FOLLY_ALWAYS_INLINE void initialize(
-      const core::QueryConfig& /*config*/,
-      const int64_t* seed,
-      const int32_t* partitionIndex) {
-    VELOX_USER_CHECK_NOT_NULL(
-        seed, "Spark rand/random function requires constant seed.");
-    VELOX_USER_CHECK_NOT_NULL(
-        partitionIndex,
-        "Spark rand/random function requires constant partitionIndex.");
-  }
-
-  // Partition index is NOT needed to differentiate generator as ThreadLocalPRNG
-  // is used.
   FOLLY_ALWAYS_INLINE void call(double& result) {
     result = folly::Random::randDouble01();
   }
@@ -57,7 +33,18 @@ struct RandFunction {
       double& result,
       const int32_t* seed,
       const int32_t* partitionIndex) {
-    callNullable(result, (int64_t*)seed, partitionIndex);
+    VELOX_USER_CHECK_NOT_NULL(partitionIndex, "partitionIndex cannot be null.");
+    if (!generator.has_value()) {
+      generator = std::mt19937{};
+      if (seed) {
+        generator->seed((uint64_t)*seed + *partitionIndex);
+      } else {
+        // For null input, 0 plus partitionIndex is the seed, consistent with
+        // Spark.
+        generator->seed(*partitionIndex);
+      }
+    }
+    result = folly::Random::randDouble01(*generator);
   }
 
   /// To differentiate generator for each thread, seed plus partitionIndex is
@@ -70,7 +57,7 @@ struct RandFunction {
     if (!generator.has_value()) {
       generator = std::mt19937{};
       if (seed) {
-        generator->seed(*seed + *partitionIndex);
+        generator->seed((uint64_t)*seed + *partitionIndex);
       } else {
         // For null input, 0 plus partitionIndex is the seed, consistent with
         // Spark.
@@ -80,7 +67,7 @@ struct RandFunction {
     result = folly::Random::randDouble01(*generator);
   }
 
-  // For NULL constant input in unknown type.
+  // For NULL constant input of unknown type.
   FOLLY_ALWAYS_INLINE void callNullable(
       double& result,
       const UnknownValue* seed,
@@ -95,5 +82,4 @@ struct RandFunction {
     result = folly::Random::randDouble01(*generator);
   }
 };
-
-} // namespace facebook::velox::functions
+} // namespace facebook::velox::functions::sparksql

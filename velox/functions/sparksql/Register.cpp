@@ -19,7 +19,6 @@
 #include "velox/functions/lib/Re2Functions.h"
 #include "velox/functions/lib/RegistrationHelpers.h"
 #include "velox/functions/prestosql/JsonFunctions.h"
-#include "velox/functions/prestosql/Rand.h"
 #include "velox/functions/prestosql/StringFunctions.h"
 #include "velox/functions/sparksql/Arithmetic.h"
 #include "velox/functions/sparksql/ArraySort.h"
@@ -34,7 +33,6 @@
 #include "velox/functions/sparksql/RegexFunctions.h"
 #include "velox/functions/sparksql/RegisterArithmetic.h"
 #include "velox/functions/sparksql/RegisterCompare.h"
-#include "velox/functions/sparksql/RegisterRand.h"
 #include "velox/functions/sparksql/Size.h"
 #include "velox/functions/sparksql/String.h"
 
@@ -74,7 +72,6 @@ static void workAroundRegistrationMacro(const std::string& prefix) {
 namespace sparksql {
 
 void registerFunctions(const std::string& prefix) {
-  registerRandFunctions(prefix);
   // Register size functions
   registerSize(prefix + "size");
 
