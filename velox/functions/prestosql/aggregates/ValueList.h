@@ -108,6 +108,8 @@ class ValueListReader {
   explicit ValueListReader(ValueList& values);
 
   bool next(BaseVector& output, vector_size_t outputIndex);
+  bool
+  nextIgnoreNull(BaseVector& output, vector_size_t outputIndex, bool& skipped);
 
  private:
   const vector_size_t size_;

@@ -123,4 +123,27 @@ bool ValueListReader::next(BaseVector& output, vector_size_t outputIndex) {
   pos_++;
   return pos_ < size_;
 }
+
+bool ValueListReader::nextIgnoreNull(
+    BaseVector& output,
+    vector_size_t outputIndex,
+    bool& skipped) {
+  if (pos_ == lastNullsStart_) {
+    nulls_ = lastNulls_;
+  } else if (pos_ % 64 == 0) {
+    nulls_ = nullsStream_.read<uint64_t>();
+  }
+
+  if (nulls_ & (1UL << (pos_ % 64))) {
+    // Ignore null.
+    skipped = true;
+  } else {
+    exec::ContainerRowSerde::instance().deserialize(
+        dataStream_, outputIndex, &output);
+  }
+
+  pos_++;
+  return pos_ < size_;
+}
+
 } // namespace facebook::velox::aggregate
