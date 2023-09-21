@@ -17,6 +17,7 @@
 #include <gtest/gtest.h>
 
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/external/date/tz.h"
 #include "velox/type/Timestamp.h"
 
 namespace facebook::velox {
@@ -157,6 +158,16 @@ TEST(TimestampTest, toString) {
   auto kMax = Timestamp(Timestamp::kMaxSeconds, Timestamp::kMaxNanos);
   EXPECT_EQ("-292275055-05-16T16:47:04.000000000", kMin.toString());
   EXPECT_EQ("292278994-08-17T07:12:55.999999999", kMax.toString());
+}
+
+TEST(TimestampTest, outOfRange) {
+  auto* timezone = date::locate_zone("GMT");
+  Timestamp t(-3217830796800, 0);
+
+  VELOX_ASSERT_THROW(
+      t.toTimePoint(), "Timestamp is outside of supported range");
+  VELOX_ASSERT_THROW(
+      t.toTimezone(*timezone), "Timestamp is outside of supported range");
 }
 } // namespace
 } // namespace facebook::velox

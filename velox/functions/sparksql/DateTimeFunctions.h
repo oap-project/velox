@@ -152,6 +152,45 @@ struct UnixTimestampParseWithFormatFunction
   bool invalidFormat_{false};
 };
 
+/// Parse unix time in seconds to a string in given time format.
+template <typename T>
+struct FromUnixtimeFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  const date::time_zone* sessionTimeZone_ = nullptr;
+  std::shared_ptr<DateTimeFormatter> mysqlDateTime_;
+  bool isConstantTimeFormat = false;
+
+  FOLLY_ALWAYS_INLINE void initialize(
+      const core::QueryConfig& config,
+      const arg_type<int64_t>* /*unixtime*/,
+      const arg_type<Varchar>* timeFormat) {
+    sessionTimeZone_ = getTimeZoneFromConfig(config);
+    if (timeFormat != nullptr) {
+      isConstantTimeFormat = true;
+      mysqlDateTime_ = buildJodaDateTimeFormatter(
+          std::string_view(timeFormat->data(), timeFormat->size()));
+    }
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Varchar>& result,
+      const arg_type<int64_t> second,
+      const arg_type<Varchar> timeFormat) {
+    if (!isConstantTimeFormat) {
+      mysqlDateTime_ = buildJodaDateTimeFormatter(
+          std::string_view(timeFormat.data(), timeFormat.size()));
+    }
+    Timestamp timestamp = Timestamp::fromMillis(1000 * second);
+    auto formattedResult = mysqlDateTime_->format(timestamp, sessionTimeZone_);
+    auto resultSize = formattedResult.size();
+    result.resize(resultSize);
+    if (resultSize != 0) {
+      std::memcpy(result.data(), formattedResult.data(), resultSize);
+    }
+  }
+};
+
 template <typename T>
 struct MakeDateFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);

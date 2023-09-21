@@ -208,6 +208,9 @@ void registerFunctions(const std::string& prefix) {
 
   registerFunction<LastDayFunction, Date, Date>({prefix + "last_day"});
 
+  registerFunction<FromUnixtimeFunction, Varchar, int64_t, Varchar>(
+      {prefix + "from_unixtime"});
+
   // Register bloom filter function
   registerFunction<BloomFilterMightContainFunction, bool, Varbinary, int64_t>(
       {prefix + "might_contain"});

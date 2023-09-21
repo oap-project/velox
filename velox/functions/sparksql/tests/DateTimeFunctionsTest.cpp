@@ -271,5 +271,17 @@ TEST_F(DateTimeFunctionsTest, dateDiff) {
   EXPECT_EQ(-366, dateDiff(parseDate("2020-02-29"), parseDate("2019-02-28")));
 }
 
+TEST_F(DateTimeFunctionsTest, fromUnixTime) {
+  const auto fromUnixTime = [&](std::optional<int64_t> unixTime,
+                                std::optional<std::string> timeFormat) {
+    return evaluateOnce<std::string>(
+        "from_unixtime(c0, c1)", unixTime, timeFormat);
+  };
+
+  EXPECT_EQ(fromUnixTime(100, "yyyy-MM-dd"), "1970-01-01");
+  EXPECT_EQ(fromUnixTime(120, "yyyy-MM-dd HH:mm"), "1970-01-01 00:02");
+  EXPECT_EQ(fromUnixTime(100, "yyyy-MM-dd HH:mm:ss"), "1970-01-01 00:01:40");
+}
+
 } // namespace
 } // namespace facebook::velox::functions::sparksql::test
