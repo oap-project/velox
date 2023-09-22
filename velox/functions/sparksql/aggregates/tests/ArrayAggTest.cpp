@@ -18,16 +18,23 @@
 #include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/lib/aggregates/tests/AggregationTestBase.h"
+#include "velox/functions/sparksql/aggregates/Register.h"
 
 using namespace facebook::velox::exec;
 using namespace facebook::velox::exec::test;
 using namespace facebook::velox::functions::aggregate::test;
 
-namespace facebook::velox::aggregate::test {
+namespace facebook::velox::functions::aggregate::sparksql::test {
 
 namespace {
 
-class ArrayAggTest : public AggregationTestBase {};
+class ArrayAggTest : public AggregationTestBase {
+ public:
+  static void OperatorTestBase::SetUpTestCase() {
+    // OperatorTestBase::SetUpTestCase();
+    functions::aggregate::sparksql::registerAggregateFunctions("");
+  }
+};
 
 TEST_F(ArrayAggTest, groupBy) {
   constexpr int32_t kNumGroups = 10;
@@ -134,6 +141,25 @@ TEST_F(ArrayAggTest, global) {
   createDuckDbTable(vectors);
   testAggregations(
       vectors, {}, {"array_agg(c0)"}, "SELECT array_agg(c0) FROM tmp");
+}
+
+TEST_F(ArrayAggTest, globalWithNull) {
+  auto data = makeRowVector({
+      makeNullableFlatVector<int64_t>(
+          {1, std::nullopt, 3, 4, std::nullopt, 6, 7}),
+      makeNullableFlatVector<int32_t>(
+          {std::nullopt, 33, std::nullopt, std::nullopt, 66, std::nullopt, 77}),
+  });
+  auto expectedResult = makeRowVector({makeArrayVector<int64_t>({
+      {1, 3, 4, 6, 7},
+  })});
+
+  testAggregations({data}, {}, {"array_agg(c0)"}, {expectedResult});
+
+  //   auto data = makeRowVector({makeArrayVector<int32_t>({
+  //       {0, 1, 2, 3, 4, 5, 6, 7},
+  //       {0, 1, 2, 33, 4, 5, 6, 7, 8},
+  //   })});
 }
 
 TEST_F(ArrayAggTest, globalNoData) {
@@ -253,4 +279,4 @@ TEST_F(ArrayAggTest, mask) {
 }
 
 } // namespace
-} // namespace facebook::velox::aggregate::test
+} // namespace facebook::velox::functions::aggregate::sparksql::test
