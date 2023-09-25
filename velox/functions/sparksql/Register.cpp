@@ -205,6 +205,8 @@ void registerFunctions(const std::string& prefix) {
       {prefix + "make_date"});
 
   registerFunction<LastDayFunction, Date, Date>({prefix + "last_day"});
+  registerFunction<GetTimestampFunction, Timestamp, Varchar, Varchar>(
+      {prefix + "get_timestamp"});
 
   // Register bloom filter function
   registerFunction<BloomFilterMightContainFunction, bool, Varbinary, int64_t>(
