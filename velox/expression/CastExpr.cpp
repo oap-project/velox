@@ -289,7 +289,7 @@ void applyCastPrimitives(
   if constexpr (ToKind == TypeKind::TIMESTAMP) {
     // If user explicitly asked us to adjust the timezone.
     if (queryConfig.adjustTimestampToTimezone()) {
-      auto sessionTzName = queryConfig.sessionTimezone();
+      // auto sessionTzName = queryConfig.sessionTimezone();
       if (!sessionTzName.empty()) {
         // locate_zone throws runtime_error if the timezone couldn't be found
         // (so we're safe to dereference the pointer).
