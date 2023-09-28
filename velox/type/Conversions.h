@@ -593,6 +593,14 @@ struct Converter<TypeKind::DATE, void, TRUNCATE, ALLOW_DECIMAL> {
     return fromDateString(v.data(), v.size());
   }
 
+  static T cast(const Timestamp& t) {
+    static const int32_t kSecsPerDay{86'400};
+    auto seconds = t.getSeconds();
+    if (seconds >= 0 || seconds % kSecsPerDay == 0) {
+      return Date(seconds / kSecsPerDay);
+    }
+  }
+
   static T cast(const Timestamp& t, const std::string& sessionTzName) {
     static const int32_t kSecsPerDay{86'400};
     auto ts = t;
