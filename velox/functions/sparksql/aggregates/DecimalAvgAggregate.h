@@ -223,7 +223,7 @@ class DecimalAverageAggregate : public exec::Aggregate {
       bool /* mayPushdown */) override {
     decodedPartial_.decode(*args[0], rows);
     auto baseRowVector = dynamic_cast<const RowVector*>(decodedPartial_.base());
-    auto sumVector = baseRowVector->childAt(0)->as<SimpleVector<TInputType>>();
+    auto sumVector = baseRowVector->childAt(0)->as<SimpleVector<TSumResultType>>();
     auto countVector = baseRowVector->childAt(1)->as<SimpleVector<int64_t>>();
 
     if (decodedPartial_.isConstantMapping()) {
