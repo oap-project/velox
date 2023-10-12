@@ -47,7 +47,8 @@ template <TypeKind ToKind, TypeKind FromKind, bool Truncate, bool AllowDecimal>
 void applyCastKernel(
     vector_size_t row,
     const SimpleVector<typename TypeTraits<FromKind>::NativeType>* input,
-    FlatVector<typename TypeTraits<ToKind>::NativeType>* result) {
+    FlatVector<typename TypeTraits<ToKind>::NativeType>* result,
+    const std::string& sessionTzName) {
   if constexpr (ToKind == TypeKind::VARCHAR || ToKind == TypeKind::VARBINARY) {
     std::string output;
     if (input->type()->isDecimal()) {
@@ -61,6 +62,11 @@ void applyCastKernel(
     auto writer = exec::StringWriter<>(result, row);
     writer.copy_from(output);
     writer.finalize();
+  } else if constexpr (
+      FromKind == TypeKind::TIMESTAMP && ToKind == TypeKind::DATE) {
+    auto output = util::Converter<ToKind, void, Truncate, AllowDecimal>::cast(
+        input->valueAt(row), sessionTzName);
+    result->set(row, output);
   } else {
     if (input->type()->isDecimal()) {
       auto output = util::Converter<ToKind, void, Truncate, AllowDecimal>::cast(
@@ -221,6 +227,10 @@ void applyCastPrimitives(
   const auto& queryConfig = context.execCtx()->queryCtx()->queryConfig();
   const bool isCastIntAllowDecimal = queryConfig.isCastIntAllowDecimal();
   auto* inputSimpleVector = input.as<SimpleVector<From>>();
+  std::string sessionTzName = "";
+  if (queryConfig.adjustTimestampToTimezone()) {
+    sessionTzName = queryConfig.sessionTimezone();
+  }
 
   if (!queryConfig.isCastToIntByTruncate()) {
     context.applyToSelectedNoThrow(rows, [&](int row) {
@@ -228,10 +238,10 @@ void applyCastPrimitives(
         // Passing a false truncate flag
         if (isCastIntAllowDecimal) {
           applyCastKernel<ToKind, FromKind, false, true>(
-              row, inputSimpleVector, resultFlatVector);
+              row, inputSimpleVector, resultFlatVector, sessionTzName);
         } else {
           applyCastKernel<ToKind, FromKind, false, false>(
-              row, inputSimpleVector, resultFlatVector);
+              row, inputSimpleVector, resultFlatVector, sessionTzName);
         }
       } catch (const VeloxRuntimeError& re) {
         VELOX_FAIL(
@@ -253,10 +263,10 @@ void applyCastPrimitives(
         // Passing a true truncate flag
         if (isCastIntAllowDecimal) {
           applyCastKernel<ToKind, FromKind, true, true>(
-              row, inputSimpleVector, resultFlatVector);
+              row, inputSimpleVector, resultFlatVector, sessionTzName);
         } else {
           applyCastKernel<ToKind, FromKind, true, false>(
-              row, inputSimpleVector, resultFlatVector);
+              row, inputSimpleVector, resultFlatVector, sessionTzName);
         }
       } catch (const VeloxRuntimeError& re) {
         VELOX_FAIL(
@@ -279,7 +289,7 @@ void applyCastPrimitives(
   if constexpr (ToKind == TypeKind::TIMESTAMP) {
     // If user explicitly asked us to adjust the timezone.
     if (queryConfig.adjustTimestampToTimezone()) {
-      auto sessionTzName = queryConfig.sessionTimezone();
+      // auto sessionTzName = queryConfig.sessionTimezone();
       if (!sessionTzName.empty()) {
         // locate_zone throws runtime_error if the timezone couldn't be found
         // (so we're safe to dereference the pointer).

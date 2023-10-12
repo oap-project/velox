@@ -21,6 +21,7 @@
 #include <string>
 #include <type_traits>
 #include "velox/common/base/Exceptions.h"
+#include "velox/external/date/tz.h"
 #include "velox/type/DecimalUtil.h"
 #include "velox/type/TimestampConversion.h"
 #include "velox/type/Type.h"
@@ -595,6 +596,23 @@ struct Converter<TypeKind::DATE, void, TRUNCATE, ALLOW_DECIMAL> {
   static T cast(const Timestamp& t) {
     static const int32_t kSecsPerDay{86'400};
     auto seconds = t.getSeconds();
+    if (seconds >= 0 || seconds % kSecsPerDay == 0) {
+      return Date(seconds / kSecsPerDay);
+    }
+    // For division with negatives, minus 1 to compensate the discarded
+    // fractional part. e.g. -1/86'400 yields 0, yet it should be considered as
+    // -1 day.
+    return Date(seconds / kSecsPerDay - 1);
+  }
+
+  static T cast(const Timestamp& t, const std::string& sessionTzName) {
+    static const int32_t kSecsPerDay{86'400};
+    auto ts = t;
+    if (!sessionTzName.empty()) {
+      auto* timeZone = date::locate_zone(sessionTzName);
+      ts.toTimezone(*timeZone);
+    }
+    auto seconds = ts.getSeconds();
     if (seconds >= 0 || seconds % kSecsPerDay == 0) {
       return Date(seconds / kSecsPerDay);
     }

@@ -192,6 +192,51 @@ struct FromUnixtimeFunction {
 };
 
 template <typename T>
+struct GetTimestampFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  std::shared_ptr<DateTimeFormatter> formatter_;
+  bool isConstantTimeFormat_ = false;
+  std::optional<int64_t> sessionTzID_;
+
+  int16_t getTimezoneId(const DateTimeResult& result) {
+    // If timezone was not parsed, fallback to the session timezone. If there's
+    // no session timezone, fallback to 0 (GMT).
+    return result.timezoneId != -1 ? result.timezoneId
+                                   : sessionTzID_.value_or(0);
+  }
+
+  FOLLY_ALWAYS_INLINE void initialize(
+      const core::QueryConfig& config,
+      const arg_type<Varchar>* /*input*/,
+      const arg_type<Varchar>* format) {
+    auto sessionTzName = config.sessionTimezone();
+    if (!sessionTzName.empty()) {
+      sessionTzID_ = util::getTimeZoneID(sessionTzName);
+    }
+    if (format != nullptr) {
+      this->formatter_ = buildJodaDateTimeFormatter(
+          std::string_view(format->data(), format->size()));
+      isConstantTimeFormat_ = true;
+    }
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Timestamp>& result,
+      const arg_type<Varchar>& input,
+      const arg_type<Varchar>& format) {
+    if (!isConstantTimeFormat_) {
+      formatter_ = buildJodaDateTimeFormatter(
+          std::string_view(format.data(), format.size()));
+    }
+    auto dateTimeResult =
+        this->formatter_->parse(std::string_view(input.data(), input.size()));
+    dateTimeResult.timestamp.toGMT(getTimezoneId(dateTimeResult));
+    result = dateTimeResult.timestamp;
+  }
+};
+
+template <typename T>
 struct MakeDateFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 

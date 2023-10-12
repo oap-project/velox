@@ -207,6 +207,8 @@ void registerFunctions(const std::string& prefix) {
       {prefix + "make_date"});
 
   registerFunction<LastDayFunction, Date, Date>({prefix + "last_day"});
+  registerFunction<GetTimestampFunction, Timestamp, Varchar, Varchar>(
+      {prefix + "get_timestamp"});
 
   registerFunction<FromUnixtimeFunction, Varchar, int64_t, Varchar>(
       {prefix + "from_unixtime"});
