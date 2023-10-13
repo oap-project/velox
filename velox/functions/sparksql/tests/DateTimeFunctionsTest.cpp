@@ -17,6 +17,7 @@
 #include <stdint.h>
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/sparksql/tests/SparkFunctionBaseTest.h"
+#include "velox/type/TimestampConversion.h"
 #include "velox/type/tz/TimeZoneMap.h"
 
 namespace facebook::velox::functions::sparksql::test {
@@ -281,6 +282,17 @@ TEST_F(DateTimeFunctionsTest, fromUnixTime) {
   EXPECT_EQ(fromUnixTime(100, "yyyy-MM-dd"), "1970-01-01");
   EXPECT_EQ(fromUnixTime(120, "yyyy-MM-dd HH:mm"), "1970-01-01 00:02");
   EXPECT_EQ(fromUnixTime(100, "yyyy-MM-dd HH:mm:ss"), "1970-01-01 00:01:40");
+}
+
+TEST_F(DateTimeFunctionsTest, dateFormat) {
+  const auto dateFormat = [&](std::optional<Timestamp> timestamp,
+                              const std::string& formatString) {
+    return evaluateOnce<std::string>(
+        fmt::format("date_format(c0, '{}')", formatString), timestamp);
+  };
+  using util::fromTimestampString;
+
+  EXPECT_EQ("1970", dateFormat(fromTimestampString("1970-01-01"), "y"));
 }
 
 } // namespace
