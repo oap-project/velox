@@ -22,7 +22,6 @@
 #include "velox/expression/ConjunctExpr.h"
 #include "velox/expression/FunctionCallToSpecialForm.h"
 #include "velox/expression/RowConstructor.h"
-#include "velox/expression/RowConstructorWithNull.h"
 #include "velox/expression/SpecialFormRegistry.h"
 #include "velox/expression/SwitchExpr.h"
 #include "velox/expression/TryExpr.h"
@@ -48,8 +47,5 @@ void registerFunctionCallToSpecialForms() {
   registerFunctionCallToSpecialForm(
       RowConstructorCallToSpecialForm::kRowConstructor,
       std::make_unique<RowConstructorCallToSpecialForm>());
-  registerFunctionCallToSpecialForm(
-      RowConstructorWithNullCallToSpecialForm::kRowConstructorWithNull,
-      std::make_unique<RowConstructorWithNullCallToSpecialForm>());
 }
 } // namespace facebook::velox::exec

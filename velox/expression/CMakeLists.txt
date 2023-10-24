@@ -36,7 +36,6 @@ add_library(
   VectorFunction.cpp
   RegisterSpecialForm.cpp
   RowConstructor.cpp
-  RowConstructorWithNull.cpp
   SimpleFunctionRegistry.cpp
   SpecialFormRegistry.cpp
   SwitchExpr.cpp
