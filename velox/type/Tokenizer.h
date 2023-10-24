@@ -44,8 +44,6 @@ class Tokenizer {
 
   std::unique_ptr<Subfield::PathElement> next();
 
-  bool isUnquotedPathCharacter(char c);
-
  private:
   const std::string path_;
   // Customized separators to tokenize field name.
@@ -79,6 +77,8 @@ class Tokenizer {
   bool tryToComputeNext();
 
   void invalidSubfieldPath();
+
+  bool isUnquotedPathCharacter(char c);
 
   bool isUnquotedSubscriptCharacter(char c);
 
