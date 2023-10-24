@@ -21,7 +21,7 @@
 
 /// These 2 definitions should be included by user from either
 ///   1. <arrow/c/abi.h> or
-///   2. "velox/vector/arrow/c/abi.h"
+///   2. "velox/vector/arrow/Abi.h"
 struct ArrowArray;
 struct ArrowSchema;
 
