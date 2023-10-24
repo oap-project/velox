@@ -70,6 +70,8 @@ HashAggregation::HashAggregation(
   std::vector<AggregateInfo> aggregateInfos;
   aggregateInfos.reserve(numAggregates);
 
+  printf("[zuochunwei] numHashers:%ld, numAggregates:%ld\n", (long)numHashers, (long)numAggregates);
+
   for (auto i = 0; i < numAggregates; i++) {
     const auto& aggregate = aggregationNode->aggregates()[i];
 
@@ -127,6 +129,7 @@ HashAggregation::HashAggregation(
           "Aggregations over sorted inputs with masks are not supported yet");
     }
 
+    printf("[zuochunwei] aggregate name:%s, numSortingKeys:%ld\n", aggregate.call->name().c_str(), (long)numSortingKeys);
     aggregateInfos.emplace_back(std::move(info));
   }
 
@@ -159,6 +162,53 @@ HashAggregation::HashAggregation(
       spillConfig_.has_value() ? &spillConfig_.value() : nullptr,
       &nonReclaimableSection_,
       operatorCtx_.get());
+
+  distinctAggregationSpillEnabled_ =
+      driverCtx->queryConfig().distinctAggregationSpillEnabled();
+
+  debug("ctor");
+}
+
+void HashAggregation::debug(const std::string& str) {
+  printf("[zuochunwei] %s this=%p, "
+      "isPartialOutput_:%d, "
+      "isDistinct_:%d, "
+      "isGlobal_:%d, "
+      "isIntermediate_:%d, "
+      "maxExtendedPartialAggregationMemoryUsage_:%ld, "
+      "maxPartialAggregationMemoryUsage_:%ld, "
+      "distinctAggregationSpillEnabled_:%d, "
+      "partialFull_:%d, "
+      "newDistincts_:%d, "
+      "finished_:%d, "
+      "abandonedPartialAggregation_:%d, "
+      "abandonPartialAggregationMinRows_:%d, "
+      "abandonPartialAggregationMinPct_:%d, "
+      "pushdownChecked_:%d, "
+      "mayPushdown_:%d, "
+      "numInputRows_:%ld, "
+      "numInputVectors_:%ld, "
+      "numOutputRows_:%ld\n"
+      , str.c_str(), this
+      , (int)isPartialOutput_
+      , (int)isDistinct_
+      , (int)isGlobal_
+      , (int)isIntermediate_
+      , (long int)maxExtendedPartialAggregationMemoryUsage_
+      , (long int)maxPartialAggregationMemoryUsage_
+      , (int)distinctAggregationSpillEnabled_
+      , (int)partialFull_
+      , (int)newDistincts_
+      , (int)finished_
+      , (int)abandonedPartialAggregation_
+      , (int)abandonPartialAggregationMinRows_
+      , (int)abandonPartialAggregationMinPct_
+      , (int)pushdownChecked_
+      , (int)mayPushdown_
+      , (long int)numInputRows_
+      , (long int)numInputVectors_
+      , (long int)numOutputRows_
+      );
 }
 
 bool HashAggregation::abandonPartialAggregationEarly(int64_t numOutput) const {
@@ -175,6 +225,8 @@ void HashAggregation::addInput(RowVectorPtr input) {
   if (abandonedPartialAggregation_) {
     input_ = input;
     numInputRows_ += input->size();
+    printf("[zuochunwei] abandonedPartialAggregation_, numInputRows_:%ld, numOutputRows_:%ld\n", 
+        (long)numInputRows_, (long)numOutputRows_);
     return;
   }
   groupingSet_->addInput(input, mayPushdown_);
@@ -188,17 +240,21 @@ void HashAggregation::addInput(RowVectorPtr input) {
   if (isPartialOutput_ && !isGlobal_ && !isIntermediate_) {
     if (groupingSet_->isPartialFull(maxPartialAggregationMemoryUsage_)) {
       partialFull_ = true;
+      printf("[zuochunwei] addInput set partialFull_ = true, maxPartialAggregationMemoryUsage_:%ld\n", (long)maxPartialAggregationMemoryUsage_);
     }
     uint64_t kDefaultFlushMemory = 1L << 24;
     if (groupingSet_->allocatedBytes() > kDefaultFlushMemory &&
         abandonPartialAggregationEarly(groupingSet_->numDistinct())) {
       partialFull_ = true;
+      printf("[zuochunwei] partialFull_ = true, allocatedBytes:%ld, numDistinct:%ld\n", 
+          (long)groupingSet_->allocatedBytes(),
+          (long)groupingSet_->numDistinct());
     }
   }
 
   const bool abandonPartialEarly = isPartialOutput_ && !isGlobal_ &&
       abandonPartialAggregationEarly(groupingSet_->numDistinct());
-  if (isDistinct_) {
+  if (isDistinct_ && !distinctAggregationSpillEnabled_) {
     newDistincts_ = !groupingSet_->hashLookup().newGroups.empty();
 
     if (newDistincts_) {
@@ -269,6 +325,9 @@ void HashAggregation::resetPartialOutputIfNeed() {
   VELOX_DCHECK(!isGlobal_);
   const double aggregationPct =
       numOutputRows_ == 0 ? 0 : (numOutputRows_ * 1.0) / numInputRows_ * 100;
+
+  char buf[512] = {};
+  sprintf(buf, " {aggregationPct:%f numOutputRows_:%ld numInputRows_:%ld} ", aggregationPct, numOutputRows_, numInputRows_);
   {
     auto lockedStats = stats_.wlock();
     lockedStats->addRuntimeStat(
@@ -279,6 +338,9 @@ void HashAggregation::resetPartialOutputIfNeed() {
   }
   groupingSet_->resetPartial();
   partialFull_ = false;
+
+  debug(buf);
+
   if (!finished_) {
     maybeIncreasePartialAggregationMemoryUsage(aggregationPct);
   }
@@ -290,10 +352,19 @@ void HashAggregation::resetPartialOutputIfNeed() {
 void HashAggregation::maybeIncreasePartialAggregationMemoryUsage(
     double aggregationPct) {
   // If more than this many are unique at full memory, give up on partial agg.
-  constexpr int32_t kPartialMinFinalPct = 40;
+  constexpr int32_t kPartialMinFinalPct = 20;
   VELOX_DCHECK(isPartialOutput_);
   // If size is at max and there still is not enough reduction, abandon partial
   // aggregation.
+
+  char buf[1024];
+  sprintf(buf, "{numOutputRows_:%ld, aggregationPct:%f, kPartialMinFinalPct:%d, maxPartialAggregationMemoryUsage_:%ld, maxExtendedPartialAggregationMemoryUsage_:%ld}", 
+      numOutputRows_, 
+      aggregationPct, 
+      kPartialMinFinalPct, 
+      (long)maxPartialAggregationMemoryUsage_, 
+      (long)maxExtendedPartialAggregationMemoryUsage_);
+  
   if (abandonPartialAggregationEarly(numOutputRows_) ||
       (aggregationPct > kPartialMinFinalPct &&
        maxPartialAggregationMemoryUsage_ >=
@@ -302,6 +373,7 @@ void HashAggregation::maybeIncreasePartialAggregationMemoryUsage(
     pool()->release();
     addRuntimeStat("abandonedPartialAggregation", RuntimeCounter(1));
     abandonedPartialAggregation_ = true;
+    printf("[zuochunwei] set abandonedPartialAggregation_ = true, %s\n", buf);
     return;
   }
   const int64_t extendedPartialAggregationMemoryUsage = std::min(
@@ -313,7 +385,9 @@ void HashAggregation::maybeIncreasePartialAggregationMemoryUsage(
   const int64_t memoryToReserve = std::max<int64_t>(
       0,
       extendedPartialAggregationMemoryUsage - groupingSet_->allocatedBytes());
+
   if (!pool()->maybeReserve(memoryToReserve)) {
+    printf("[zuochunwei] maybeReserve %ld return fasle %s\n", memoryToReserve, buf);
     return;
   }
   // Update the aggregation memory usage size limit on memory reservation
@@ -323,6 +397,9 @@ void HashAggregation::maybeIncreasePartialAggregationMemoryUsage(
       "maxExtendedPartialAggregationMemoryUsage",
       RuntimeCounter(
           maxPartialAggregationMemoryUsage_, RuntimeCounter::Unit::kBytes));
+
+  printf("[zuochunwei] maybeReserve %ld return true %s\n", memoryToReserve, buf);
+  debug("End");
 }
 
 RowVectorPtr HashAggregation::getOutput() {
@@ -340,6 +417,8 @@ RowVectorPtr HashAggregation::getOutput() {
     prepareOutput(input_->size());
     groupingSet_->toIntermediate(input_, output_);
     numOutputRows_ += input_->size();
+    printf("[zuochunwei] abandonedPartialAggregation_ getOutput, numOutputRows_:%ld, numInputRows_:%ld, inputSize:%ld\n", 
+        (long)numOutputRows_, (long)numInputRows_, (long)input_->size());
     input_ = nullptr;
     return output_;
   }
@@ -355,7 +434,7 @@ RowVectorPtr HashAggregation::getOutput() {
     return nullptr;
   }
 
-  if (isDistinct_) {
+  if (isDistinct_ && !distinctAggregationSpillEnabled_) {
     if (!newDistincts_) {
       if (noMoreInput_) {
         finished_ = true;
@@ -372,8 +451,8 @@ RowVectorPtr HashAggregation::getOutput() {
     auto output = fillOutput(size, indices);
     numOutputRows_ += size;
 
-    // Drop reference to input_ to make it singly-referenced at the producer and
-    // allow for memory reuse.
+    // Drop reference to input_ to make it singly-referenced at the producer
+    // and allow for memory reuse.
     input_ = nullptr;
 
     resetPartialOutputIfNeed();
@@ -396,6 +475,8 @@ RowVectorPtr HashAggregation::getOutput() {
     return nullptr;
   }
   numOutputRows_ += output_->size();
+  printf("[zuochunwei] getOutput, numOutputRows_:%ld, numInputRows_:%ld, outputSize:%ld\n", 
+        (long)numOutputRows_, (long)numInputRows_, (long)output_->size());
   return output_;
 }
 

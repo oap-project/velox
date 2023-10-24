@@ -681,8 +681,25 @@ class AggregationNode : public PlanNode {
     // (https://github.com/facebookincubator/velox/issues/3263) and pre-grouped
     // aggregation (https://github.com/facebookincubator/velox/issues/3264). We
     // will add support later to re-enable.
-    return (isFinal() || isSingle()) && !(aggregates().empty()) &&
-        preGroupedKeys().empty() && queryConfig.aggregationSpillEnabled();
+    if (!queryConfig.aggregationSpillEnabled()) {
+      return false;
+    }
+
+    if (!isFinal() && !isSingle()) {
+      return false;
+    }
+
+    if (!preGroupedKeys().empty()) {
+      return false;
+    }
+
+    // aggregates().empty() means distinct aggregate
+    if (aggregates().empty() &&
+        !queryConfig.distinctAggregationSpillEnabled()) {
+      return false;
+    }
+
+    return true;
   }
 
   bool isFinal() const {

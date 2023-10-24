@@ -144,6 +144,10 @@ class QueryConfig {
   static constexpr const char* kAggregationSpillEnabled =
       "aggregation_spill_enabled";
 
+  /// Distinct aggregation spilling flag
+  static constexpr const char* kDistinctAggregationSpillEnabled =
+      "distinct_aggregation_spill_enabled";
+
   /// Join spilling flag, only applies if "spill_enabled" flag is set.
   static constexpr const char* kJoinSpillEnabled = "join_spill_enabled";
 
@@ -327,6 +331,11 @@ class QueryConfig {
   /// spillEnabled()!
   bool aggregationSpillEnabled() const {
     return get<bool>(kAggregationSpillEnabled, true);
+  }
+
+  /// Returns 'is distinct aggregation spilling enabled' flag.
+  bool distinctAggregationSpillEnabled() const {
+    return get<bool>(kDistinctAggregationSpillEnabled, true);
   }
 
   /// Returns 'is join spilling enabled' flag. Must also check the

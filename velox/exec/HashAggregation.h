@@ -47,6 +47,8 @@ class HashAggregation : public Operator {
 
   void close() override;
 
+  void debug(const std::string& str);
+
  private:
   void updateRuntimeStats();
 
@@ -79,6 +81,8 @@ class HashAggregation : public Operator {
 
   int64_t maxPartialAggregationMemoryUsage_;
   std::unique_ptr<GroupingSet> groupingSet_;
+
+  bool distinctAggregationSpillEnabled_{false};
 
   bool partialFull_ = false;
   bool newDistincts_ = false;
