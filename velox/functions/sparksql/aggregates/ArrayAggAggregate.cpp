@@ -66,10 +66,10 @@ class ArrayAggAggregate : public exec::Aggregate {
         clearNull(rawNulls, i);
 
         ValueListReader reader(values);
-        bool skipped = false;
         int count = 0;
         for (auto index = 0; index < arraySize; ++index) {
-          reader.nextIgnoreNull(*elements, offset + index, skipped);
+          bool skipped = false;
+          reader.nextIgnoreNull(*elements, offset + count, skipped);
           if (!skipped) {
             count++;
           }
