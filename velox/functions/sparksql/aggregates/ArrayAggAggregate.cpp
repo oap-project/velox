@@ -60,14 +60,15 @@ class ArrayAggAggregate : public exec::Aggregate {
     uint64_t* rawNulls = getRawNulls(vector);
     vector_size_t offset = 0;
     for (int32_t i = 0; i < numGroups; ++i) {
+      // No null result, either empty array or non-empty array.
+      clearNull(rawNulls, i);
       auto& values = value<ArrayAccumulator>(groups[i])->elements;
       auto arraySize = values.size();
       if (arraySize) {
-        clearNull(rawNulls, i);
-
         ValueListReader reader(values);
         int count = 0;
         for (auto index = 0; index < arraySize; ++index) {
+          // To mark whether skipped due to null input value.
           bool skipped = false;
           reader.nextIgnoreNull(*elements, offset + count, skipped);
           if (!skipped) {
@@ -77,7 +78,8 @@ class ArrayAggAggregate : public exec::Aggregate {
         vector->setOffsetAndSize(i, offset, count);
         offset += count;
       } else {
-        vector->setNull(i, true);
+        // Empty array.
+        vector->setOffsetAndSize(i, offset, 0);
       }
     }
   }

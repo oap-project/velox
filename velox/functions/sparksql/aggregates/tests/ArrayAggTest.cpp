@@ -120,8 +120,8 @@ TEST_F(ArrayAggTest, globalWithNullData) {
 
 TEST_F(ArrayAggTest, globalNoData) {
   auto data = makeRowVector(ROW({"c0"}, {INTEGER()}), 0);
-
-  testAggregations({data}, {}, {"array_agg(c0)"}, "SELECT null");
+  auto expectedResult = makeRowVector({makeArrayVector<int32_t>({{}})});
+  testAggregations({data}, {}, {"array_agg(c0)"}, {expectedResult});
 }
 
 TEST_F(ArrayAggTest, sortedGlobal) {
