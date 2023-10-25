@@ -131,6 +131,14 @@ FOLLY_ALWAYS_INLINE uint64_t hashLongDecimalPart(const uint64_t value) {
 
 // The implementation of Presto LongDecimal hash can be found in
 // https://github.com/prestodb/presto/blob/master/presto-common/src/main/java/com/facebook/presto/common/type/LongDecimalType.java#L91-L96.
+
+template <>
+FOLLY_ALWAYS_INLINE void PrestoHasher::hash<TypeKind::UNKNOWN>(
+    const SelectivityVector& rows,
+    BufferPtr& hashes) {
+  applyHashFunction(rows, *vector_.get(), hashes, [&](auto row) { return 0; });
+}
+
 template <>
 FOLLY_ALWAYS_INLINE void PrestoHasher::hash<TypeKind::HUGEINT>(
     const SelectivityVector& rows,
