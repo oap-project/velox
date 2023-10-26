@@ -22,11 +22,14 @@ namespace facebook::velox::functions::aggregate::sparksql {
 
 namespace {
 
+using namespace facebook::velox::aggregate;
+using namespace facebook::velox::aggregate::prestosql;
+
 /// Maintains a set of unique values of fixed-width type (integers). Also
 /// maintains a flag indicating whether there was a null value.
 template <typename T>
 struct Accumulator {
-  bool hasNull{false};
+  // bool hasNull{false};
   folly::
       F14FastSet<T, std::hash<T>, std::equal_to<T>, AlignedStlAllocator<T, 16>>
           uniqueValues;
@@ -40,7 +43,8 @@ struct Accumulator {
       vector_size_t index,
       HashStringAllocator* /*allocator*/) {
     if (decoded.isNullAt(index)) {
-      hasNull = true;
+      // Ignore null.
+      // hasNull = true;
     } else {
       uniqueValues.insert(decoded.valueAt<T>(index));
     }
@@ -62,7 +66,8 @@ struct Accumulator {
 
   /// Returns number of unique values including null.
   size_t size() const {
-    return uniqueValues.size() + (hasNull ? 1 : 0);
+    // return uniqueValues.size() + (hasNull ? 1 : 0);
+    return uniqueValues.size();
   }
 
   /// Copies the unique values and null into the specified vector starting at
@@ -73,9 +78,9 @@ struct Accumulator {
       values.set(index++, value);
     }
 
-    if (hasNull) {
-      values.setNull(index++, true);
-    }
+    // if (hasNull) {
+    //   values.setNull(index++, true);
+    // }
 
     return index - offset;
   }
@@ -97,7 +102,8 @@ struct StringViewAccumulator {
       vector_size_t index,
       HashStringAllocator* allocator) {
     if (decoded.isNullAt(index)) {
-      base.hasNull = true;
+      // Ignore null.
+      // base.hasNull = true;
     } else {
       auto value = decoded.valueAt<StringView>(index);
       if (!value.isInline()) {
@@ -182,7 +188,7 @@ class SetBaseAggregate : public exec::Aggregate {
     for (auto i = 0; i < numGroups; ++i) {
       auto* group = groups[i];
       if (isNull(group)) {
-        arrayVector->setNull(i, true);
+        // arrayVector->setNull(i, true);
       } else {
         clearNull(rawNulls, i);
 
@@ -438,4 +444,4 @@ void registerSetUnionAggregate(const std::string& prefix) {
   registerSetUnion(prefix + kSetUnion);
 }
 
-} // namespace facebook::velox::aggregate::prestosql
+} // namespace facebook::velox::functions::aggregate::sparksql

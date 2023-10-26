@@ -29,7 +29,7 @@ namespace facebook::velox::functions::aggregate::sparksql::test {
 namespace {
 
 class ArrayAggTest : public AggregationTestBase {
- public:
+ protected:
   static void SetUpTestCase() {
     functions::aggregate::sparksql::registerAggregateFunctions("");
   }

@@ -17,7 +17,8 @@ add_library(
   BitwiseXorAggregate.cpp
   BloomFilterAggAggregate.cpp
   FirstLastAggregate.cpp
-  Register.cpp)
+  Register.cpp
+  SetAggAggregate.cpp)
 
 target_link_libraries(velox_functions_spark_aggregates fmt::fmt velox_exec
                       velox_expression_functions velox_aggregates velox_vector)
