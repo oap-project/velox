@@ -29,4 +29,6 @@ target_link_libraries(
   velox_functions_spark_aggregates
   gflags::gflags
   gtest
-  gtest_main)
+  gtest_main
+  velox_vector_fuzzer
+  velox_functions_spark)

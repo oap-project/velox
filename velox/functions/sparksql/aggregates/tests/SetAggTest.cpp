@@ -16,6 +16,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/functions/lib/aggregates/tests/AggregationTestBase.h"
+#include "velox/functions/sparksql/Register.h"
 #include "velox/functions/sparksql/aggregates/Register.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
@@ -30,6 +31,7 @@ class SetAggTest : public AggregationTestBase {
  protected:
   static void SetUpTestCase() {
     functions::aggregate::sparksql::registerAggregateFunctions("");
+    facebook::velox::functions::sparksql::registerFunctions("");
   }
 };
 
@@ -53,7 +55,7 @@ TEST_F(SetAggTest, global) {
   });
 
   expected = makeRowVector({
-      makeNullableArrayVector<int32_t>({
+      makeArrayVector<int32_t>({
           {1, 2, 4, 5, 6, 7},
       }),
   });
@@ -67,8 +69,7 @@ TEST_F(SetAggTest, global) {
 
   // Empty output.
   expected = makeRowVector({
-      makeNullableArrayVector(
-          std::vector<std::vector<std::optional<int32_t>>>{{}}),
+      makeArrayVector<int32_t>({{}}),
   });
 
   testAggregations({data}, {}, {"set_agg(c0)"}, {"array_sort(a0)"}, {expected});
@@ -109,7 +110,7 @@ TEST_F(SetAggTest, groupBy) {
 
   expected = makeRowVector({
       makeFlatVector<int16_t>({1, 2}),
-      makeNullableArrayVector<int32_t>({
+      makeArrayVector<int32_t>({
           {1},
           {3, 5, 6},
       }),
@@ -136,7 +137,7 @@ TEST_F(SetAggTest, groupBy) {
 
   expected = makeRowVector({
       makeFlatVector<int16_t>({1, 2}),
-      makeNullableArrayVector<int32_t>({
+      makeArrayVector<int32_t>({
           {1},
           {},
       }),
@@ -214,10 +215,9 @@ TEST_F(SetAggTest, globalVarchar) {
   // All inputs are null.
   data = {makeRowVector({makeAllNullFlatVector<StringView>(1'000)})};
   expected = makeRowVector({
-      makeNullableArrayVector(
-          std::vector<std::vector<std::optional<StringView>>>{
-              {},
-          }),
+      makeArrayVector<std::string>({
+          {},
+      }),
   });
   testAggregations(data, {}, {"set_agg(c0)"}, {"array_sort(a0)"}, {expected});
 }
