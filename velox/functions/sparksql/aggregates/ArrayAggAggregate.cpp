@@ -197,7 +197,9 @@ exec::AggregateRegistrationResult registerArray(const std::string& name) {
         VELOX_CHECK_EQ(
             argTypes.size(), 1, "{} takes at most one argument", name);
         return std::make_unique<ArrayAggAggregate>(resultType);
-      });
+      },
+      false,
+      true);
 }
 
 } // namespace

@@ -405,7 +405,9 @@ exec::AggregateRegistrationResult registerSetAgg(const std::string& name) {
             : argTypes[0]->childAt(0)->kind();
 
         return create<SetAggAggregate>(typeKind, resultType);
-      });
+      },
+      false,
+      true);
 }
 
 exec::AggregateRegistrationResult registerSetUnion(const std::string& name) {
@@ -431,7 +433,9 @@ exec::AggregateRegistrationResult registerSetUnion(const std::string& name) {
         const TypeKind typeKind = argTypes[0]->childAt(0)->kind();
 
         return create<SetUnionAggregate>(typeKind, resultType);
-      });
+      },
+      false,
+      true);
 }
 
 } // namespace
