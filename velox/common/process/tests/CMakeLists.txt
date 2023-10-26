@@ -17,4 +17,4 @@ add_executable(velox_process_test TraceContextTest.cpp)
 add_test(velox_process_test velox_process_test)
 
 target_link_libraries(velox_process_test PRIVATE velox_process fmt::fmt gtest
-                                                 gtest_main glog::glog gflags::gflags)
+                                                 gtest_main)

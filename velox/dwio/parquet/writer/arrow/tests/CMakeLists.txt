@@ -40,9 +40,7 @@ target_link_libraries(
   gtest_main
   parquet
   arrow
-  arrow_testing
-  glog::glog
-  gflags::gflags)
+  arrow_testing)
 
 add_library(
   velox_dwio_arrow_parquet_writer_test_lib

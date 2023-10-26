@@ -72,7 +72,7 @@ HdfsMiniCluster::HdfsMiniCluster() {
         "Failed to find minicluster executable {}'", miniClusterExecutableName);
   }
   boost::filesystem::path hadoopHomeDirectory = exePath_;
-  hadoopHomeDirectory.remove_filename().remove_filename();
+  hadoopHomeDirectory.remove_leaf().remove_leaf();
   setupEnvironment(hadoopHomeDirectory.string());
 }
 
