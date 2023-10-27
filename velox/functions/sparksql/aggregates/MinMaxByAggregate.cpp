@@ -140,7 +140,9 @@ exec::AggregateRegistrationResult registerMinMaxBy(
           return create<Aggregate, SparkComparator, isMaxFunc>(
               resultType, valueType, compareType, errorMessage);
         }
-      });
+      },
+      registerCompanionFunctions,
+      overwrite);
 }
 
 } // namespace
