@@ -49,16 +49,11 @@ SwitchExpr::SwitchExpr(
 
   // Apply type checking.
   auto typeExpected = resolveType(inputTypes);
-  if (typeExpected->isDecimal()) {
-    // Regard decimal types as the same regardless of precision and scale.
-    VELOX_CHECK(this->type()->isDecimal());
-  } else {
-    VELOX_CHECK(
-        *typeExpected == *this->type(),
-        "Switch expression type different than then clause. Expected {} but got Actual {}.",
-        typeExpected->toString(),
-        this->type()->toString());
-  }
+  VELOX_CHECK(
+      *typeExpected == *this->type(),
+      "Switch expression type different than then clause. Expected {} but got Actual {}.",
+      typeExpected->toString(),
+      this->type()->toString());
 }
 
 void SwitchExpr::evalSpecialForm(
@@ -259,17 +254,13 @@ TypePtr SwitchExpr::resolveType(const std::vector<TypePtr>& argTypes) {
 
   if (hasElse) {
     auto& elseClauseType = argTypes.back();
-    if (elseClauseType->isDecimal()) {
-      // Regard decimals as the same type regardless of precision and scale.
-      VELOX_CHECK(expressionType->isDecimal());
-    } else {
-      VELOX_CHECK(
-          *elseClauseType == *expressionType,
-          "Else clause of a SWITCH statement must have the same type as 'then' clauses. "
-          "Expected {}, but got {}.",
-          expressionType->toString(),
-          elseClauseType->toString());
-    }
+
+    VELOX_CHECK(
+        *elseClauseType == *expressionType,
+        "Else clause of a SWITCH statement must have the same type as 'then' clauses. "
+        "Expected {}, but got {}.",
+        expressionType->toString(),
+        elseClauseType->toString());
   }
 
   return expressionType;
