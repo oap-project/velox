@@ -304,7 +304,7 @@ class DecimalSumAggregate : public exec::Aggregate {
     VELOX_CHECK_EQ(
         decodedPartial_.base()->encoding(), VectorEncoding::Simple::ROW);
     auto baseRowVector = dynamic_cast<const RowVector*>(decodedPartial_.base());
-    auto sumVector = baseRowVector->childAt(0)->as<SimpleVector<TInputType>>();
+    auto sumVector = baseRowVector->childAt(0)->as<SimpleVector<TResultType>>();
     auto isEmptyVector = baseRowVector->childAt(1)->as<SimpleVector<bool>>();
     if (decodedPartial_.isConstantMapping()) {
       if (!decodedPartial_.isNullAt(0)) {
