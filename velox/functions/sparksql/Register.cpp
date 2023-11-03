@@ -113,6 +113,8 @@ void registerFunctions(const std::string& prefix) {
   exec::registerStatefulVectorFunction(
       prefix + "length", lengthSignatures(), makeLength);
   VELOX_REGISTER_VECTOR_FUNCTION(udf_str_to_map, prefix + "str_to_map");
+  exec::registerStatefulVectorFunction(
+      prefix + "concat_ws", concatWsSignatures(), makeConcatWs);
 
   registerFunction<Md5Function, Varchar, Varbinary>({prefix + "md5"});
   registerFunction<Sha1HexStringFunction, Varchar, Varbinary>(
