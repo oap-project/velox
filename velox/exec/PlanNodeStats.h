@@ -62,6 +62,8 @@ struct PlanNodeStats {
   /// Sum of raw input bytes for all corresponding operators.
   uint64_t rawInputBytes{0};
 
+  uint64_t fileSize{0};
+
   /// Sum of output rows for all corresponding operators. When
   /// plan node corresponds to multiple operator types, operators of only one of
   /// these types report non-zero output rows.

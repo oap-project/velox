@@ -350,6 +350,8 @@ void OperatorStats::add(const OperatorStats& other) {
   inputPositions += other.inputPositions;
   inputVectors += other.inputVectors;
 
+  fileSize += other.fileSize;
+
   getOutputTiming.add(other.getOutputTiming);
   outputBytes += other.outputBytes;
   outputPositions += other.outputPositions;

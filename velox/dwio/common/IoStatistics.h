@@ -114,7 +114,8 @@ class IoStatistics {
 
   folly::dynamic getOperationStatsSnapshot() const;
 
- private:
+ //private:
+  std::atomic<uint64_t> fileSize_{0};
   std::atomic<uint64_t> rawBytesRead_{0};
   std::atomic<uint64_t> rawBytesWritten_{0};
   std::atomic<uint64_t> inputBatchSize_{0};

@@ -95,6 +95,7 @@ IoStatistics::operationStats() const {
 }
 
 void IoStatistics::merge(const IoStatistics& other) {
+  fileSize_ += other.fileSize_;
   rawBytesRead_ += other.rawBytesRead_;
   rawBytesWritten_ += other.rawBytesWritten_;
   totalScanTime_ += other.totalScanTime_;

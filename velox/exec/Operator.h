@@ -98,6 +98,8 @@ struct OperatorStats {
   uint64_t rawInputBytes = 0;
   uint64_t rawInputPositions = 0;
 
+  uint64_t fileSize = 0;
+
   CpuWallTiming addInputTiming;
 
   /// Bytes of input in terms of retained size of input vectors.

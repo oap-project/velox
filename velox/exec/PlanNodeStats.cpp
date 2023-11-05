@@ -39,6 +39,8 @@ void PlanNodeStats::addTotals(const OperatorStats& stats) {
   rawInputRows += stats.rawInputPositions;
   rawInputBytes += stats.rawInputBytes;
 
+  fileSize += stats.fileSize;
+
   outputRows += stats.outputPositions;
   outputBytes += stats.outputBytes;
   outputVectors += stats.outputVectors;

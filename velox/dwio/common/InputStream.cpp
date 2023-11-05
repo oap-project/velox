@@ -60,7 +60,9 @@ ReadFileInputStream::ReadFileInputStream(
     const MetricsLogPtr& metricsLog,
     IoStatistics* stats)
     : InputStream(readFile->getName(), metricsLog, stats),
-      readFile_(std::move(readFile)) {}
+      readFile_(std::move(readFile)) {
+  stats->fileSize_ += getLength();
+}
 
 void ReadFileInputStream::read(
     void* buf,

@@ -414,9 +414,17 @@ HiveDataSource::HiveDataSource(
   SubfieldFilters filters;
   core::TypedExprPtr remainingFilter;
   if (hiveTableHandle->isFilterPushdownEnabled()) {
+    std::ostringstream oss;
+    oss << "collect ";
     for (auto& [k, v] : hiveTableHandle->subfieldFilters()) {
+      oss << k.toString() << " -> " << v->toString() << "\n";
       filters.emplace(k.clone(), v->clone());
     }
+
+    std::cout << "[zcw] " << oss.str();
+    std::cout << "[zcw] remainingFilter:"
+              << hiveTableHandle->remainingFilter()->toString() << std::endl;
+
     remainingFilter = extractFiltersFromRemainingFilter(
         hiveTableHandle->remainingFilter(),
         expressionEvaluator_,
@@ -434,6 +442,11 @@ HiveDataSource::HiveDataSource(
     }
   }
 
+  for (auto& [k, v] : filters) {
+    std::cout << "[zcw] iterator " << k.toString() << " -> " << v->toString()
+              << "\n";
+  }
+
   auto outputTypes = outputType_->children();
   readerOutputType_ = ROW(std::move(columnNames), std::move(outputTypes));
   scanSpec_ = makeScanSpec(
@@ -442,6 +455,9 @@ HiveDataSource::HiveDataSource(
       hiveColumnHandles,
       remainingFilterInputs,
       pool_);
+
+  std::cout << "[zcw] readerOutputType_:" << readerOutputType_->toString()
+            << std::endl;
 
   if (remainingFilter) {
     metadataFilter_ = std::make_shared<common::MetadataFilter>(
@@ -474,6 +490,12 @@ HiveDataSource::HiveDataSource(
   rowReaderOpts_.setScanSpec(scanSpec_);
   rowReaderOpts_.setMetadataFilter(metadataFilter_);
 
+  std::cout << "[zcw] fileSchema:" << readerOpts_.getFileSchema()->toString()
+            << " readerOutputType_:" << readerOutputType_->toString()
+            << " remainingFilterInputs size:" << remainingFilterInputs.size()
+            << " filter.size:" << filters.size() << " filterPushdownEnabled:"
+            << hiveTableHandle->isFilterPushdownEnabled() << std::endl;
+
   ioStats_ = std::make_shared<dwio::common::IoStatistics>();
 }
 
@@ -485,6 +507,8 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   VELOX_CHECK(split_, "Wrong type of split");
 
   VLOG(1) << "Adding split " << split_->toString();
+
+  std::cout << "[zcw] add split:" << split_->filePath << std::endl;
 
   fileHandle_ = fileHandleFactory_->generate(split_->filePath).second;
   auto input = createBufferedInput(*fileHandle_, readerOpts_);
@@ -498,6 +522,8 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   } else {
     readerOpts_.setFileFormat(split_->fileFormat);
   }
+
+  std::cout << "[zcw] " << readerOpts_.toString() << std::endl;
 
   reader_ = dwio::common::getReaderFactory(readerOpts_.getFileFormat())
                 ->createReader(std::move(input), readerOpts_);
@@ -781,6 +807,7 @@ HiveDataSource::createBufferedInput(
     const FileHandle& fileHandle,
     const dwio::common::ReaderOptions& readerOpts) {
   if (auto* asyncCache = dynamic_cast<cache::AsyncDataCache*>(allocator_)) {
+    std::cout << "[zcw] AsyncDataCache CachedBufferedInput" << std::endl;
     return std::make_unique<dwio::common::CachedBufferedInput>(
         fileHandle.file,
         readerOpts.getMemoryPool(),
@@ -794,6 +821,9 @@ HiveDataSource::createBufferedInput(
         readerOpts.loadQuantum(),
         readerOpts.maxCoalesceDistance());
   }
+
+  std::cout << "[zcw] BufferedInput, name:" << fileHandle.file->getName()
+            << std::endl;
   return std::make_unique<dwio::common::BufferedInput>(
       fileHandle.file,
       readerOpts.getMemoryPool(),

@@ -376,6 +376,16 @@ class ReaderOptions {
   uint64_t filePreloadThreshold{kDefaultFilePreloadThreshold};
   bool fileColumnNamesReadAsLowerCase = false;
 
+  std::string toString() const {
+    std::ostringstream oss;
+    oss << "[ReaderOptions] autoPreloadLength:" << autoPreloadLength
+        << " prefetchMode:" << (int)prefetchMode
+        << " loadQuantum_:" << (int)loadQuantum_
+        << " directorySizeGuess:" << directorySizeGuess
+        << " filePreloadThreshold:" << filePreloadThreshold;
+    return oss.str();
+  }
+
  public:
   static constexpr int32_t kDefaultLoadQuantum = 8 << 20; // 8MB
   static constexpr int32_t kDefaultCoalesceDistance = 512 << 10; // 512K

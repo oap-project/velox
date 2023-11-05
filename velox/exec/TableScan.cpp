@@ -47,6 +47,8 @@ TableScan::TableScan(
                          ->queryConfig()
                          .preferredOutputBatchRows()) {
   connector_ = connector::getConnector(tableHandle_->connectorId());
+
+  std::cout << "[zcw] ==== " << toString() << " ====" << std::endl;
 }
 
 RowVectorPtr TableScan::getOutput() {
@@ -107,6 +109,8 @@ RowVectorPtr TableScan::getOutput() {
             tableHandle_,
             columnHandles_,
             connectorQueryCtx_.get());
+        std::cout << "[zcw] pendingDynamicFilters_.size="
+                  << pendingDynamicFilters_.size() << std::endl;
         for (const auto& entry : pendingDynamicFilters_) {
           dataSource_->addDynamicFilter(entry.first, entry.second);
         }
@@ -135,6 +139,7 @@ RowVectorPtr TableScan::getOutput() {
           VELOX_CHECK(operatorCtx_->task()->isCancelled());
           return nullptr;
         }
+        std::cout << "[zcw] setFromDataSource\n";
         dataSource_->setFromDataSource(std::move(preparedDataSource));
       } else {
         dataSource_->addSplit(connectorSplit);
@@ -178,6 +183,11 @@ RowVectorPtr TableScan::getOutput() {
 
       lockedStats->rawInputPositions = dataSource_->getCompletedRows();
       lockedStats->rawInputBytes = dataSource_->getCompletedBytes();
+      lockedStats->fileSize = dataSource_->getFileSize();
+
+      std::cout << "[zcw] fileSize:" << lockedStats->fileSize
+                << " rawInputBytes:" << lockedStats->rawInputBytes << std::endl;
+
       auto data = dataOptional.value();
       if (data) {
         if (data->size() > 0) {

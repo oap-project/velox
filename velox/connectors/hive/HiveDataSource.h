@@ -56,6 +56,10 @@ class HiveDataSource : public DataSource {
     return ioStats_->rawBytesRead();
   }
 
+  uint64_t getFileSize() override {
+    return ioStats_->fileSize_;
+  }
+
   uint64_t getCompletedRows() override {
     return completedRows_;
   }

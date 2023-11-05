@@ -175,6 +175,8 @@ class DataSource {
   // Returns the number of input bytes processed so far.
   virtual uint64_t getCompletedBytes() = 0;
 
+  virtual uint64_t getFileSize() { return 0; }
+
   // Returns the number of input rows processed so far.
   virtual uint64_t getCompletedRows() = 0;
 
