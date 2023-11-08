@@ -709,6 +709,9 @@ class PlanBuilder {
   ///  rows between a + 10 preceding and 10 following)"
   PlanBuilder& window(const std::vector<std::string>& windowFunctions);
 
+  // Add a Streaming WindowNode to compute one or more windowFunctions.
+  PlanBuilder& streamingWindow(const std::vector<std::string>& windowFunctions);
+
   /// Add a RowNumberNode to compute single row_number window function with an
   /// optional limit and no sorting.
   PlanBuilder& rowNumber(
