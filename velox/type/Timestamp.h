@@ -122,6 +122,10 @@ struct Timestamp {
   std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>
   toTimePoint() const;
 
+  static Timestamp fromSecond(int64_t second) {
+    return Timestamp(second, 0);
+  }
+
   static Timestamp fromMillis(int64_t millis) {
     if (millis >= 0 || millis % 1'000 == 0) {
       return Timestamp(millis / 1'000, (millis % 1'000) * 1'000'000);

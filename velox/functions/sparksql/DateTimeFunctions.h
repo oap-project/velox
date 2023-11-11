@@ -181,8 +181,16 @@ struct FromUnixtimeFunction {
       mysqlDateTime_ = buildJodaDateTimeFormatter(
           std::string_view(timeFormat.data(), timeFormat.size()));
     }
-    Timestamp timestamp = Timestamp::fromMillis(1000 * second);
-    auto formattedResult = mysqlDateTime_->format(timestamp, sessionTimeZone_);
+    Timestamp timestamp = Timestamp::fromSecond(second);
+    std::string formattedResult;
+    try {
+      formattedResult = mysqlDateTime_->format(timestamp, sessionTimeZone_);
+    } catch (const VeloxUserError& e) {
+      // Suppress exception caused by integer overflow or
+      // out of [-32767-01-01, 32767-12-31] date range.
+      formattedResult =
+          mysqlDateTime_->format(Timestamp(0, 0), sessionTimeZone_);
+    }
     auto resultSize = formattedResult.size();
     result.resize(resultSize);
     if (resultSize != 0) {
