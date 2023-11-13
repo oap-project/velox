@@ -639,6 +639,19 @@ class ApproxPercentileAggregate : public exec::Aggregate {
   DecodedVector decodedDigest_;
 
  private:
+  bool isConstantVector(const VectorPtr& vec) {
+    if (vec->isConstantEncoding()) {
+      return true;
+    }
+    VELOX_USER_CHECK(vec->size() > 0);
+    for (vector_size_t i = 1; i < vec->size(); ++i) {
+      if (!vec->equalValueAt(vec.get(), i, 0)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   template <bool kSingleGroup, bool checkIntermediateInputs>
   void addIntermediateImpl(
       std::conditional_t<kSingleGroup, char*, char**> group,
@@ -650,7 +663,8 @@ class ApproxPercentileAggregate : public exec::Aggregate {
     if constexpr (checkIntermediateInputs) {
       VELOX_USER_CHECK(rowVec);
       for (int i = kPercentiles; i <= kAccuracy; ++i) {
-        VELOX_USER_CHECK(rowVec->childAt(i)->isConstantEncoding());
+        VELOX_USER_CHECK(isConstantVector(
+            rowVec->childAt(i))); // spilling flats constant encoding
       }
       for (int i = kK; i <= kMaxValue; ++i) {
         VELOX_USER_CHECK(rowVec->childAt(i)->isFlatEncoding());
@@ -677,10 +691,9 @@ class ApproxPercentileAggregate : public exec::Aggregate {
     }
 
     DecodedVector percentiles(*rowVec->childAt(kPercentiles), *baseRows);
-    auto percentileIsArray =
-        rowVec->childAt(kPercentilesIsArray)->asUnchecked<SimpleVector<bool>>();
-    auto accuracy =
-        rowVec->childAt(kAccuracy)->asUnchecked<SimpleVector<double>>();
+    DecodedVector percentileIsArray(
+        *rowVec->childAt(kPercentilesIsArray), *baseRows);
+    DecodedVector accuracy(*rowVec->childAt(kAccuracy), *baseRows);
     auto k = rowVec->childAt(kK)->asUnchecked<SimpleVector<int32_t>>();
     auto n = rowVec->childAt(kN)->asUnchecked<SimpleVector<int64_t>>();
     auto minValue = rowVec->childAt(kMinValue)->asUnchecked<SimpleVector<T>>();
@@ -710,7 +723,7 @@ class ApproxPercentileAggregate : public exec::Aggregate {
         return;
       }
       int i = decoded.index(row);
-      if (percentileIsArray->isNullAt(i)) {
+      if (percentileIsArray.isNullAt(i)) {
         return;
       }
       if (!accumulator) {
@@ -720,10 +733,10 @@ class ApproxPercentileAggregate : public exec::Aggregate {
             percentilesBase->elements()->asFlatVector<double>();
         if constexpr (checkIntermediateInputs) {
           VELOX_USER_CHECK(percentileBaseElements);
-          VELOX_USER_CHECK(!percentilesBase->isNullAt(indexInBaseVector));
+          VELOX_USER_CHECK(!percentiles.isNullAt(indexInBaseVector));
         }
 
-        bool isArray = percentileIsArray->valueAt(i);
+        bool isArray = percentileIsArray.valueAt<bool>(i);
         const double* data;
         vector_size_t len;
         std::vector<bool> isNull;
@@ -731,8 +744,8 @@ class ApproxPercentileAggregate : public exec::Aggregate {
             percentilesBase, indexInBaseVector, data, len, isNull);
         checkSetPercentile(isArray, data, len, isNull);
 
-        if (!accuracy->isNullAt(i)) {
-          checkSetAccuracy(accuracy->valueAt(i));
+        if (!accuracy.isNullAt(i)) {
+          checkSetAccuracy(accuracy.valueAt<double>(i));
         }
       }
       if constexpr (kSingleGroup) {
