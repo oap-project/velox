@@ -20,6 +20,7 @@
 #include "folly/experimental/EventCount.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/FileSystems.h"
+#include "velox/common/memory/Memory.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/Aggregate.h"
@@ -397,6 +398,33 @@ class AggregationTest : public OperatorTestBase {
            VARCHAR()})};
   folly::Random::DefaultGenerator rng_;
   memory::MemoryReclaimer::Stats reclaimerStats_;
+
+  std::shared_ptr<core::QueryCtx> newQueryCtx(
+      int64_t memoryCapacity = memory::kMaxMemory) {
+    std::unordered_map<std::string, std::shared_ptr<Config>> configs;
+    std::shared_ptr<memory::MemoryPool> pool = memoryManager_->addRootPool(
+        "", memoryCapacity, MemoryReclaimer::create());
+    auto queryCtx = std::make_shared<core::QueryCtx>(
+        executor_.get(),
+        core::QueryConfig({}),
+        configs,
+        cache::AsyncDataCache::getInstance(),
+        std::move(pool));
+    return queryCtx;
+  }
+
+  void setupMemory() {
+    memory::MemoryManagerOptions options;
+    options.arbitratorKind = "SHARED";
+    options.checkUsageLeak = true;
+    memoryAllocator_ = memory::MemoryAllocator::createDefaultInstance();
+    options.allocator = memoryAllocator_.get();
+    memoryManager_ = std::make_unique<memory::MemoryManager>(options);
+  }
+
+ private:
+  std::shared_ptr<memory::MemoryAllocator> memoryAllocator_;
+  std::unique_ptr<memory::MemoryManager> memoryManager_;
 };
 
 template <>
@@ -845,6 +873,104 @@ TEST_F(AggregationTest, partialAggregationMemoryLimit) {
       toPlanStats(task->taskStats())
           .at(aggNodeId)
           .customStats.count("flushRowCount"));
+}
+
+// TODO move to arbitrator test
+TEST_F(AggregationTest, partialAggregationSpill) {
+  VectorFuzzer::Options fuzzerOpts;
+  fuzzerOpts.vectorSize = 128;
+  RowTypePtr rowType = ROW(
+      {{"c0", INTEGER()},
+       {"c1", INTEGER()},
+       {"c2", INTEGER()},
+       {"c3", INTEGER()},
+       {"c4", INTEGER()},
+       {"c5", INTEGER()},
+       {"c6", INTEGER()},
+       {"c7", INTEGER()},
+       {"c8", INTEGER()},
+       {"c9", INTEGER()},
+       {"c10", INTEGER()}});
+  VectorFuzzer fuzzer(std::move(fuzzerOpts), pool());
+
+  std::vector<RowVectorPtr> vectors;
+
+  const int32_t numVectors = 2000;
+  for (int i = 0; i < numVectors; i++) {
+    vectors.push_back(fuzzer.fuzzRow(rowType));
+  }
+
+  createDuckDbTable(vectors);
+
+  setupMemory();
+
+  core::PlanNodeId partialAggNodeId;
+  core::PlanNodeId finalAggNodeId;
+  // Set an artificially low limit on the amount of data to accumulate in
+  // the partial aggregation.
+
+  // Distinct aggregation.
+  auto spillDirectory1 = exec::test::TempDirectoryPath::create();
+  auto task = AssertQueryBuilder(duckDbQueryRunner_)
+                  .queryCtx(newQueryCtx(10LL << 10 << 10))
+                  .spillDirectory(spillDirectory1->path)
+                  .config(QueryConfig::kSpillEnabled, "true")
+                  .config(QueryConfig::kAggregationSpillEnabled, "true")
+                  .config(
+                      QueryConfig::kAggregationSpillMemoryThreshold,
+                      std::to_string(0)) // always spill on final agg
+                  .plan(PlanBuilder()
+                            .values(vectors)
+                            .partialAggregation({"c0"}, {})
+                            .capturePlanNodeId(partialAggNodeId)
+                            .finalAggregation()
+                            .capturePlanNodeId(finalAggNodeId)
+                            .planNode())
+                  .assertResults("SELECT distinct c0 FROM tmp");
+
+  checkSpillStats(toPlanStats(task->taskStats()).at(partialAggNodeId), true);
+  checkSpillStats(toPlanStats(task->taskStats()).at(finalAggNodeId), true);
+
+  // Count aggregation.
+  auto spillDirectory2 = exec::test::TempDirectoryPath::create();
+  task = AssertQueryBuilder(duckDbQueryRunner_)
+             .queryCtx(newQueryCtx(10LL << 10 << 10))
+             .spillDirectory(spillDirectory2->path)
+             .config(QueryConfig::kSpillEnabled, "true")
+             .config(QueryConfig::kAggregationSpillEnabled, "true")
+             .config(
+                 QueryConfig::kAggregationSpillMemoryThreshold,
+                 std::to_string(0)) // always spill on final agg
+             .plan(PlanBuilder()
+                       .values(vectors)
+                       .partialAggregation({"c0"}, {"count(1)"})
+                       .capturePlanNodeId(partialAggNodeId)
+                       .finalAggregation()
+                       .capturePlanNodeId(finalAggNodeId)
+                       .planNode())
+             .assertResults("SELECT c0, count(1) FROM tmp GROUP BY 1");
+
+  checkSpillStats(toPlanStats(task->taskStats()).at(partialAggNodeId), true);
+  checkSpillStats(toPlanStats(task->taskStats()).at(finalAggNodeId), true);
+
+  // Global aggregation.
+  task = AssertQueryBuilder(duckDbQueryRunner_)
+             .queryCtx(newQueryCtx(10LL << 10 << 10))
+             .plan(PlanBuilder()
+                       .values(vectors)
+                       .partialAggregation({}, {"sum(c0)"})
+                       .capturePlanNodeId(partialAggNodeId)
+                       .finalAggregation()
+                       .capturePlanNodeId(finalAggNodeId)
+                       .planNode())
+             .assertResults("SELECT sum(c0) FROM tmp");
+  EXPECT_EQ(
+      0,
+      toPlanStats(task->taskStats())
+          .at(partialAggNodeId)
+          .customStats.count("flushRowCount"));
+  checkSpillStats(toPlanStats(task->taskStats()).at(partialAggNodeId), false);
+  checkSpillStats(toPlanStats(task->taskStats()).at(finalAggNodeId), false);
 }
 
 TEST_F(AggregationTest, partialDistinctWithAbandon) {

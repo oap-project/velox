@@ -830,7 +830,7 @@ const HashLookup& GroupingSet::hashLookup() const {
 void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
   // Spilling is considered if this is a final or single aggregation and
   // spillPath is set.
-  if (isPartial_ || spillConfig_ == nullptr) {
+  if (spillConfig_ == nullptr) {
     return;
   }
 
@@ -913,7 +913,7 @@ void GroupingSet::ensureOutputFits() {
   // to reserve memory for the output as we can't reclaim much memory from this
   // operator itself. The output processing can reclaim memory from the other
   // operator or query through memory arbitration.
-  if (isPartial_ || spillConfig_ == nullptr || hasSpilled()) {
+  if (spillConfig_ == nullptr || hasSpilled()) {
     return;
   }
 
@@ -957,6 +957,10 @@ void GroupingSet::spill() {
   // is possible that the grouping set hasn't processed any input data yet.
   // Correspondingly, 'table_' will not be initialized at that point.
   if (table_ == nullptr || table_->numDistinct() == 0) {
+    return;
+  }
+
+  if (hasSpilled() && spiller_->finalized()) {
     return;
   }
 
