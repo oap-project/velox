@@ -24,6 +24,7 @@ add_executable(
   DateTimeTest.cpp
   HashTest.cpp
   InTest.cpp
+  JsonTest.cpp
   LeastGreatestTest.cpp
   MapTest.cpp
   MightContainTest.cpp
