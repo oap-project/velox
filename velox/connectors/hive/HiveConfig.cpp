@@ -52,6 +52,11 @@ std::string HiveConfig::insertExistingPartitionsBehaviorString(
   }
 }
 
+// static.
+uint8_t HiveConfig::arrowBridgeTimestampUnit(const Config* config) {
+  return config->get<uint8_t>(kArrowBridgeTimestampUnit, 9 /* nano */);
+}
+
 HiveConfig::InsertExistingPartitionsBehavior
 HiveConfig::insertExistingPartitionsBehavior(const Config* session) const {
   if (session->isValueExists(kInsertExistingPartitionsBehaviorSession)) {

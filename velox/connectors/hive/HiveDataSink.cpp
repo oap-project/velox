@@ -603,6 +603,8 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
   if (canReclaim()) {
     options.spillConfig = spillConfig_;
   }
+  options.arrowBridgeTimestampUnit = HiveConfig::arrowBridgeTimestampUnit(
+      connectorQueryCtx_->sessionProperties());
   options.nonReclaimableSection =
       writerInfo_.back()->nonReclaimableSectionHolder.get();
   options.maxStripeSize = std::optional(

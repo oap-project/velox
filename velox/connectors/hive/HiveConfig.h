@@ -142,6 +142,10 @@ class HiveConfig {
   static constexpr const char* kWriteFileCreateConfig =
       "hive.write_file_create_config";
 
+  // Timestamp unit used during Velox-Arrow conversion.
+  static constexpr const char* kArrowBridgeTimestampUnit =
+      "arrow_bridge_timestamp_unit";
+
   /// Maximum number of rows for sort writer in one batch of output.
   static constexpr const char* kSortWriterMaxOutputRows =
       "sort-writer-max-output-rows";
@@ -189,6 +193,10 @@ class HiveConfig {
   std::string gcsScheme() const;
 
   std::string gcsCredentials() const;
+
+  /// Returns the timestamp unit used in Velox-Arrow conversion.
+  /// 0: second, 3: milli, 6: micro, 9: nano.
+  static uint8_t arrowBridgeTimestampUnit(const Config* config);
 
   bool isOrcUseColumnNames(const Config* session) const;
 
