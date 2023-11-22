@@ -21,6 +21,7 @@ namespace facebook::velox::aggregate::prestosql {
 
 void registerAllAggregateFunctions(
     const std::string& prefix = "",
-    bool withCompanionFunctions = true);
+    bool withCompanionFunctions = true,
+    bool overwrite = false);
 
 } // namespace facebook::velox::aggregate::prestosql
