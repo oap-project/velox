@@ -71,6 +71,10 @@ int main(int argc, char** argv) {
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
   auto duckQueryRunner =
       std::make_unique<facebook::velox::exec::test::DuckQueryRunner>();
+  duckQueryRunner->disableAggregateFunctions({
+      "max_by", // DuckDB results on equality handling is different with Spark.
+      "min_by", // DuckDB results on equality handling is different with Spark.
+  });
 
   using Runner = facebook::velox::exec::test::AggregationFuzzerRunner;
 
