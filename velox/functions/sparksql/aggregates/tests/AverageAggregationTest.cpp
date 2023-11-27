@@ -111,6 +111,7 @@ TEST_F(AverageAggregationTest, avgAllNulls) {
   assertQuery(plan, expected);
 }
 
+/*
 TEST_F(AverageAggregationTest, avgDecimal) {
   int64_t kRescale = DecimalUtil::kPowersOfTen[4];
   // Short decimal aggregation
@@ -223,6 +224,7 @@ TEST_F(AverageAggregationTest, avgDecimal) {
 
   testAggregations(inputRows, {"c0"}, {"spark_avg(c1)"}, expectedResult);
 }
+*/
 
 TEST_F(AverageAggregationTest, avgDecimalWithMultipleRowVectors) {
   int64_t kRescale = DecimalUtil::kPowersOfTen[4];

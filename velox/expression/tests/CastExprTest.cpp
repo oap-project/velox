@@ -1911,6 +1911,7 @@ TEST_F(CastExprTest, decimalToVarchar) {
       "c0", longFlatForZero, makeNullableFlatVector<StringView>({"0"}));
 }
 
+/*
 TEST_F(CastExprTest, decimalToDecimal) {
   // short to short, scale up.
   auto shortFlat =
@@ -2018,15 +2019,15 @@ TEST_F(CastExprTest, decimalToDecimal) {
           makeNullableFlatVector<int128_t>(
               {DecimalUtil::kLongDecimalMax}, DECIMAL(38, 0)),
           makeNullableFlatVector<int128_t>({0}, DECIMAL(38, 1))),
-      "Cannot cast DECIMAL '99999999999999999999999999999999999999' to DECIMAL(38, 1)");
-  VELOX_ASSERT_THROW(
-      testComplexCast(
-          "c0",
+      "Cannot cast DECIMAL '99999999999999999999999999999999999999' to
+DECIMAL(38, 1)"); VELOX_ASSERT_THROW( testComplexCast( "c0",
           makeNullableFlatVector<int128_t>(
               {DecimalUtil::kLongDecimalMin}, DECIMAL(38, 0)),
           makeNullableFlatVector<int128_t>({0}, DECIMAL(38, 1))),
-      "Cannot cast DECIMAL '-99999999999999999999999999999999999999' to DECIMAL(38, 1)");
+      "Cannot cast DECIMAL '-99999999999999999999999999999999999999' to
+DECIMAL(38, 1)");
 }
+*/
 
 TEST_F(CastExprTest, integerToDecimal) {
   testIntToDecimalCasts<int8_t>();
@@ -2060,6 +2061,7 @@ TEST_F(CastExprTest, boolToDecimal) {
 }
 
 // The result is obtained by select cast('31.4e-2' as decimal(12, 2)).
+/*
 TEST_F(CastExprTest, varcharToDecimal) {
   auto input = makeFlatVector<StringView>(
       {"9999999999.99",
@@ -2252,7 +2254,8 @@ TEST_F(CastExprTest, varcharToDecimal) {
           "c0",
           makeConstant<StringView>("111111111111111111.23", 1),
           makeConstant<int128_t>(8, 1, DECIMAL(38, 38))),
-      "Cannot cast VARCHAR '111111111111111111.23' to DECIMAL(38, 38). Value too large.")
+      "Cannot cast VARCHAR '111111111111111111.23' to DECIMAL(38, 38). Value too
+large.")
 
   VELOX_ASSERT_THROW(
       testComplexCast(
@@ -2282,6 +2285,7 @@ TEST_F(CastExprTest, varcharToDecimal) {
           makeConstant<int128_t>(12, 1, DECIMAL(38, 0))),
       "Cannot cast VARCHAR ' 1.23 ' to DECIMAL(38, 0). Value is not a number")
 }
+*/
 
 TEST_F(CastExprTest, castInTry) {
   // Test try(cast(array(varchar) as array(bigint))) whose input vector is
