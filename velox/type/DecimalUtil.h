@@ -175,17 +175,7 @@ class DecimalUtil {
     }
     // Check overflow.
     if (!valueInPrecisionRange(rescaledValue, toPrecision) || isOverflow) {
-      if (throwIfOverflow) {
-        VELOX_USER_FAIL(
-            "Cannot cast DECIMAL '{}' to DECIMAL({}, {})",
-            DecimalUtil::toString(
-                inputValue, DECIMAL(fromPrecision, fromScale)),
-            toPrecision,
-            toScale);
-      } else {
-        isOverflow = true;
-        return std::nullopt;
-      }
+      return std::nullopt;
     }
     return static_cast<TOutput>(rescaledValue);
   }
