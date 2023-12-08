@@ -963,6 +963,33 @@ TEST_F(ParquetTableScanTest, timestampPrecisionMicrosecond) {
 >>>>>>> Support struct column reading with different schemas (5962)
 }
 
+TEST_F(ParquetTableScanTest, timestampINT96) {
+  auto a = makeFlatVector<Timestamp>({Timestamp(1, 0), Timestamp(2, 0)});
+  auto expected = makeRowVector({"time"}, {a});
+  createDuckDbTable("expected", {expected});
+
+  auto vector = makeArrayVector<Timestamp>({{}});
+  loadData(
+      getExampleFilePath("timestamp_dict_int96.parquet"),
+      ROW({"time"}, {TIMESTAMP()}),
+      makeRowVector(
+          {"time"},
+          {
+              vector,
+          }));
+  assertSelect({"time"}, "SELECT time from expected");
+
+  loadData(
+      getExampleFilePath("timestamp_plain_int96.parquet"),
+      ROW({"time"}, {TIMESTAMP()}),
+      makeRowVector(
+          {"time"},
+          {
+              vector,
+          }));
+  assertSelect({"time"}, "SELECT time from expected");
+}
+
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
   folly::Init init{&argc, &argv, false};
