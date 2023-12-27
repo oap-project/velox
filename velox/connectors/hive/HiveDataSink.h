@@ -541,6 +541,8 @@ class HiveDataSink : public DataSink {
   void closeInternal();
 
   const RowTypePtr inputType_;
+  // Written data columns into file.
+  RowTypePtr dataType_;
   const std::shared_ptr<const HiveInsertTableHandle> insertTableHandle_;
   const ConnectorQueryCtx* const connectorQueryCtx_;
   const CommitStrategy commitStrategy_;

@@ -38,6 +38,28 @@ namespace facebook::velox::connector::hive {
 
 namespace {
 
+RowVectorPtr makeDataInput(
+    const std::vector<column_index_t>& partitonCols,
+    const RowVectorPtr& input,
+    const RowTypePtr& dataType) {
+  std::vector<VectorPtr> childVectors;
+  childVectors.reserve(dataType->size());
+  for (uint32_t i = 0; i < input->childrenSize(); i++) {
+    if (std::find(partitonCols.cbegin(), partitonCols.cend(), i) ==
+        partitonCols.cend()) {
+      childVectors.push_back(input->childAt(i));
+    }
+  }
+
+  return std::make_shared<RowVector>(
+      input->pool(),
+      dataType,
+      input->nulls(),
+      input->size(),
+      std::move(childVectors),
+      input->getNullCount());
+}
+
 // Returns a subset of column indices corresponding to partition keys.
 std::vector<column_index_t> getPartitionChannels(
     const std::shared_ptr<const HiveInsertTableHandle>& insertTableHandle) {
@@ -301,12 +323,15 @@ HiveDataSink::HiveDataSink(
           connectorQueryCtx->sessionProperties())),
       partitionChannels_(getPartitionChannels(insertTableHandle_)),
       partitionIdGenerator_(
-          !partitionChannels_.empty() ? std::make_unique<PartitionIdGenerator>(
-                                            inputType_,
-                                            partitionChannels_,
-                                            maxOpenWriters_,
-                                            connectorQueryCtx_->memoryPool())
-                                      : nullptr),
+          !partitionChannels_.empty()
+              ? std::make_unique<PartitionIdGenerator>(
+                    inputType_,
+                    partitionChannels_,
+                    maxOpenWriters_,
+                    connectorQueryCtx_->memoryPool(),
+                    hiveConfig_->isPartitionPathAsLowerCaseSession(
+                        connectorQueryCtx->sessionProperties()))
+              : nullptr),
       bucketCount_(
           insertTableHandle_->bucketProperty() == nullptr
               ? 0
@@ -330,6 +355,18 @@ HiveDataSink::HiveDataSink(
           (commitStrategy_ == CommitStrategy::kTaskCommit),
       "Unsupported commit strategy: {}",
       commitStrategyToString(commitStrategy_));
+
+  // Get the data input type based on the inputType and the parition index.
+  std::vector<TypePtr> childTypes;
+  std::vector<std::string> childNames;
+  for (auto i = 0; i < inputType_->size(); i++) {
+    if (std::find(partitionChannels_.cbegin(), partitionChannels_.cend(), i) ==
+        partitionChannels_.end()) {
+      childNames.push_back(inputType_->nameOf(i));
+      childTypes.push_back(inputType_->childAt(i));
+    }
+  }
+  dataType_ = ROW(std::move(childNames), std::move(childTypes));
 
   if (!isBucketed()) {
     return;
@@ -400,8 +437,17 @@ void HiveDataSink::appendData(RowVectorPtr input) {
 
 void HiveDataSink::write(size_t index, const VectorPtr& input) {
   WRITER_NON_RECLAIMABLE_SECTION_GUARD(index);
-  writers_[index]->write(input);
-  writerInfo_[index]->numWrittenRows += input->size();
+  // Skip the partition columns before writing.
+  auto dataInput = input;
+  if (!isBucketed()) {
+    dataInput = makeDataInput(
+        partitionChannels_,
+        std::dynamic_pointer_cast<RowVector>(input),
+        dataType_);
+  }
+
+  writers_[index]->write(dataInput);
+  writerInfo_[index]->numWrittenRows += dataInput->size();
 }
 
 std::string HiveDataSink::stateString(State state) {
@@ -597,7 +643,12 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
   dwio::common::WriterOptions options;
   const auto* connectorSessionProperties =
       connectorQueryCtx_->sessionProperties();
-  options.schema = inputType_;
+  if (!isBucketed()) {
+    options.schema = dataType_;
+  } else {
+    options.schema = inputType_;
+  }
+
   options.memoryPool = writerInfo_.back()->writerPool.get();
   options.compressionKind = insertTableHandle_->compressionKind();
   if (canReclaim()) {
@@ -737,6 +788,12 @@ std::pair<std::string, std::string> HiveDataSink::getWriterFileNames(
   const std::string writeFileName = isCommitRequired()
       ? fmt::format(".tmp.velox.{}_{}", targetFileName, makeUuid())
       : targetFileName;
+  if (insertTableHandle_->tableStorageFormat() ==
+      dwio::common::FileFormat::PARQUET) {
+    return {
+        fmt::format("{}{}", targetFileName, ".parquet"),
+        fmt::format("{}{}", writeFileName, ".parquet")};
+  }
   return {targetFileName, writeFileName};
 }
 
