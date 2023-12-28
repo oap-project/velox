@@ -1177,7 +1177,8 @@ TEST_F(SharedArbitrationTest, reclaimFromDistinctAggregation) {
 
 TEST_F(SharedArbitrationTest, reclaimFromPartialAggregation) {
   const uint64_t maxQueryCapacity = 20L << 20;
-  std::vector<RowVectorPtr> vectors = newVectors(1024, maxQueryCapacity * 2);
+  std::vector<RowVectorPtr> vectors =
+      createVectors(rowType_, 1024, maxQueryCapacity * 2);
   createDuckDbTable(vectors);
   const auto spillDirectory = exec::test::TempDirectoryPath::create();
   core::PlanNodeId partialAggNodeId;
