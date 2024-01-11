@@ -287,3 +287,11 @@ Unless specified otherwise, all functions return NULL if at least one of the arg
     Returns string with all characters changed to uppercase. ::
 
         SELECT upper('SparkSql'); -- SPARKSQL
+
+.. spark:function:: find_in_set(str, str_array) -> integer
+
+    Returns the index (1-based) of the given string ```str``` in the comma-delimited list ```str_array```.
+    Returns 0, if the string was not found or if the given string ```str``` contains a comma. ::
+
+        SELECT find_in_set('ab','abc,b,ab,c,def'); -- 3
+
