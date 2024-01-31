@@ -185,8 +185,9 @@ class ArrowBridgeArrayExportTest : public testing::Test {
                   << "mismatch at index " << i;
               break;
             default:
-              VELOX_USER_FAIL(fmt::format(
-                  "Timestamp unit not supported: {}.", options_.timestampUnit));
+              VELOX_USER_FAIL(
+                  "Timestamp unit not supported: {}.",
+                  static_cast<int>(options_.timestampUnit));
           }
         } else {
           EXPECT_EQ(inputData[i], values[i]) << "mismatch at index " << i;
@@ -1033,8 +1034,9 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
               rawValues[i] = inputValues[i]->toNanos();
               break;
             default:
-              VELOX_USER_FAIL(fmt::format(
-                  "Timestamp unit not supported: {}.", options_.timestampUnit));
+              VELOX_USER_FAIL(
+                  "Timestamp unit not supported: {}.",
+                  static_cast<int>(options_.timestampUnit));
           }
         } else {
           rawValues[i] = *inputValues[i];
@@ -1179,8 +1181,9 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
                   << "mismatch at index " << i;
               break;
             default:
-              VELOX_USER_FAIL(fmt::format(
-                  "Timestamp unit not supported: {}.", options_.timestampUnit));
+              VELOX_USER_FAIL(
+                  "Timestamp unit not supported: {}.",
+                  static_cast<int>(options_.timestampUnit));
           }
         }
       } else {
