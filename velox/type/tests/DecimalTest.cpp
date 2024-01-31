@@ -484,5 +484,6 @@ TEST(DecimalTest, rescaleReal) {
   assertRescaleFloatingPointFail<float, int64_t>(
       99999.99, DECIMAL(6, 4), "Result cannot fit in the given precision 6.");
 }
+
 } // namespace
 } // namespace facebook::velox
