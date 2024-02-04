@@ -37,19 +37,16 @@ class DecimalRoundFunction : public exec::VectorFunction {
         inputScale_(inputScale),
         resultPrecision_(resultPrecision),
         resultScale_(resultScale) {
-    // const auto [p, s] =
-    // DecimalRoundCallToSpecialForm::getResultPrecisionScale(
-    //     inputPrecision, inputScale, scale);
-    // VELOX_USER_CHECK_EQ(
-    //     p,
-    //     resultPrecision,
-    //     "The result precision of decimal_round is inconsistent with Spark
-    //     expected.");
-    // VELOX_USER_CHECK_EQ(
-    //     s,
-    //     resultScale,
-    //     "The result scale of decimal_round is inconsistent with Spark
-    //     expected.");
+    const auto [p, s] = DecimalRoundCallToSpecialForm::getResultPrecisionScale(
+        inputPrecision, inputScale, scale);
+    VELOX_USER_CHECK_EQ(
+        p,
+        resultPrecision,
+        "The result precision of decimal_round is inconsistent with Spark expected.");
+    VELOX_USER_CHECK_EQ(
+        s,
+        resultScale,
+        "The result scale of decimal_round is inconsistent with Spark expected.");
 
     // Decide the rescale factor of divide and multiply when rounding to a
     // negative scale.
