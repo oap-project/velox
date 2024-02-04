@@ -25,7 +25,7 @@ export CFLAGS=$(get_cxx_flags $CPU_TARGET)  # Used by LZO.
 export CXXFLAGS=$CFLAGS  # Used by boost.
 export CPPFLAGS=$CFLAGS  # Used by LZO.
 export PKG_CONFIG_PATH=/usr/local/lib64/pkgconfig:/usr/local/lib/pkgconfig:/usr/lib64/pkgconfig:/usr/lib/pkgconfig:$PKG_CONFIG_PATH
-FB_OS_VERSION=v2022.11.14.00
+FB_OS_VERSION=v2023.12.04.00
 
 # shellcheck disable=SC2037
 SUDO="sudo -E"
@@ -74,12 +74,6 @@ function install_ninja {
   cmake -Bbuild-cmake
   cmake --build build-cmake
   $SUDO cp ninja /usr/local/bin/  
-}
-
-function install_fmt {
-  cd "${DEPENDENCY_DIR}"
-  github_checkout fmtlib/fmt 8.0.0
-  cmake_install -DFMT_TEST=OFF
 }
 
 function install_folly {
@@ -226,7 +220,6 @@ function install_prerequisites {
 }
 
 function install_velox_deps {
-  run_and_time install_fmt
   run_and_time install_folly
   run_and_time install_conda
 }
