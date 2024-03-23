@@ -388,15 +388,15 @@ void PageReader::prepareDictionary(const PageHeader& pageHeader) {
       for (auto i = dictionary_.numValues - 1; i >= 0; --i) {
         // Convert the timestamp into seconds and nanos since the Unix epoch,
         // 00:00:00.000000 on 1 January 1970.
-        uint64_t nanos;
+        int64_t nanos;
         memcpy(
             &nanos,
             parquetValues + i * sizeof(Int96Timestamp),
-            sizeof(uint64_t));
+            sizeof(int64_t));
         int32_t days;
         memcpy(
             &days,
-            parquetValues + i * sizeof(Int96Timestamp) + sizeof(uint64_t),
+            parquetValues + i * sizeof(Int96Timestamp) + sizeof(int64_t),
             sizeof(int32_t));
 
         values[i] = Timestamp::fromDaysAndNanos(days, nanos);
