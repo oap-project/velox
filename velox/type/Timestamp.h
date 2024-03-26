@@ -101,7 +101,7 @@ struct Timestamp {
 
   constexpr Timestamp() : seconds_(0), nanos_(0) {}
 
-  Timestamp(int64_t seconds, int64_t nanos)
+  Timestamp(int64_t seconds, uint64_t nanos)
       : seconds_(seconds), nanos_(nanos) {
     VELOX_USER_DCHECK_GE(
         seconds, kMinSeconds, "Timestamp seconds out of range");
