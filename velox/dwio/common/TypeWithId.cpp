@@ -86,7 +86,7 @@ std::unique_ptr<TypeWithId> TypeWithId::duplicate(bool nameAsLowerCase) const {
   std::vector<std::unique_ptr<TypeWithId>> children;
   children.reserve(children_.size());
   for (const auto& child : children_) {
-    children.emplace_back(std::move(child->duplicate(nameAsLowerCase)));
+    children.emplace_back(child->duplicate(nameAsLowerCase));
   }
   return std::make_unique<TypeWithId>(
       nameAsLowerCase ? adjustNameAsLowerCase(type_) : type_,
