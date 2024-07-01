@@ -26,6 +26,18 @@ class ToPrettyStringTest : public SparkFunctionBaseTest {
   std::optional<std::string> toPrettyString(std::optional<T> arg) {
     return evaluateOnce<std::string>("toprettystring(c0)", arg);
   }
+
+  template <TypeKind KIND>
+  void testDecimalExpr(
+      const VectorPtr& expected,
+      const std::string& expression,
+      const std::vector<VectorPtr>& input) {
+    using EvalType = typename velox::TypeTraits<KIND>::NativeType;
+    auto result =
+        evaluate<SimpleVector<EvalType>>(expression, makeRowVector(input));
+    velox::test::assertEqualVectors(expected, result);
+  }
+
   const std::string kNull = "NULL";
 };
 
@@ -73,6 +85,24 @@ TEST_F(ToPrettyStringTest, timestamp) {
 
   VELOX_ASSERT_THROW(
       toPrettyStringTimestamp(Timestamp(946729316, 123), std::nullopt), "");
+}
+
+TEST_F(ToPrettyStringTest, decimal) {
+  testDecimalExpr<TypeKind::VARCHAR>(
+      {makeFlatVector<StringView>({"0.123", "0.552", "0.000"})},
+      "toprettystring(c0)",
+      {makeFlatVector<int64_t>({123, 552, 0}, DECIMAL(3, 3))});
+
+  testDecimalExpr<TypeKind::VARCHAR>(
+      {makeFlatVector<StringView>(
+          {"12345678901234.56789",
+           "55555555555555.55555",
+           "0.00000",
+           StringView(kNull)})},
+      "toprettystring(c0)",
+      {makeNullableFlatVector<int128_t>(
+          {1234567890123456789, 5555555555555555555, 0, std::nullopt},
+          DECIMAL(19, 5))});
 }
 
 } // namespace facebook::velox::functions::sparksql::test

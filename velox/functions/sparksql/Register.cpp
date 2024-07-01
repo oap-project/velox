@@ -186,12 +186,18 @@ void registerToPrettyStringFunctions(const std::string& prefix) {
       {prefix + "toprettystring"});
   registerFunction<ToPrettyStringFunction, Varchar, Varbinary>(
       {prefix + "toprettystring"});
+  registerFunction<ToPrettyStringFunction, Varchar, Date>(
+      {prefix + "toprettystring"});
   registerFunction<
       ToPrettyStringTimeStampFunction,
       Varchar,
       Timestamp,
       Varchar>({prefix + "toprettystring"});
-  registerFunction<ToPrettyStringFunction, Varchar, Date>(
+  registerFunction<
+      ToPrettyStringDecimalFunction,
+      Varchar,
+      ShortDecimal<P1, S1>>({prefix + "toprettystring"});
+  registerFunction<ToPrettyStringDecimalFunction, Varchar, LongDecimal<P1, S1>>(
       {prefix + "toprettystring"});
 }
 } // namespace

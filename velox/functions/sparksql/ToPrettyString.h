@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "velox/expression/CastExpr-inl.h"
 #include "velox/functions/Udf.h"
 #include "velox/type/Conversions.h"
 
@@ -84,7 +85,6 @@ struct ToPrettyStringFunction {
 
  private:
   TypePtr inputType_;
-  std::shared_ptr<SparkCastHooks> hooks_ = std::make_shared<SparkCastHooks>();
 };
 
 template <typename TExec>
@@ -113,9 +113,9 @@ struct ToPrettyStringTimeStampFunction {
       timestampRowSize_ = getMaxStringLength(options_);
     }
 
-    char out[timestampRowSize_];
     Timestamp inputValue(input);
     inputValue.toTimezone(*(options_.timeZone));
+    char out[timestampRowSize_];
     const auto stringView =
         Timestamp::tsToStringView(inputValue, options_, out);
     result.append(stringView);
@@ -144,38 +144,47 @@ struct ToPrettyStringTimeStampFunction {
   std::string::size_type timestampRowSize_;
 };
 
-// template <typename TExec>
-// struct ToPrettyStringDecimalFunction {
-//   VELOX_DEFINE_FUNCTION_TYPES(TExec);
+template <typename TExec>
+struct ToPrettyStringDecimalFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(TExec);
 
-//   template <typename A>
-//   void initialize(
-//       const std::vector<TypePtr>& inputTypes,
-//       const core::QueryConfig& /*config*/,
-//       A* /*a*/) {
-//     const auto [precision, scale] = getDecimalPrecisionScale(*inputTypes[0]);
-//     precision_ = precision;
-//     scale_ = scale;
-//   }
+  template <typename A>
+  void initialize(
+      const std::vector<TypePtr>& inputTypes,
+      const core::QueryConfig& /*config*/,
+      A* /*a*/) {
+    const auto [precision, scale] = getDecimalPrecisionScale(*inputTypes[0]);
+    precision_ = precision;
+    scale_ = scale;
+    maxRowSize_ = precision + 1;
+    if (scale > 0) {
+      ++maxRowSize_; // A dot.
+    }
+    if (precision == scale) {
+      ++maxRowSize_; // Leading zero.
+    }
+  }
 
-//   template <typename TInput>
-//   void call(out_type<Varchar>& result, const TInput& input) {}
+  template <typename TInput>
+  void call(out_type<Varchar>& result, const TInput& input) {
+    char out[maxRowSize_];
+    auto view = exec::detail::convertToStringView<TInput>(
+        input, scale_, maxRowSize_, out);
+    result.append(view);
+  }
 
-//   template <typename TInput>
-//   void callNullable(out_type<Varchar>& result, const TInput* a) {
-//     if (a) {
-//       call(result, *a);
-//     } else {
-//       setNull(result);
-//     }
-//   }
+  template <typename TInput>
+  void callNullable(out_type<Varchar>& result, const TInput* a) {
+    if (a) {
+      call(result, *a);
+    } else {
+      result.setNoCopy(detail::kNull);
+    }
+  }
 
-//  private:
-//   FOLLY_ALWAYS_INLINE void setNull(out_type<Varchar>& result) {
-//     static const StringView kNull = "NULL";
-//     result.setNoCopy(kNull);
-//   }
-//   uint8_t precision_ = -1;
-//   uint8_t scale_ = -1;
-// };
+ private:
+  uint8_t precision_;
+  uint8_t scale_;
+  int32_t maxRowSize_;
+};
 } // namespace facebook::velox::functions::sparksql
