@@ -115,10 +115,10 @@ struct ToPrettyStringTimeStampFunction {
 
     Timestamp inputValue(input);
     inputValue.toTimezone(*(options_.timeZone));
-    char out[timestampRowSize_];
+    result.reserve(timestampRowSize_);
     const auto stringView =
-        Timestamp::tsToStringView(inputValue, options_, out);
-    result.append(stringView);
+        Timestamp::tsToStringView(inputValue, options_, result.data());
+    result.resize(stringView.size());
   }
 
   void callNullable(
@@ -167,10 +167,15 @@ struct ToPrettyStringDecimalFunction {
 
   template <typename TInput>
   void call(out_type<Varchar>& result, const TInput& input) {
-    char out[maxRowSize_];
+    result.reserve(maxRowSize_);
     auto view = exec::detail::convertToStringView<TInput>(
-        input, scale_, maxRowSize_, out);
-    result.append(view);
+        input, scale_, maxRowSize_, result.data());
+    if (view.isInline()) {
+      result.setNoCopy(view);
+      result.resize(0);
+    } else {
+      result.resize(view.size());
+    }
   }
 
   template <typename TInput>
