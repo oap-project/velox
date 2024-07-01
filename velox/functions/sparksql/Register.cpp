@@ -46,6 +46,7 @@
 #include "velox/functions/sparksql/SparkPartitionId.h"
 #include "velox/functions/sparksql/String.h"
 #include "velox/functions/sparksql/StringToMap.h"
+#include "velox/functions/sparksql/ToPrettyString.h"
 #include "velox/functions/sparksql/UnscaledValueFunction.h"
 #include "velox/functions/sparksql/Uuid.h"
 #include "velox/functions/sparksql/specialforms/DecimalRound.h"
@@ -165,6 +166,34 @@ inline void registerArrayMinMaxFunctions(const std::string& prefix) {
   registerArrayMinMaxFunctions<Timestamp>(prefix);
   registerArrayMinMaxFunctions<Date>(prefix);
 }
+
+void registerToPrettyStringFunctions(const std::string& prefix) {
+  registerFunction<ToPrettyStringFunction, Varchar, int8_t>(
+      {prefix + "toprettystring"});
+  registerFunction<ToPrettyStringFunction, Varchar, int16_t>(
+      {prefix + "toprettystring"});
+  registerFunction<ToPrettyStringFunction, Varchar, int32_t>(
+      {prefix + "toprettystring"});
+  registerFunction<ToPrettyStringFunction, Varchar, int64_t>(
+      {prefix + "toprettystring"});
+  registerFunction<ToPrettyStringFunction, Varchar, float>(
+      {prefix + "toprettystring"});
+  registerFunction<ToPrettyStringFunction, Varchar, double>(
+      {prefix + "toprettystring"});
+  registerFunction<ToPrettyStringFunction, Varchar, bool>(
+      {prefix + "toprettystring"});
+  registerFunction<ToPrettyStringFunction, Varchar, Varchar>(
+      {prefix + "toprettystring"});
+  registerFunction<ToPrettyStringFunction, Varchar, Varbinary>(
+      {prefix + "toprettystring"});
+  registerFunction<
+      ToPrettyStringTimeStampFunction,
+      Varchar,
+      Timestamp,
+      Varchar>({prefix + "toprettystring"});
+  registerFunction<ToPrettyStringFunction, Varchar, Date>(
+      {prefix + "toprettystring"});
+}
 } // namespace
 
 void registerFunctions(const std::string& prefix) {
@@ -218,6 +247,7 @@ void registerFunctions(const std::string& prefix) {
       Varchar,
       Varchar,
       Varchar>({prefix + "str_to_map"});
+  registerToPrettyStringFunctions(prefix);
 
   registerFunction<sparksql::LeftFunction, Varchar, Varchar, int32_t>(
       {prefix + "left"});
