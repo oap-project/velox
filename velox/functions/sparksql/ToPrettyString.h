@@ -93,28 +93,20 @@ struct ToPrettyStringTimeStampFunction {
 
   void initialize(
       const std::vector<TypePtr>& /*inputTypes*/,
-      const core::QueryConfig& /*config*/,
-      const arg_type<Timestamp>* /*timestamp*/,
-      const arg_type<Varchar>* timezone) {
-    if (timezone) {
-      options_.timeZone = date::locate_zone(
-          std::string_view((*timezone).data(), (*timezone).size()));
-      timestampRowSize_ = getMaxStringLength(options_);
+      const core::QueryConfig& config,
+      const arg_type<Timestamp>* /*timestamp*/) {
+    auto timezone = config.sessionTimezone();
+    if (!timezone.empty()) {
+      options_.timeZone = date::locate_zone(timezone);
     }
+    timestampRowSize_ = getMaxStringLength(options_);
   }
 
-  void call(
-      out_type<Varchar>& result,
-      const Timestamp& input,
-      const StringView& timezone) {
-    if (!options_.timeZone) {
-      options_.timeZone =
-          date::locate_zone(std::string_view(timezone.data(), timezone.size()));
-      timestampRowSize_ = getMaxStringLength(options_);
-    }
-
+  void call(out_type<Varchar>& result, const Timestamp& input) {
     Timestamp inputValue(input);
-    inputValue.toTimezone(*(options_.timeZone));
+    if (options_.timeZone) {
+      inputValue.toTimezone(*(options_.timeZone));
+    }
     result.reserve(timestampRowSize_);
     const auto stringView =
         Timestamp::tsToStringView(inputValue, options_, result.data());
@@ -123,11 +115,9 @@ struct ToPrettyStringTimeStampFunction {
 
   void callNullable(
       out_type<Varchar>& result,
-      const arg_type<Timestamp>* timestamp,
-      const arg_type<Varchar>* timezone) {
+      const arg_type<Timestamp>* timestamp) {
     if (timestamp) {
-      VELOX_USER_CHECK_NOT_NULL(timezone);
-      call(result, *timestamp, *timezone);
+      call(result, *timestamp);
     } else {
       result.setNoCopy(detail::kNull);
     }

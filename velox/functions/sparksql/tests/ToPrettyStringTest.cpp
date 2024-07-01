@@ -15,8 +15,6 @@
  */
 #include <string>
 
-#include "velox/common/base/VeloxException.h"
-#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/sparksql/tests/SparkFunctionBaseTest.h"
 
 namespace facebook::velox::functions::sparksql::test {
@@ -36,6 +34,13 @@ class ToPrettyStringTest : public SparkFunctionBaseTest {
     auto result =
         evaluate<SimpleVector<EvalType>>(expression, makeRowVector(input));
     velox::test::assertEqualVectors(expected, result);
+  }
+
+  void setQueryTimeZone(const std::string& timeZone) {
+    queryCtx_->testingOverrideConfigUnsafe({
+        {core::QueryConfig::kSessionTimezone, timeZone},
+        {core::QueryConfig::kAdjustTimestampToTimezone, "true"},
+    });
   }
 
   const std::string kNull = "NULL";
@@ -72,19 +77,16 @@ TEST_F(ToPrettyStringTest, binary) {
 }
 
 TEST_F(ToPrettyStringTest, timestamp) {
-  const auto toPrettyStringTimestamp = [&](std::optional<Timestamp> ts,
-                                           std::optional<std::string> tz) {
-    return evaluateOnce<std::string>("toprettystring(c0, c1)", ts, tz).value();
-  };
   EXPECT_EQ(
-      toPrettyStringTimestamp(Timestamp(946729316, 123), "America/Los_Angeles"),
+      toPrettyString<Timestamp>(Timestamp(946729316, 123)),
+      "2000-01-01 12:21:56");
+
+  setQueryTimeZone("America/Los_Angeles");
+  EXPECT_EQ(
+      toPrettyString<Timestamp>(Timestamp(946729316, 123)),
       "2000-01-01 04:21:56");
 
-  EXPECT_EQ(
-      toPrettyStringTimestamp(std::nullopt, "America/Los_Angeles"), kNull);
-
-  VELOX_ASSERT_THROW(
-      toPrettyStringTimestamp(Timestamp(946729316, 123), std::nullopt), "");
+  EXPECT_EQ(toPrettyString<Timestamp>(std::nullopt), kNull);
 }
 
 TEST_F(ToPrettyStringTest, decimal) {

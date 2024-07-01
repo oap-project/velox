@@ -188,11 +188,8 @@ void registerToPrettyStringFunctions(const std::string& prefix) {
       {prefix + "toprettystring"});
   registerFunction<ToPrettyStringFunction, Varchar, Date>(
       {prefix + "toprettystring"});
-  registerFunction<
-      ToPrettyStringTimeStampFunction,
-      Varchar,
-      Timestamp,
-      Varchar>({prefix + "toprettystring"});
+  registerFunction<ToPrettyStringTimeStampFunction, Varchar, Timestamp>(
+      {prefix + "toprettystring"});
   registerFunction<
       ToPrettyStringDecimalFunction,
       Varchar,
