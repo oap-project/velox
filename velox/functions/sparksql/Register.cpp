@@ -36,6 +36,7 @@
 #include "velox/functions/sparksql/DateTimeFunctions.h"
 #include "velox/functions/sparksql/Hash.h"
 #include "velox/functions/sparksql/In.h"
+#include "velox/functions/sparksql/JsonFunctions.h"
 #include "velox/functions/sparksql/JsonObjectKeys.h"
 #include "velox/functions/sparksql/LeastGreatest.h"
 #include "velox/functions/sparksql/MaskFunction.h"
@@ -181,6 +182,8 @@ void registerFunctions(const std::string& prefix) {
 
   registerFunction<JsonObjectKeysFunction, Array<Varchar>, Varchar>(
       {prefix + "json_object_keys"});
+  registerFunction<GetJsonObjectFunction, Varchar, Varchar, Varchar>(
+      {prefix + "get_json_object"});
 
   // Register string functions.
   registerFunction<sparksql::ChrFunction, Varchar, int64_t>({prefix + "chr"});
