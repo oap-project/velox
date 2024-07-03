@@ -34,6 +34,7 @@ add_executable(
   HashTest.cpp
   InTest.cpp
   JsonObjectKeysTest.cpp
+  JsonFunctionsTest.cpp
   LeastGreatestTest.cpp
   MakeDecimalTest.cpp
   MakeTimestampTest.cpp
