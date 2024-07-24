@@ -210,6 +210,7 @@ class AggregationFuzzerBase {
       const std::vector<exec::Split>& splits = {},
       bool injectSpill = false,
       bool abandonPartial = false,
+      bool supportRowsStreaming = false,
       int32_t maxDrivers = 2);
 
   void compare(
@@ -234,6 +235,7 @@ class AggregationFuzzerBase {
       bool injectSpill,
       bool abandonPartial,
       bool customVerification,
+      bool supportRowsStreaming,
       const std::vector<std::shared_ptr<ResultVerifier>>& customVerifiers,
       const velox::fuzzer::ResultOrError& expected,
       int32_t maxDrivers = 2);
