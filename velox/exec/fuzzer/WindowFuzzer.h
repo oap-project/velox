@@ -109,7 +109,8 @@ class WindowFuzzer : public AggregationFuzzerBase {
       const std::vector<RowVectorPtr>& input,
       bool customVerification,
       const std::shared_ptr<ResultVerifier>& customVerifier,
-      bool enableWindowVerification);
+      bool enableWindowVerification,
+      bool supportRowsStreaming);
 
   void testAlternativePlans(
       const std::vector<std::string>& partitionKeys,
@@ -118,6 +119,7 @@ class WindowFuzzer : public AggregationFuzzerBase {
       const std::string& functionCall,
       const std::vector<RowVectorPtr>& input,
       bool customVerification,
+      bool supportRowsStreaming,
       const std::shared_ptr<ResultVerifier>& customVerifier,
       const velox::fuzzer::ResultOrError& expected);
 
