@@ -124,7 +124,8 @@ struct VeloxToArrowSchemaBridgeHolder {
 
   std::unique_ptr<ArrowSchema> dictionary;
 
-  // Buffer required to generate a decimal format.
+  // Buffer required to generate a decimal format or timestamp with timezone
+  // format.
   std::string formatBuffer;
 
   void setChildAtIndex(
@@ -212,6 +213,28 @@ static void releaseArrowSchema(ArrowSchema* arrowSchema) {
   arrowSchema->private_data = nullptr;
 }
 
+const char* exportArrowFormatTimestampStr(
+    const ArrowOptions& options,
+    std::string& formatBuffer) {
+  switch (options.timestampUnit) {
+    case TimestampUnit::kSecond:
+      formatBuffer = fmt::format("tss:{}", options.timestampTimeZone);
+      break;
+    case TimestampUnit::kMilli:
+      formatBuffer = fmt::format("tsm:{}", options.timestampTimeZone);
+      break;
+    case TimestampUnit::kMicro:
+      formatBuffer = fmt::format("tsu:{}", options.timestampTimeZone);
+      break;
+    case TimestampUnit::kNano:
+      formatBuffer = fmt::format("tsn:{}", options.timestampTimeZone);
+      break;
+    default:
+      VELOX_UNREACHABLE();
+  }
+  return formatBuffer.c_str();
+}
+
 // Returns the Arrow C data interface format type for a given Velox type.
 const char* exportArrowFormatStr(
     const TypePtr& type,
@@ -255,18 +278,7 @@ const char* exportArrowFormatStr(
     case TypeKind::UNKNOWN:
       return "n"; // NullType
     case TypeKind::TIMESTAMP:
-      switch (options.timestampUnit) {
-        case TimestampUnit::kSecond:
-          return "tss:";
-        case TimestampUnit::kMilli:
-          return "tsm:";
-        case TimestampUnit::kMicro:
-          return "tsu:";
-        case TimestampUnit::kNano:
-          return "tsn:";
-        default:
-          VELOX_UNREACHABLE();
-      }
+      return exportArrowFormatTimestampStr(options, formatBuffer);
     // Complex/nested types.
     case TypeKind::ARRAY:
       static_assert(sizeof(vector_size_t) == 4);
