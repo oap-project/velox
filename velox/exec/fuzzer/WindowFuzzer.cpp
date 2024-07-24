@@ -269,7 +269,8 @@ void WindowFuzzer::go() {
         input,
         customVerification,
         customVerifier,
-        FLAGS_enable_window_reference_verification);
+        FLAGS_enable_window_reference_verification,
+        false);
     if (failed) {
       signatureWithStats.second.numFailed++;
     }
@@ -304,6 +305,7 @@ void WindowFuzzer::testAlternativePlans(
     const std::string& functionCall,
     const std::vector<RowVectorPtr>& input,
     bool customVerification,
+    bool supportRowsStreaming,
     const std::shared_ptr<ResultVerifier>& customVerifier,
     const velox::fuzzer::ResultOrError& expected) {
   std::vector<AggregationFuzzerBase::PlanWithSplits> plans;
@@ -327,6 +329,8 @@ void WindowFuzzer::testAlternativePlans(
                  {fmt::format("{} over ({})", functionCall, frame)})
              .planNode(),
          {}});
+  } else {
+    supportRowsStreaming = false;
   }
 
   // With TableScan.
@@ -364,7 +368,13 @@ void WindowFuzzer::testAlternativePlans(
 
   for (const auto& plan : plans) {
     testPlan(
-        plan, false, false, customVerification, {customVerifier}, expected);
+        plan,
+        false,
+        false,
+        customVerification,
+        supportRowsStreaming,
+        {customVerifier},
+        expected);
   }
 }
 
@@ -396,7 +406,8 @@ bool WindowFuzzer::verifyWindow(
     const std::vector<RowVectorPtr>& input,
     bool customVerification,
     const std::shared_ptr<ResultVerifier>& customVerifier,
-    bool enableWindowVerification) {
+    bool enableWindowVerification,
+    bool supportRowsStreaming) {
   SCOPE_EXIT {
     if (customVerifier) {
       customVerifier->reset();
@@ -464,6 +475,7 @@ bool WindowFuzzer::verifyWindow(
         functionCall,
         input,
         customVerification,
+        supportRowsStreaming,
         customVerifier,
         resultOrError);
 
