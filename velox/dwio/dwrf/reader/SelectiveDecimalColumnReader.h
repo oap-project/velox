@@ -40,10 +40,6 @@ class SelectiveDecimalColumnReader : public SelectiveColumnReader {
 
   void getValues(RowSet rows, VectorPtr* result) override;
 
-  bool hasBulkPath() const override {
-    return false;
-  }
-
  private:
   template <bool kDense>
   void readHelper(RowSet rows);
