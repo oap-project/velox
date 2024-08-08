@@ -66,11 +66,16 @@ void SpillInputStream::next(bool /*throwIfPastEnd*/) {
   uint64_t readTimeUs{0};
   if (readaWait_.valid()) {
     {
-      MicrosecondTimer timer{&readTimeUs};
+      // TODO: it is ns not us, wait to change, just make unit test fine, wait
+      // PR to change, MicrosecondTimer is too big.
+      auto start = std::chrono::steady_clock::now();
       readBytes = std::move(readaWait_)
                       .via(&folly::QueuedImmediateExecutor::instance())
                       .wait()
                       .value();
+      auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(
+          std::chrono::steady_clock::now() - start);
+      readTimeUs = duration.count();
       VELOX_CHECK(!readaWait_.valid());
     }
     VELOX_CHECK_LT(0, readBytes, "Reading past end of spill file");
@@ -79,8 +84,11 @@ void SpillInputStream::next(bool /*throwIfPastEnd*/) {
     readBytes = readSize();
     VELOX_CHECK_LT(0, readBytes, "Reading past end of spill file");
     {
-      MicrosecondTimer timer{&readTimeUs};
+      auto start = std::chrono::steady_clock::now();
       file_->pread(offset_, readBytes, buffer()->asMutable<char>());
+      auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(
+          std::chrono::steady_clock::now() - start);
+      readTimeUs = duration.count();
     }
   }
   setRange({buffer()->asMutable<uint8_t>(), readBytes, 0});
