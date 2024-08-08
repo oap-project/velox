@@ -64,7 +64,11 @@ class SelectiveIntegerDirectColumnReader
   }
 
   bool hasBulkPath() const override {
-    return true;
+    if (format_ == velox::dwrf::DwrfFormat::kOrc) {
+      return false; // RLEv2 does't support FastPath yet
+    } else {
+      return true;
+    }
   }
 
   void seekToRowGroup(uint32_t index) override {
