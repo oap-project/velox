@@ -195,19 +195,19 @@ bool HiveConfig::isFileHandleCacheEnabled() const {
 }
 
 uint64_t HiveConfig::orcWriterMaxStripeSize(const Config* session) const {
-  return config::toCapacity(
+  return toCapacity(
       session->get<std::string>(
           kOrcWriterMaxStripeSizeSession,
           config_->get<std::string>(kOrcWriterMaxStripeSize, "64MB")),
-      config::CapacityUnit::BYTE);
+      core::CapacityUnit::BYTE);
 }
 
 uint64_t HiveConfig::orcWriterMaxDictionaryMemory(const Config* session) const {
-  return config::toCapacity(
+  return toCapacity(
       session->get<std::string>(
           kOrcWriterMaxDictionaryMemorySession,
           config_->get<std::string>(kOrcWriterMaxDictionaryMemory, "16MB")),
-      config::CapacityUnit::BYTE);
+      core::CapacityUnit::BYTE);
 }
 
 bool HiveConfig::isOrcWriterIntegerDictionaryEncodingEnabled(
@@ -267,11 +267,11 @@ uint32_t HiveConfig::sortWriterMaxOutputRows(const Config* session) const {
 }
 
 uint64_t HiveConfig::sortWriterMaxOutputBytes(const Config* session) const {
-  return config::toCapacity(
+  return toCapacity(
       session->get<std::string>(
           kSortWriterMaxOutputBytesSession,
           config_->get<std::string>(kSortWriterMaxOutputBytes, "10MB")),
-      config::CapacityUnit::BYTE);
+      core::CapacityUnit::BYTE);
 }
 
 uint64_t HiveConfig::footerEstimatedSize() const {

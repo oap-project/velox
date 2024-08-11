@@ -798,48 +798,49 @@ dwrf::WriterOptions getDwrfOptions(const dwio::common::WriterOptions& options) {
   std::map<std::string, std::string> configs;
   if (options.compressionKind.has_value()) {
     configs.emplace(
-        Config::COMPRESSION.key,
+        Config::COMPRESSION.configKey(),
         std::to_string(options.compressionKind.value()));
   }
   if (options.orcMinCompressionSize.has_value()) {
     configs.emplace(
-        Config::COMPRESSION_BLOCK_SIZE_MIN.key,
+        Config::COMPRESSION_BLOCK_SIZE_MIN.configKey(),
         std::to_string(options.orcMinCompressionSize.value()));
   }
   if (options.maxStripeSize.has_value()) {
     configs.emplace(
-        Config::STRIPE_SIZE.key, std::to_string(options.maxStripeSize.value()));
+        Config::STRIPE_SIZE.configKey(),
+        std::to_string(options.maxStripeSize.value()));
   }
   if (options.orcLinearStripeSizeHeuristics.has_value()) {
     configs.emplace(
-        Config::LINEAR_STRIPE_SIZE_HEURISTICS.key,
+        Config::LINEAR_STRIPE_SIZE_HEURISTICS.configKey(),
         std::to_string(options.orcLinearStripeSizeHeuristics.value()));
   }
   if (options.maxDictionaryMemory.has_value()) {
     configs.emplace(
-        Config::MAX_DICTIONARY_SIZE.key,
+        Config::MAX_DICTIONARY_SIZE.configKey(),
         std::to_string(options.maxDictionaryMemory.value()));
   }
   if (options.orcWriterIntegerDictionaryEncodingEnabled.has_value()) {
     configs.emplace(
-        Config::INTEGER_DICTIONARY_ENCODING_ENABLED.key,
+        Config::INTEGER_DICTIONARY_ENCODING_ENABLED.configKey(),
         std::to_string(
             options.orcWriterIntegerDictionaryEncodingEnabled.value()));
   }
   if (options.orcWriterStringDictionaryEncodingEnabled.has_value()) {
     configs.emplace(
-        Config::STRING_DICTIONARY_ENCODING_ENABLED.key,
+        Config::STRING_DICTIONARY_ENCODING_ENABLED.configKey(),
         std::to_string(
             options.orcWriterStringDictionaryEncodingEnabled.value()));
   }
   if (options.zlibCompressionLevel.has_value()) {
     configs.emplace(
-        Config::ZLIB_COMPRESSION_LEVEL.key,
+        Config::ZLIB_COMPRESSION_LEVEL.configKey(),
         std::to_string(options.zlibCompressionLevel.value()));
   }
   if (options.zstdCompressionLevel.has_value()) {
     configs.emplace(
-        Config::ZSTD_COMPRESSION_LEVEL.key,
+        Config::ZSTD_COMPRESSION_LEVEL.configKey(),
         std::to_string(options.zstdCompressionLevel.value()));
   }
 

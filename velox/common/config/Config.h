@@ -23,136 +23,79 @@
 #include "folly/Conv.h"
 #include "velox/common/base/Exceptions.h"
 
-namespace facebook::velox::config {
-
-enum class CapacityUnit {
-  BYTE,
-  KILOBYTE,
-  MEGABYTE,
-  GIGABYTE,
-  TERABYTE,
-  PETABYTE
-};
-
-double toBytesPerCapacityUnit(CapacityUnit unit);
-
-CapacityUnit valueOfCapacityUnit(const std::string& unitStr);
-
-/// Convert capacity string with unit to the capacity number in the specified
-/// units
-uint64_t toCapacity(const std::string& from, CapacityUnit to);
-
-std::chrono::duration<double> toDuration(const std::string& str);
-
-/// The concrete config class should inherit the config base and define all the
-/// entries.
+namespace facebook::velox::common {
+// The concrete config class would inherit the config base
+// and then just define all the entries.
+template <class ConcreteConfig>
 class ConfigBase {
  public:
   template <typename T>
-  struct Entry {
+  class Entry {
+   private:
     Entry(
-        const std::string& _key,
-        const T& _val,
-        std::function<std::string(const T&)> _toStr =
+        const std::string& key,
+        const T& val,
+        std::function<std::string(const T&)> toStr =
             [](const T& val) { return folly::to<std::string>(val); },
-        std::function<T(const std::string&, const std::string&)> _toT =
-            [](const std::string& k, const std::string& v) {
-              auto converted = folly::tryTo<T>(v);
+        std::function<T(const std::string&, const std::string&)> toT =
+            [](const std::string& key, const std::string& val) {
+              auto converted = folly::tryTo<T>(val);
               VELOX_CHECK(
                   converted.hasValue(),
                   fmt::format(
                       "Invalid configuration for key '{}'. Value '{}' cannot be converted to type {}.",
-                      k,
-                      v,
+                      key,
+                      val,
                       folly::demangle(typeid(T))));
               return converted.value();
             })
-        : key{_key}, defaultVal{_val}, toStr{_toStr}, toT{_toT} {}
+        : key_{key}, default_{val}, toStr_{toStr}, toT_{toT} {}
 
-    const std::string key;
-    const T defaultVal;
-    const std::function<std::string(const T&)> toStr;
-    const std::function<T(const std::string&, const std::string&)> toT;
+   public:
+    const std::string& configKey() const {
+      return key_;
+    }
+
+   private:
+    const std::string key_;
+    const T default_;
+    const std::function<std::string(const T&)> toStr_;
+    const std::function<T(const std::string&, const std::string&)> toT_;
+
+    friend ConfigBase;
+    friend ConcreteConfig;
   };
-
-  ConfigBase(
-      std::unordered_map<std::string, std::string>&& configs,
-      bool _mutable = false)
-      : configs_(std::move(configs)), mutable_(_mutable) {}
 
   template <typename T>
   ConfigBase& set(const Entry<T>& entry, const T& val) {
-    VELOX_CHECK(mutable_, "Cannot set in immutable config");
-    std::unique_lock<std::shared_mutex> l(mutex_);
-    configs_[entry.key] = entry.toStr(val);
+    configs_[entry.key_] = entry.toStr_(val);
     return *this;
   }
-
-  ConfigBase& set(const std::string& key, const std::string& val);
 
   template <typename T>
   ConfigBase& unset(const Entry<T>& entry) {
-    VELOX_CHECK(mutable_, "Cannot unset in immutable config");
-    std::unique_lock<std::shared_mutex> l(mutex_);
-    configs_.erase(entry.key);
+    configs_.erase(entry.key_);
     return *this;
   }
 
-  ConfigBase& reset();
+  ConfigBase& reset() {
+    configs_.clear();
+    return *this;
+  }
 
   template <typename T>
   T get(const Entry<T>& entry) const {
-    std::shared_lock<std::shared_mutex> l(mutex_);
-    auto iter = configs_.find(entry.key);
-    return iter != configs_.end() ? entry.toT(entry.key, iter->second)
-                                  : entry.defaultVal;
+    auto iter = configs_.find(entry.key_);
+    return iter != configs_.end() ? entry.toT_(entry.key_, iter->second)
+                                  : entry.default_;
   }
 
-  template <typename T>
-  folly::Optional<T> get(
-      const std::string& key,
-      std::function<T(std::string, std::string)> toT = [](auto /* unused */,
-                                                          auto value) {
-        return folly::to<T>(value);
-      }) const {
-    auto val = get(key);
-    if (val.hasValue()) {
-      return toT(key, val.value());
-    } else {
-      return folly::none;
-    }
+  std::map<std::string, std::string> toSerdeParams() {
+    return std::map{configs_.cbegin(), configs_.cend()};
   }
-
-  template <typename T>
-  T get(
-      const std::string& key,
-      const T& defaultValue,
-      std::function<T(std::string, std::string)> toT = [](auto /* unused */,
-                                                          auto value) {
-        return folly::to<T>(value);
-      }) const {
-    auto val = get(key);
-    if (val.hasValue()) {
-      return toT(key, val.value());
-    } else {
-      return defaultValue;
-    }
-  }
-
-  bool valueExists(const std::string& key) const;
-
-  const std::unordered_map<std::string, std::string>& rawConfigs() const;
-
-  std::unordered_map<std::string, std::string> rawConfigsCopy() const;
 
  protected:
-  mutable std::shared_mutex mutex_;
   std::unordered_map<std::string, std::string> configs_;
-
- private:
-  folly::Optional<std::string> get(const std::string& key) const;
-
-  const bool mutable_;
 };
 
-} // namespace facebook::velox::config
+} // namespace facebook::velox::common
