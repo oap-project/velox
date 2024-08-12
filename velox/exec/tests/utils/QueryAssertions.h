@@ -242,6 +242,9 @@ std::shared_ptr<Task> assertQuery(
 std::shared_ptr<Task> assertQueryReturnsEmptyResult(
     const core::PlanNodePtr& plan);
 
+std::shared_ptr<Task> assertQueryReturnsEmptyResult(
+    const CursorParameters& params);
+
 void assertEmptyResults(const std::vector<RowVectorPtr>& results);
 
 void assertResults(
