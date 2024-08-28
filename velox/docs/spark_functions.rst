@@ -4,6 +4,8 @@ Spark Functions
 
 The semantics of Spark functions match Spark 3.5 with ANSI OFF.
 
+Spark functions can be registered by :doc:`struct SparkRegistrationConfig <functions/spark/config>`.
+
 .. toctree::
     :maxdepth: 1
 
