@@ -33,8 +33,11 @@ Division
     p = p1 - s1 + s2 + max(6, s1 + p2 + 1)
     s = max(6, s1 + p2 + 1)
 
+Decimal Precision and Scale Adjustment
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
 For above arithmetic operators, when the precision of result exceeds 38,
-caps p at 38 and reduces the scale, in order to prevent the truncation of
+caps p at 38 and reduces the scale when allowing precision loss, in order to prevent the truncation of
 the integer part of the decimals. Below formula illustrates how the result
 precision and scale are adjusted.
 
@@ -42,6 +45,26 @@ precision and scale are adjusted.
 
     precision = 38
     scale = max(38 - (p - s), min(s, 6))
+
+Caps p and s at 38 when not allowing precision loss.
+For decimal addition, subtraction, multiplication, the precision and scale computation logic is same,
+but for decimal division, it is different as following:
+::
+
+    wholeDigits = min(38, p1 - s1 + s2);
+    fractionalDigits = min(38, max(6, s1 + p2 + 1));
+
+If ``wholeDigits + fractionalDigits`` is more than 38:
+::
+
+    p = 38
+    s = fractionalDigits - (wholeDigits + fractionalDigits - 38) / 2 - 1
+
+Otherwise:
+::
+
+    p = wholeDigits + fractionalDigits
+    s = fractionalDigits
 
 Users experience runtime errors when the actual result cannot be represented
 with the calculated decimal type.
