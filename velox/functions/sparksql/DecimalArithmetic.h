@@ -19,12 +19,16 @@
 
 namespace facebook::velox::functions::sparksql {
 
-void registerDecimalAdd(const std::string& prefix);
+void registerDecimalAdd(const std::string& prefix, bool allowPrecisionLoss);
 
-void registerDecimalSubtract(const std::string& prefix);
+void registerDecimalSubtract(
+    const std::string& prefix,
+    bool allowPrecisionLoss);
 
-void registerDecimalMultiply(const std::string& prefix);
+void registerDecimalMultiply(
+    const std::string& prefix,
+    bool allowPrecisionLoss);
 
-void registerDecimalDivide(const std::string& prefix);
+void registerDecimalDivide(const std::string& prefix, bool allowPrecisionLoss);
 
 } // namespace facebook::velox::functions::sparksql
