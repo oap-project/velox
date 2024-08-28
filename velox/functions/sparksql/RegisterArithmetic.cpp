@@ -30,7 +30,9 @@ void registerRandFunctions(const std::string& prefix) {
       {prefix + "rand", prefix + "random"});
 }
 
-void registerArithmeticFunctions(const std::string& prefix) {
+void registerArithmeticFunctions(
+    const std::string& prefix,
+    const SparkRegistrationConfig& config) {
   // Operators.
   registerBinaryNumeric<PlusFunction>({prefix + "add"});
   registerBinaryNumeric<MinusFunction>({prefix + "subtract"});
@@ -106,10 +108,11 @@ void registerArithmeticFunctions(const std::string& prefix) {
       int64_t>({prefix + "width_bucket"});
   registerRandFunctions(prefix);
 
-  registerDecimalAdd(prefix);
-  registerDecimalSubtract(prefix);
-  registerDecimalMultiply(prefix);
-  registerDecimalDivide(prefix);
+  registerDecimalAdd(prefix, config.allowPrecisionLoss);
+  registerDecimalSubtract(prefix, config.allowPrecisionLoss);
+  registerDecimalMultiply(prefix, config.allowPrecisionLoss);
+  registerDecimalDivide(prefix, config.allowPrecisionLoss);
+
   registerFunction<sparksql::IsNanFunction, bool, float>({prefix + "isnan"});
   registerFunction<sparksql::IsNanFunction, bool, double>({prefix + "isnan"});
 
