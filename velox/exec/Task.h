@@ -680,6 +680,10 @@ class Task : public std::enable_shared_from_this<Task> {
     terminate(TaskState::kFinished).wait();
   }
 
+  int32_t numThreads() {
+    return numThreads_;
+  }
+
  private:
   Task(
       const std::string& taskId,
