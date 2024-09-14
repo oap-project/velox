@@ -681,6 +681,10 @@ class Task : public std::enable_shared_from_this<Task> {
     terminate(TaskState::kFinished).wait();
   }
 
+  int32_t numThreads() {
+    return numThreads_;
+  }
+
  private:
   // Hook of system-wide running task list.
   struct TaskListEntry {
