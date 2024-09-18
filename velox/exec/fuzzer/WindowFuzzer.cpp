@@ -60,7 +60,7 @@ void WindowFuzzer::addWindowFunctionSignatures(
   }
 }
 
-std::tuple<std::string, bool, bool> WindowFuzzer::generateFrameClause() {
+std::tuple<std::string, bool> WindowFuzzer::generateFrameClause() {
   auto frameType = [](int value) -> const std::string {
     switch (value) {
       case 0:
@@ -144,12 +144,9 @@ std::tuple<std::string, bool, bool> WindowFuzzer::generateFrameClause() {
   auto frameStart = frameBound(startBoundOptions[startBoundIndex]);
   auto frameEnd = frameBound(endBoundOptions[endBoundIndex]);
 
-  bool isDefaultFrame =
-      (frameStart == "UNBOUNDED PRECEDING" && frameEnd == "CURRENT ROW");
   return std::make_tuple(
       frameTypeString + " BETWEEN " + frameStart + " AND " + frameEnd,
-      isRowsFrame,
-      isDefaultFrame);
+      isRowsFrame);
 }
 
 std::string WindowFuzzer::generateOrderByClause(
@@ -237,8 +234,7 @@ void WindowFuzzer::go() {
           generateSortingKeysAndOrders("s", argNames, argTypes);
     }
     const auto partitionKeys = generateSortingKeys("p", argNames, argTypes);
-    const auto [frameClause, isRowsFrame, isDefaultFrame] =
-        generateFrameClause();
+    const auto [frameClause, isRowsFrame] = generateFrameClause();
     const auto input = generateInputDataWithRowNumber(
         argNames, argTypes, partitionKeys, signature);
     // If the function is order-dependent or uses "rows" frame, sort all input
@@ -250,12 +246,6 @@ void WindowFuzzer::go() {
 
     logVectors(input);
 
-    auto windowFunctionMetadata =
-        exec::getWindowFunctionMetadata(signature.name).value();
-    bool supportRowsStreaming =
-        windowFunctionMetadata.processedUnit == ProcessedUnit::kRows &&
-        (!windowFunctionMetadata.isAggregateWindow || isDefaultFrame);
-
     bool failed = verifyWindow(
         partitionKeys,
         sortingKeysAndOrders,
@@ -264,8 +254,7 @@ void WindowFuzzer::go() {
         input,
         customVerification,
         customVerifier,
-        FLAGS_enable_window_reference_verification,
-        supportRowsStreaming);
+        FLAGS_enable_window_reference_verification);
     if (failed) {
       signatureWithStats.second.numFailed++;
     }
@@ -300,7 +289,6 @@ void WindowFuzzer::testAlternativePlans(
     const std::string& functionCall,
     const std::vector<RowVectorPtr>& input,
     bool customVerification,
-    bool supportRowsStreaming,
     const std::shared_ptr<ResultVerifier>& customVerifier,
     const velox::fuzzer::ResultOrError& expected) {
   std::vector<AggregationFuzzerBase::PlanWithSplits> plans;
@@ -324,8 +312,6 @@ void WindowFuzzer::testAlternativePlans(
                  {fmt::format("{} over ({})", functionCall, frame)})
              .planNode(),
          {}});
-  } else {
-    supportRowsStreaming = false;
   }
 
   // With TableScan.
@@ -363,13 +349,7 @@ void WindowFuzzer::testAlternativePlans(
 
   for (const auto& plan : plans) {
     testPlan(
-        plan,
-        false,
-        false,
-        customVerification,
-        supportRowsStreaming,
-        {customVerifier},
-        expected);
+        plan, false, false, customVerification, {customVerifier}, expected);
   }
 }
 
@@ -395,8 +375,7 @@ bool WindowFuzzer::verifyWindow(
     const std::vector<RowVectorPtr>& input,
     bool customVerification,
     const std::shared_ptr<ResultVerifier>& customVerifier,
-    bool enableWindowVerification,
-    bool supportRowsStreaming) {
+    bool enableWindowVerification) {
   SCOPE_EXIT {
     if (customVerifier) {
       customVerifier->reset();
@@ -457,7 +436,6 @@ bool WindowFuzzer::verifyWindow(
         functionCall,
         input,
         customVerification,
-        supportRowsStreaming,
         customVerifier,
         resultOrError);
 

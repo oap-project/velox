@@ -97,7 +97,9 @@ void registerRankInternal(
       exec::FunctionSignatureBuilder().returnType(returnType).build(),
   };
 
-  auto windowFunctionFactory =
+  exec::registerWindowFunction(
+      name,
+      std::move(signatures),
       [name](
           const std::vector<exec::WindowFunctionArg>& /*args*/,
           const TypePtr& resultType,
@@ -105,20 +107,9 @@ void registerRankInternal(
           velox::memory::MemoryPool* /*pool*/,
           HashStringAllocator* /*stringAllocator*/,
           const core::QueryConfig& /*queryConfig*/)
-      -> std::unique_ptr<exec::WindowFunction> {
-    return std::make_unique<RankFunction<TRank, TResult>>(resultType);
-  };
-
-  if constexpr (TRank == RankType::kRank || TRank == RankType::kDenseRank) {
-    exec::registerWindowFunction(
-        name,
-        std::move(signatures),
-        std::move(windowFunctionFactory),
-        {exec::ProcessedUnit::kRows, false});
-  } else {
-    exec::registerWindowFunction(
-        name, std::move(signatures), std::move(windowFunctionFactory));
-  }
+          -> std::unique_ptr<exec::WindowFunction> {
+        return std::make_unique<RankFunction<TRank, TResult>>(resultType);
+      });
 }
 
 void registerRankBigint(const std::string& name) {

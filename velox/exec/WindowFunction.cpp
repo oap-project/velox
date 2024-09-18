@@ -41,21 +41,11 @@ std::optional<const WindowFunctionEntry*> getWindowFunctionEntry(
 bool registerWindowFunction(
     const std::string& name,
     std::vector<FunctionSignaturePtr> signatures,
-    WindowFunctionFactory factory,
-    WindowFunctionMetadata metadata) {
+    WindowFunctionFactory factory) {
   auto sanitizedName = sanitizeName(name);
   windowFunctions()[sanitizedName] = {
-      std::move(signatures), std::move(factory), std::move(metadata)};
+      std::move(signatures), std::move(factory)};
   return true;
-}
-
-std::optional<WindowFunctionMetadata> getWindowFunctionMetadata(
-    const std::string& name) {
-  auto sanitizedName = sanitizeName(name);
-  if (auto func = getWindowFunctionEntry(sanitizedName)) {
-    return func.value()->metadata;
-  }
-  return std::nullopt;
 }
 
 std::optional<std::vector<FunctionSignaturePtr>> getWindowFunctionSignatures(

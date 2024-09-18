@@ -46,17 +46,13 @@ class StreamingWindowBuild : public WindowBuild {
 
   bool hasNextPartition() override;
 
-  std::shared_ptr<WindowPartition> nextPartition() override;
+  std::unique_ptr<WindowPartition> nextPartition() override;
 
   bool needsInput() override {
     // No partitions are available or the currentPartition is the last available
     // one, so can consume input rows.
     return partitionStartRows_.size() == 0 ||
         currentPartition_ == partitionStartRows_.size() - 2;
-  }
-
-  std::string_view windowBuildType() const override {
-    return "StreamingWindowBuild";
   }
 
  private:

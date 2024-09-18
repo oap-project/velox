@@ -53,11 +53,7 @@ class SortWindowBuild : public WindowBuild {
 
   bool hasNextPartition() override;
 
-  std::shared_ptr<WindowPartition> nextPartition() override;
-
-  std::string_view windowBuildType() const override {
-    return "SortWindowBuild";
-  }
+  std::unique_ptr<WindowPartition> nextPartition() override;
 
  private:
   void ensureInputFits(const RowVectorPtr& input);
