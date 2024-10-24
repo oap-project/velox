@@ -54,7 +54,7 @@ function wget_and_untar {
 
 function install_cmake {
   cd "${DEPENDENCY_DIR}"
-  wget_and_untar https://cmake.org/files/v3.25/cmake-3.25.1.tar.gz cmake-3
+  wget_and_untar https://cmake.org/files/v3.28/cmake-3.28.3.tar.gz cmake-3
   cd cmake-3
   ./bootstrap --prefix=/usr/local
   make -j$(nproc)
