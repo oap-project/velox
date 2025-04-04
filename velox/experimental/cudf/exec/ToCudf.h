@@ -23,6 +23,7 @@
 
 DECLARE_bool(velox_cudf_enabled);
 DECLARE_string(velox_cudf_memory_resource);
+DECLARE_bool(velox_cudf_debug);
 
 namespace facebook::velox::cudf_velox {
 
