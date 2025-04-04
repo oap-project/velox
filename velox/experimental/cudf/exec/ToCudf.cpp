@@ -129,7 +129,8 @@ bool CompileState::compile() {
       replaceOp.back()->initialize();
     }
 
-    if (nextOperatorIsNotGpu and producesGpuOutput(oper)) {
+    if ((nextOperatorIsNotGpu || operatorIndex == operators.size() - 1) and
+        producesGpuOutput(oper)) {
       auto planNode = getPlanNode(oper->planNodeId());
       replaceOp.push_back(std::make_unique<CudfToVelox>(
           id, planNode->outputType(), ctx, planNode->id() + "-to-velox"));
