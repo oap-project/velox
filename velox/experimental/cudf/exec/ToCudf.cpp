@@ -175,6 +175,7 @@ struct CudfDriverAdapter {
     auto state = CompileState(factory, driver, *planNodes_);
     // Stored planNodes_ from inspect.
     auto res = state.compile();
+    planNodes_->clear();
     return res;
   }
 
