@@ -94,6 +94,7 @@ class MergeJoinSource {
     // after the consumer receives the drained signal.
     bool drained = false;
     RowVectorPtr data;
+    std::queue<RowVectorPtr> dataQueue;
   };
 
   folly::Synchronized<State> state_;
