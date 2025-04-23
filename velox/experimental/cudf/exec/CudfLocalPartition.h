@@ -13,54 +13,52 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
 #include "velox/experimental/cudf/exec/NvtxHelper.h"
-#include "velox/experimental/cudf/vector/CudfVector.h"
 
+#include "velox/exec/LocalPartition.h"
 #include "velox/exec/Operator.h"
-#include "velox/vector/ComplexVector.h"
-
-#include <cudf/types.hpp>
 
 namespace facebook::velox::cudf_velox {
 
-class CudfOrderBy : public exec::Operator, public NvtxHelper {
+class CudfLocalPartition : public exec::Operator, public NvtxHelper {
  public:
-  CudfOrderBy(
+  CudfLocalPartition(
       int32_t operatorId,
       exec::DriverCtx* driverCtx,
-      const std::shared_ptr<const core::OrderByNode>& orderByNode);
+      const std::shared_ptr<const core::LocalPartitionNode>& planNode);
 
-  bool needsInput() const override {
-    return !finished_;
+  std::string toString() const override {
+    return fmt::format("CudfLocalPartition({})", numPartitions_);
   }
 
   void addInput(RowVectorPtr input) override;
 
+  RowVectorPtr getOutput() override {
+    return nullptr;
+  }
+
+  /// Always true but the caller will check isBlocked before adding input, hence
+  /// the blocked state does not accumulate input.
+  bool needsInput() const override {
+    return true;
+  }
+
+  exec::BlockingReason isBlocked(ContinueFuture* future) override;
+
   void noMoreInput() override;
 
-  RowVectorPtr getOutput() override;
+  bool isFinished() override;
 
-  exec::BlockingReason isBlocked(ContinueFuture* /*future*/) override {
-    return exec::BlockingReason::kNotBlocked;
-  }
+ protected:
+  const std::vector<std::shared_ptr<exec::LocalExchangeQueue>> queues_;
+  const size_t numPartitions_;
 
-  bool isFinished() override {
-    return finished_;
-  }
+  std::vector<exec::BlockingReason> blockingReasons_;
+  std::vector<ContinueFuture> futures_;
 
-  void close() override;
-
- private:
-  CudfVectorPtr outputTable_;
-  std::shared_ptr<const core::OrderByNode> orderByNode_;
-  std::vector<CudfVectorPtr> inputs_;
-  std::vector<cudf::size_type> sortKeys_;
-  std::vector<cudf::order> columnOrder_;
-  std::vector<cudf::null_order> nullOrder_;
-  bool finished_{false};
+  std::vector<column_index_t> partitionKeyIndices_;
 };
 
 } // namespace facebook::velox::cudf_velox

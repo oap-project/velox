@@ -13,8 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include "velox/experimental/cudf/exec/CudfConversion.h"
 #include "velox/experimental/cudf/exec/NvtxHelper.h"
+#include "velox/experimental/cudf/exec/ToCudf.h"
 #include "velox/experimental/cudf/exec/Utilities.h"
 #include "velox/experimental/cudf/exec/VeloxCudfInterop.h"
 #include "velox/experimental/cudf/vector/CudfVector.h"
@@ -23,7 +25,6 @@
 #include "velox/exec/Operator.h"
 #include "velox/vector/ComplexVector.h"
 
-#include <cudf/concatenate.hpp>
 #include <cudf/table/table.hpp>
 #include <cudf/utilities/default_stream.hpp>
 
@@ -55,11 +56,11 @@ cudf::size_type preferredGpuBatchSizeRows(
   constexpr cudf::size_type kDefaultGpuBatchSizeRows = 100000;
   const auto batchSize = queryConfig.get<int32_t>(
       CudfFromVelox::kGpuBatchSizeRows, kDefaultGpuBatchSizeRows);
-  VELOX_CHECK_GT(batchSize, 0, "VELOX_CUDF_GPU_BATCH_SIZE_ROWS must be > 0");
+  VELOX_CHECK_GT(batchSize, 0, "cudf_gpu_batch_size_rows must be > 0");
   VELOX_CHECK_LE(
       batchSize,
       std::numeric_limits<vector_size_t>::max(),
-      "VELOX_CUDF_GPU_BATCH_SIZE_ROWS must be <= max(vector_size_t)");
+      "cudf_gpu_batch_size_rows must be <= max(vector_size_t)");
   return batchSize;
 }
 } // namespace
@@ -75,7 +76,10 @@ CudfFromVelox::CudfFromVelox(
           operatorId,
           planNodeId,
           "CudfFromVelox"),
-      NvtxHelper(nvtx3::rgb{255, 140, 0}, operatorId) {} // Orange
+      NvtxHelper(
+          nvtx3::rgb{255, 140, 0}, // Orange
+          operatorId,
+          fmt::format("[{}]", planNodeId)) {}
 
 void CudfFromVelox::addInput(RowVectorPtr input) {
   VELOX_NVTX_OPERATOR_FUNC_RANGE();
@@ -164,7 +168,10 @@ CudfToVelox::CudfToVelox(
           operatorId,
           planNodeId,
           "CudfToVelox"),
-      NvtxHelper(nvtx3::rgb{148, 0, 211}, operatorId) {} // Purple
+      NvtxHelper(
+          nvtx3::rgb{148, 0, 211}, // Purple
+          operatorId,
+          fmt::format("[{}]", planNodeId)) {}
 
 void CudfToVelox::addInput(RowVectorPtr input) {
   // Accumulate inputs

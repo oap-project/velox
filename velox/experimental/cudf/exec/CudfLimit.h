@@ -17,29 +17,20 @@
 #pragma once
 
 #include "velox/experimental/cudf/exec/NvtxHelper.h"
-#include "velox/experimental/cudf/vector/CudfVector.h"
 
 #include "velox/exec/Operator.h"
-#include "velox/vector/ComplexVector.h"
-
-#include <cudf/types.hpp>
 
 namespace facebook::velox::cudf_velox {
-
-class CudfOrderBy : public exec::Operator, public NvtxHelper {
+class CudfLimit : public exec::Operator, public NvtxHelper {
  public:
-  CudfOrderBy(
+  CudfLimit(
       int32_t operatorId,
       exec::DriverCtx* driverCtx,
-      const std::shared_ptr<const core::OrderByNode>& orderByNode);
+      const std::shared_ptr<const core::LimitNode>& limitNode);
 
-  bool needsInput() const override {
-    return !finished_;
-  }
+  bool needsInput() const override;
 
   void addInput(RowVectorPtr input) override;
-
-  void noMoreInput() override;
 
   RowVectorPtr getOutput() override;
 
@@ -48,19 +39,12 @@ class CudfOrderBy : public exec::Operator, public NvtxHelper {
   }
 
   bool isFinished() override {
-    return finished_;
+    return finished_ || (noMoreInput_ && input_ == nullptr);
   }
 
-  void close() override;
-
  private:
-  CudfVectorPtr outputTable_;
-  std::shared_ptr<const core::OrderByNode> orderByNode_;
-  std::vector<CudfVectorPtr> inputs_;
-  std::vector<cudf::size_type> sortKeys_;
-  std::vector<cudf::order> columnOrder_;
-  std::vector<cudf::null_order> nullOrder_;
+  int64_t remainingOffset_;
+  int64_t remainingLimit_;
   bool finished_{false};
 };
-
 } // namespace facebook::velox::cudf_velox

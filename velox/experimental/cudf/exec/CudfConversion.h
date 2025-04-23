@@ -23,8 +23,6 @@
 #include "velox/exec/Operator.h"
 #include "velox/vector/ComplexVector.h"
 
-#include <cudf/table/table.hpp>
-
 #include <deque>
 #include <memory>
 #include <vector>
