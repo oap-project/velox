@@ -74,7 +74,7 @@ if(${VELOX_ENABLE_GPU})
     add_subdirectory(experimental/cudf)
   endif()
   add_subdirectory(experimental/gpu)
-  add_subdirectory(experimental/wave)
+  # add_subdirectory(experimental/wave)
   add_subdirectory(external/jitify)
 endif()
 
