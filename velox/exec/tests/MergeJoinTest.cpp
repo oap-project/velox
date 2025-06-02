@@ -1885,41 +1885,6 @@ TEST_F(
         "SELECT t0 FROM t WHERE NOT exists (select 1 from u where t0 = u0 AND t.t0 > 2 ) ");
 }
 
-TEST_F(
-  MergeJoinTest,
-  antiJoinWithFilterWithMultiMatchedRowsInDifferentBatches) {
-  auto left =
-      makeRowVector({"t0"}, {makeNullableFlatVector<int64_t>({1, 2, 3})});
-
-  auto right =
-      makeRowVector({"u0"}, {makeNullableFlatVector<int64_t>({1, 2, 3})});
-
-  createDuckDbTable("t", {left});
-  createDuckDbTable("u", {right});
-
-  // Anti join.
-  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-  auto plan =
-      PlanBuilder(planNodeIdGenerator)
-          .values({split(left, 2)})
-          .mergeJoin(
-              {"t0"},
-              {"u0"},
-              PlanBuilder(planNodeIdGenerator)
-                  .values(split(right, 2))
-                  .planNode(),
-                  "t0 > 2",
-                  {"t0"},
-                  core::JoinType::kAnti)
-              .planNode();
-
-  AssertQueryBuilder(plan, duckDbQueryRunner_)
-      .config(core::QueryConfig::kPreferredOutputBatchRows, "2")
-      .config(core::QueryConfig::kMaxOutputBatchRows, "2")
-      .assertResults(
-          "SELECT t0 FROM t WHERE NOT exists (select 1 from u where t0 = u0 AND t.t0 > 2 ) ");
-}
-
 TEST_F(MergeJoinTest, antiJoinWithTwoJoinKeysInDifferentBatch) {
   auto left = makeRowVector(
       {"a", "b"},
