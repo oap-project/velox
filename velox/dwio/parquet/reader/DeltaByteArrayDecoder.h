@@ -21,6 +21,40 @@
 
 namespace facebook::velox::parquet {
 
+namespace {
+
+// improved from Apache Arrow:
+// https://github.com/apache/arrow/blob/maint-20.0.0/cpp/src/arrow/util/decimal.cc#L1144
+template <typename T>
+FOLLY_ALWAYS_INLINE T fromBigEndian(std::string_view&& str) {
+  VELOX_CHECK_LE(
+      str.size(),
+      sizeof(T),
+      "Length of byte array passed to fromBigEndian is too large");
+
+  const uint8_t* bytes = reinterpret_cast<const uint8_t*>(str.data());
+  const size_t len = str.size();
+  if (!len) {
+    return {};
+  }
+
+  const bool is_negative = static_cast<int8_t>(bytes[0]) < 0;
+
+  T result = -1 * is_negative;
+  memcpy(reinterpret_cast<uint8_t*>(&result) + sizeof(T) - len, bytes, len);
+
+  if constexpr (std::is_same_v<T, int128_t>) {
+    return __builtin_bswap128(result);
+  } else if constexpr (std::is_same_v<T, int64_t>) {
+    return __builtin_bswap64(result);
+  } else if constexpr (std::is_same_v<T, int32_t>) {
+    return __builtin_bswap32(result);
+  }
+  VELOX_UNREACHABLE();
+}
+
+} // namespace
+
 // DeltaByteArrayDecoder is adapted from Apache Arrow:
 // https://github.com/apache/arrow/blob/apache-arrow-15.0.0/cpp/src/parquet/encoding.cc#L2758-L2889
 class DeltaLengthByteArrayDecoder {
@@ -108,7 +142,14 @@ class DeltaByteArrayDecoder {
         }
 
         // We are at a non-null value on a row to visit.
-        toSkip = visitor.process(readString(), atEnd);
+        using T = typename Visitor::DataType;
+        if constexpr (
+            std::is_same_v<T, int128_t> || std::is_same_v<T, int64_t> ||
+            std::is_same_v<T, int32_t>) {
+          toSkip = visitor.process(fromBigEndian<T>(readString()), atEnd);
+        } else {
+          toSkip = visitor.process(readString(), atEnd);
+        }
       }
       ++current;
       if (toSkip) {
