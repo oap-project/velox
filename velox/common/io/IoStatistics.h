@@ -127,6 +127,34 @@ class IoStatistics {
     return queryThreadIoLatency_;
   }
 
+  void startIO() {
+    std::lock_guard<std::mutex> lock(mtx_);
+    if (active_requests_ == 0 && tracking_idle_) {
+      auto now = std::chrono::steady_clock::now();
+      queryThreadIoLatency_.increment(std::chrono::duration_cast<std::chrono::milliseconds>(now - idle_start_).count()*1000);
+      tracking_idle_ = false;
+    }
+    ++active_requests_;
+  }
+  
+  void endIO() {
+    std::lock_guard<std::mutex> lock(mtx_);
+    --active_requests_;
+    if (active_requests_ == 0) {
+      idle_start_ = std::chrono::steady_clock::now();
+      tracking_idle_ = true;
+    }
+  }
+
+  void finish() {
+    std::lock_guard<std::mutex> lock(mtx_);
+    if (tracking_idle_) {
+      auto now = std::chrono::steady_clock::now();
+      queryThreadIoLatency_.increment(std::chrono::duration_cast<std::chrono::milliseconds>(now - idle_start_).count()*1000);
+      idle_start_ = now;
+    }
+  }  
+
   void incOperationCounters(
       const std::string& operation,
       const uint64_t resourceThrottleCount,
@@ -173,6 +201,13 @@ class IoStatistics {
 
   std::unordered_map<std::string, OperationCounters> operationStats_;
   mutable std::mutex operationStatsMutex_;
+
+  std::mutex mtx_;
+  int active_requests_{0};
+  std::chrono::steady_clock::time_point idle_start_;
+  long idle_time_{0};
+  bool tracking_idle_{false};  
+
 };
 
 } // namespace facebook::velox::io

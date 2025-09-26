@@ -420,6 +420,7 @@ void HiveDataSource::addDynamicFilter(
 
 std::unordered_map<std::string, RuntimeCounter> HiveDataSource::runtimeStats() {
   auto res = runtimeStats_.toMap();
+  ioStats_->finish();
   res.insert(
       {{"numPrefetch", RuntimeCounter(ioStats_->prefetch().count())},
        {"prefetchBytes",

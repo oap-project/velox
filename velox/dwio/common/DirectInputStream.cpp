@@ -150,10 +150,11 @@ void DirectInputStream::loadSync() {
   uint64_t usecs = 0;
   {
     MicrosecondTimer timer(&usecs);
+    ioStats_->startIO();
     input_->read(ranges, loadedRegion_.offset, LogType::FILE);
+    ioStats_->endIO();
   }
   ioStats_->read().increment(loadedRegion_.length);
-  ioStats_->queryThreadIoLatency().increment(usecs);
   ioStats_->incTotalScanTime(usecs * 1'000);
 }
 
@@ -173,7 +174,6 @@ void DirectInputStream::loadPosition() {
         loadedRegion_.offset = region_.offset;
         loadedRegion_.length = load->getData(region_.offset, data_, tinyData_);
       }
-      ioStats_->queryThreadIoLatency().increment(loadUs);
     } else {
       // Standalone stream, not part of coalesced load.
       loadedRegion_.offset = 0;
