@@ -72,6 +72,7 @@ add_executable(
   StringTest.cpp
   StringToMapTest.cpp
   ToJsonTest.cpp
+  ToPrettyStringTest.cpp
   UnBase64Test.cpp
   UnscaledValueFunctionTest.cpp
   UpperLowerTest.cpp
